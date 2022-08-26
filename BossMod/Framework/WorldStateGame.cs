@@ -193,7 +193,7 @@ namespace BossMod
                     {
                         var dur = Math.Min(Math.Abs(s.RemainingTime), 100000);
                         curStatus.ID = s.StatusId;
-                        curStatus.SourceID = SanitizedObjectID(s.SourceId);
+                        curStatus.SourceID = SanitizedObjectID(s.SourceID);
                         curStatus.Extra = s.Param;
                         curStatus.ExpireAt = CurrentTime.AddSeconds(dur);
                     }

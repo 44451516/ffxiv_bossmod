@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net5.0-windows</TargetFramework>
     <Platforms>x64</Platforms>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <OutputPath>$(AppData)\XIVLauncher\devPlugins\BossMod\</OutputPath>
+    <OutputPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\devPlugins\BossMod\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <OutputPath>..\..\PluginDistribution\plugins</OutputPath>
@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <DalamudLibPath>$(appdata)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
+    <DalamudLibPath>E:\Games\FFVIX\Dalamud6.0\addon\Hooks\6.4.0.46\</DalamudLibPath>
   </PropertyGroup>
 
   <ItemGroup>
