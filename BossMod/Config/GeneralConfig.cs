@@ -1,6 +1,6 @@
 ﻿namespace BossMod
 {
-    [ConfigDisplay(Name = "General settings", Order = 0)]
+    [ConfigDisplay(Name = "[调试用的]General settings", Order = 0)]
     public class GeneralConfig : ConfigNode
     {
         [PropertyDisplay("Dump world state events")]

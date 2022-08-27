@@ -39,7 +39,7 @@ namespace BossMod
         }
 
         public static Lumina.GameData? LuminaGameData = null;
-        public static T? LuminaRow<T>(uint row) where T : Lumina.Excel.ExcelRow => LuminaGameData?.GetExcelSheet<T>(Lumina.Data.Language.English)?.GetRow(row);
+        public static T? LuminaRow<T>(uint row) where T : Lumina.Excel.ExcelRow => LuminaGameData?.GetExcelSheet<T>(Lumina.Data.Language.ChineseSimplified)?.GetRow(row);
 
         public static ConfigRoot Config = new();
 
