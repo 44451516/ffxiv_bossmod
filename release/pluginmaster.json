@@ -1,0 +1,26 @@
+[
+    {
+        "Author":  "veyn",
+        "Name":  "Boss Mod",
+        "InternalName":  "BossMod",
+        "AssemblyVersion":  "0.0.0.60",
+        "Description":  "A bunch of utilities to simplify bosses. Currently supports endwalker content. ***very early alpha, use at your own risk***",
+        "ApplicableVersion":  "any",
+        "RepoUrl":  "https://github.com/awgil/ffxiv_bossmod",
+        "DalamudApiLevel":  7,
+        "LoadPriority":  0,
+        "ImageUrls":  [
+                          "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/master/Data/image1.png",
+                          "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/master/Data/image2.png",
+                          "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/master/Data/image3.png"
+                      ],
+        "IconUrl":  "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/f4efcb5dc279d21ee16185d5a9f2d09a3a2bc58b/Data/icon.png",
+        "Punchline":  "Don\u0027t fail at raid mechanics anymore",
+        "IsHide":  "False",
+        "IsTestingExclusive":  "False",
+        "LastUpdate":  "1658532627",
+        "DownloadLinkInstall":  "https://github.com/44451516/XIVSlothCombo/raw/cn2/release/BossMod/latest.zip",
+        "DownloadLinkTesting":  "https://github.com/44451516/XIVSlothCombo/raw/cn2/release/BossMod/latest.zip",
+        "DownloadLinkUpdate":  "https://github.com/44451516/XIVSlothCombo/raw/cn2/release/BossMod/latest.zip"
+    }
+]

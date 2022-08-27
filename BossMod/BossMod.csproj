@@ -20,10 +20,10 @@
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <OutputPath>$(AppData)\XIVLauncher\devPlugins\BossMod\</OutputPath>
+    <OutputPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\devPlugins\BossMod\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <OutputPath>..\..\PluginDistribution\plugins</OutputPath>
+    <OutputPath>..\release</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <DalamudLibPath>$(appdata)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
+    <DalamudLibPath>E:\Games\FFVIX\Dalamud6.0\addon\Hooks\6.4.0.46\</DalamudLibPath>
   </PropertyGroup>
 
   <ItemGroup>
