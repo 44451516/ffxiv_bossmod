@@ -146,16 +146,24 @@ namespace BossMod
 
         private void DrawWorldLine(Vector3 start, Vector3 end, uint color, Camera camera)
         {
-            var p1 = start.ToSharpDX();
-            var p2 = end.ToSharpDX();
-            if (!ClipLineToNearPlane(ref p1, ref p2, camera.ViewProj))
-                return;
+            // try
+            {
+                var p1 = start.ToSharpDX();
+                var p2 = end.ToSharpDX();
+                if (!ClipLineToNearPlane(ref p1, ref p2, camera.ViewProj))
+                    return;
 
-            p1 = SharpDX.Vector3.TransformCoordinate(p1, camera.ViewProj);
-            p2 = SharpDX.Vector3.TransformCoordinate(p2, camera.ViewProj);
-            var p1screen = new Vector2(0.5f * camera.ViewportSize.X * (1 + p1.X), 0.5f * camera.ViewportSize.Y * (1 - p1.Y)) + ImGuiHelpers.MainViewport.Pos;
-            var p2screen = new Vector2(0.5f * camera.ViewportSize.X * (1 + p2.X), 0.5f * camera.ViewportSize.Y * (1 - p2.Y)) + ImGuiHelpers.MainViewport.Pos;
-            ImGui.GetWindowDrawList().AddLine(p1screen, p2screen, color);
+                p1 = SharpDX.Vector3.TransformCoordinate(p1, camera.ViewProj);
+                p2 = SharpDX.Vector3.TransformCoordinate(p2, camera.ViewProj);
+                var p1screen = new Vector2(0.5f * camera.ViewportSize.X * (1 + p1.X), 0.5f * camera.ViewportSize.Y * (1 - p1.Y)) + ImGuiHelpers.MainViewport.Pos;
+                var p2screen = new Vector2(0.5f * camera.ViewportSize.X * (1 + p2.X), 0.5f * camera.ViewportSize.Y * (1 - p2.Y)) + ImGuiHelpers.MainViewport.Pos;
+                ImGui.GetWindowDrawList().AddLine(p1screen, p2screen, color);
+            }
+            // catch (Exception exception)
+            // {
+            //     Service.Log($"报错 {exception}");
+            // }
+        
             //ImGui.GetWindowDrawList().AddText(p1screen, color, $"({p1.X:f3},{p1.Y:f3},{p1.Z:f3}) -> ({p2.X:f3},{p2.Y:f3},{p2.Z:f3})");
         }
 

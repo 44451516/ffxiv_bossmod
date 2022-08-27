@@ -23,11 +23,11 @@
         public bool ShowBorder = true;
 
         // [PropertyDisplay("Change arena border color if player is at risk")]
-        [PropertyDisplay("如果玩家处于危险中，请更改边界颜色")]
+        [PropertyDisplay("玩家处于危险中，更改边界颜色为红色")]
         public bool ShowBorderRisk = true;
 
         // [PropertyDisplay("Show cardinal direction names")]
-        [PropertyDisplay("现实东南西北")]
+        [PropertyDisplay("显示东南西北")]
         public bool ShowCardinals = true;
 
         // [PropertyDisplay("Show waymarks on radar")]
