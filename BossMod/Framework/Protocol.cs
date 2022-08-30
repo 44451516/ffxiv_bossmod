@@ -12,27 +12,27 @@ namespace BossMod
             StatusEffectList2 = 0xF31E,
             StatusEffectList3 = 0xF357,
             BossStatusEffectList = 0xF11A,
-            ActionEffect1 = 0x0251, // Machina calls it AbilityN, size=124
-            ActionEffect8 = 0x0184, // size=636
-            ActionEffect16 = 0x026F,
-            ActionEffect24 = 0x00F2,
-            ActionEffect32 = 0x00EC,
-            ActorCast = 0x01D4,
-            EffectResult = 0x0287,
-            EffectResultBasic = 0x029C,
-            ActorControl = 0x0375, // look at toggle weapon
-            ActorControlSelf = 0x02D8, // look at cooldown
-            ActorControlTarget = 0x01E5, // look at target change
+            ActionEffect1 = 0x006d, // Machina calls it AbilityN, size=124
+            ActionEffect8 = 0x01ab, // size=636
+            ActionEffect16 = 0x01b6,
+            ActionEffect24 = 0x024e,
+            ActionEffect32 = 0x00c7,
+            ActorCast = 0x00ff,
+            EffectResult = 0x03CD,
+            EffectResultBasic = 0x0142,
+            ActorControl = 0x012d, // look at toggle weapon
+            ActorControlSelf = 0x02b4, // look at cooldown
+            ActorControlTarget = 0x02F8, // look at target change
             UpdateHpMpTp = 0x00C7,
             PlayerSpawn = 0x0176,
             NpcSpawn = 0x01EF,
             NpcSpawn2 = 0xF20A,
             ActorMove = 0x010B,
             ActorSetPos = 0x0317,
-            ActorGauge = 0x02AB,
-            PresetWaymark = 0x037E, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
-            Waymark = 0x16A, // FFXIVOpcodes calls this PlaceFieldMarker
-            SystemLogMessage = 0x029F, // FFXIVOpcodes calls this SomeDirectorUnk4
+            ActorGauge = 0x030D,
+            PresetWaymark = 0x0225, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
+            Waymark = 0x262, // FFXIVOpcodes calls this PlaceFieldMarker
+            SystemLogMessage = 0x0296, // FFXIVOpcodes calls this SomeDirectorUnk4
 
             // opcodes from FFXIVOpcodes
             PlayerSetup = 0x02F3,
@@ -94,9 +94,9 @@ namespace BossMod
             UpdateHater = 0xF32A, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
             Countdown = 0xF34E,
             CountdownCancel = 0xF17B,
-            EnvironmentControl = 0x0204, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
-            ActionRequest = 0x01b7, // just begin casting return...
-            ActionRequestGroundTargeted = 0x006a, // XIVAlexander
+            EnvironmentControl = 0x009A, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
+            ActionRequest = 0x0212, // just begin casting return...
+            ActionRequestGroundTargeted = 0x03d3, // XIVAlexander
             // old - 0x1fd == EventObjSpawn? for stuff like exit points, etc.
         }
 
