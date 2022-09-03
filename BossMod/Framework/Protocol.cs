@@ -110,6 +110,7 @@ namespace BossMod
             public uint Unknown2;
         }
         
+        
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public unsafe struct Server_ActionEffectHeader
