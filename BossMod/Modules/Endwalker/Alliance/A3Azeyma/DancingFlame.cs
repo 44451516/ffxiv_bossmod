@@ -24,6 +24,10 @@ namespace BossMod.Endwalker.Alliance.A3Azeyma
             if ((AID)spell.Action.ID == AID.HauteAirFlare)
             {
                 _active.Add(caster.Position + 40 * caster.Rotation.ToDirection());
+            } 
+            else
+            {
+                _active.Clear();
             }
         }
 

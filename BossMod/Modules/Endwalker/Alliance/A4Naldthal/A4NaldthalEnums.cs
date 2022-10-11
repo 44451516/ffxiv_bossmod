@@ -92,6 +92,7 @@
         BalanceUnk = 29359, // Helper->self, no cast, ?
         TippedScales = 29576, // Boss->self, no cast, visual
         TippedScalesAOE = 29561, // Helper->self, 34.0s cast, raidwide (on success)
+        bug1 = 29724, 
     };
 
     public enum SID : uint

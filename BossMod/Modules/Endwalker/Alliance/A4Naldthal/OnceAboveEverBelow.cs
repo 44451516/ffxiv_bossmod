@@ -50,6 +50,11 @@ namespace BossMod.Endwalker.Alliance.A4Naldthal
 
         public override void OnCastFinished(BossModule module, Actor caster, ActorCastInfo spell)
         {
+            if ((AID)spell.Action.ID is AID.bug1 or AID.OnceAboveEverBelowRed or AID.OnceAboveEverBelowBlue)
+            {
+                _active.Clear();
+            }
+            
             if ((AID)spell.Action.ID is AID.EverfireFirst or AID.OnceBurnedFirst)
             {
                 foreach (var inst in _active.Where(i => i.Start == caster.Position))
