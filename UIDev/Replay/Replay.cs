@@ -25,6 +25,8 @@ namespace UIDev
             public TimeRange Time = new();
             public Participant? Target;
             public Vector3 Location; // if target is non-null, corresponds to target's position at cast start
+            public Angle Rotation;
+            public bool Interruptible;
         }
 
         public class ActionTarget
@@ -49,12 +51,13 @@ namespace UIDev
             public ulong InstanceID;
             public uint OID;
             public ActorType Type;
+            public ulong OwnerID;
             public string Name = "";
             public TimeRange Existence = new();
             public SortedList<DateTime, bool> TargetableHistory = new();
             public SortedList<DateTime, bool> DeadHistory = new();
             public SortedList<DateTime, Vector4> PosRotHistory = new();
-            public SortedList<DateTime, ActorHP> HPHistory = new();
+            public SortedList<DateTime, (ActorHP hp, uint curMP)> HPMPHistory = new();
             public List<Cast> Casts = new();
             public bool HasAnyActions;
             public bool HasAnyStatuses;
@@ -63,7 +66,9 @@ namespace UIDev
             public bool TargetableAt(DateTime t) => HistoryEntryAt(TargetableHistory, t);
             public bool DeadAt(DateTime t) => HistoryEntryAt(DeadHistory, t);
             public Vector4 PosRotAt(DateTime t) => HistoryEntryAt(PosRotHistory, t);
-            public ActorHP HPAt(DateTime t) => HistoryEntryAt(HPHistory, t);
+            public (ActorHP hp, uint curMP) HPMPAt(DateTime t) => HistoryEntryAt(HPMPHistory, t);
+            public ActorHP HPAt(DateTime t) => HPMPAt(t).hp;
+            public uint MPAt(DateTime t) => HPMPAt(t).curMP;
 
             private T? HistoryEntryAt<T>(SortedList<DateTime, T> history, DateTime t)
             {

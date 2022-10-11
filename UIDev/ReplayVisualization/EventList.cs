@@ -170,7 +170,7 @@ namespace UIDev
 
         private string CastString(Replay.Cast c, DateTime reference, DateTime prev, Type? aidType)
         {
-            return $"{new Replay.TimeRange(reference, c.Time.Start)} ({new Replay.TimeRange(prev, c.Time.Start)}) + {c.ExpectedCastTime + 0.3f:f2} ({c.Time}): {c.ID} ({aidType?.GetEnumName(c.ID.ID)}) @ {ReplayUtils.ParticipantString(c.Target)} {Utils.Vec3String(c.Location)}";
+            return $"{new Replay.TimeRange(reference, c.Time.Start)} ({new Replay.TimeRange(prev, c.Time.Start)}) + {c.ExpectedCastTime + 0.3f:f2} ({c.Time}): {c.ID} ({aidType?.GetEnumName(c.ID.ID)}) @ {ReplayUtils.ParticipantString(c.Target)} {Utils.Vec3String(c.Location)} / {c.Rotation}";
         }
 
         private void DrawCasts(IEnumerable<Replay.Cast> list, DateTime reference, Type? aidType)
@@ -233,7 +233,7 @@ namespace UIDev
         private void OpenPlayerActions(Replay.Encounter enc, Class pcClass, Replay.Participant? pc = null)
         {
             var planner = new PlayerActions(_replay, enc, pcClass, pc);
-            var w = WindowManager.CreateWindow($"Player actions timeline", planner.Draw, () => { }, () => true);
+            var w = WindowManager.CreateWindow($"Player actions timeline: {pcClass} {pc?.Name} {_replay.Path} @ {enc.Time.Start:O}", planner.Draw, planner.Close, () => true);
             w.SizeHint = new(600, 600);
             w.MinSize = new(100, 100);
         }

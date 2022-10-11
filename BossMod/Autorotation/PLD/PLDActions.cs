@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace BossMod.PLD
 {
-    class Actions : CommonActions
+    class Actions : TankActions
     {
         public const int AutoActionST = AutoActionFirstCustom + 0;
         public const int AutoActionAOE = AutoActionFirstCustom + 1;
@@ -20,7 +20,7 @@ namespace BossMod.PLD
             _state = new(autorot.Cooldowns);
             _strategy = new();
 
-            SupportedSpell(AID.Reprisal).Condition = _ => Autorot.PotentialTargetsInRangeFromPlayer(5).Any(); // TODO: consider checking only target?..
+            SupportedSpell(AID.Reprisal).Condition = _ => Autorot.Hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(Player.Position, 5 + e.Actor.HitboxRadius)); // TODO: consider checking only target?..
             SupportedSpell(AID.Interject).Condition = target => target?.CastInfo?.Interruptible ?? false;
 
             _config.Modified += OnConfigModified;
@@ -32,13 +32,17 @@ namespace BossMod.PLD
             _config.Modified -= OnConfigModified;
         }
 
+        public override CommonRotation.PlayerState GetState() => _state;
+        public override CommonRotation.Strategy GetStrategy() => _strategy;
+
         protected override void UpdateInternalState(int autoAction)
         {
+            base.UpdateInternalState(autoAction);
             _aoe = autoAction switch
             {
                 AutoActionST => false,
                 AutoActionAOE => true, // TODO: consider making AI-like check
-                AutoActionAIFight or AutoActionAIFightMove => Autorot.PotentialTargetsInRangeFromPlayer(5).Count() >= 3,
+                AutoActionAIFight => NumTargetsHitByAOE() >= 3,
                 _ => false, // irrelevant...
             };
             UpdatePlayerState();
@@ -47,19 +51,28 @@ namespace BossMod.PLD
 
         protected override void QueueAIActions()
         {
+            if (_state.Unlocked(AID.Interject))
+            {
+                var interruptibleEnemy = Autorot.Hints.PotentialTargets.FirstOrDefault(e => e.ShouldBeInterrupted && (e.Actor.CastInfo?.Interruptible ?? false) && e.Actor.Position.InCircle(Player.Position, 3 + e.Actor.HitboxRadius + Player.HitboxRadius));
+                SimulateManualActionForAI(ActionID.MakeSpell(AID.Interject), interruptibleEnemy?.Actor, interruptibleEnemy != null);
+            }
+            if (_state.Unlocked(AID.IronWill))
+                SimulateManualActionForAI(ActionID.MakeSpell(AID.IronWill), Player, ShouldSwapStance());
         }
 
         protected override NextAction CalculateAutomaticGCD()
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
+            if (AutoAction == AutoActionAIFight && !Autorot.PrimaryTarget.Position.InCircle(Player.Position, 3 + Autorot.PrimaryTarget.HitboxRadius + Player.HitboxRadius) && _state.Unlocked(AID.ShieldLob))
+                return MakeResult(AID.ShieldLob, Autorot.PrimaryTarget); // TODO: reconsider...
             var aid = Rotation.GetNextBestGCD(_state, _strategy, _aoe);
             return MakeResult(aid, Autorot.PrimaryTarget);
         }
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
 
             ActionID res = new();
@@ -72,6 +85,7 @@ namespace BossMod.PLD
 
         protected override void OnActionExecuted(ActionID action, Actor? target)
         {
+            base.OnActionExecuted(action, target);
             Log($"Executed {action} @ {target} [{_state}]");
         }
 
@@ -106,5 +120,7 @@ namespace BossMod.PLD
         }
 
         private AID ComboLastMove => (AID)ActionManagerEx.Instance!.ComboLastMove;
+
+        private int NumTargetsHitByAOE() => Autorot.Hints.NumPriorityTargetsInAOECircle(Player.Position, 5);
     }
 }

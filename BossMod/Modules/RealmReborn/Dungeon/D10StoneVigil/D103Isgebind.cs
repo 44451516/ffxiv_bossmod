@@ -21,9 +21,9 @@ namespace BossMod.RealmReborn.Dungeon.D10StoneVigil.D103Isgebind
         Touchdown = 1027, // Boss->self, no cast, range 5 aoe around center
     };
 
-    class RimeWreath : Components.CastHint
+    class RimeWreath : Components.RaidwideCast
     {
-        public RimeWreath() : base(ActionID.MakeSpell(AID.RimeWreath), "Raidwide") { }
+        public RimeWreath() : base(ActionID.MakeSpell(AID.RimeWreath)) { }
     }
 
     class FrostBreath : Components.Cleave
@@ -52,7 +52,7 @@ namespace BossMod.RealmReborn.Dungeon.D10StoneVigil.D103Isgebind
 
         public Touchdown() : base(ActionID.MakeSpell(AID.Touchdown)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             // TODO: proper timings...
             if (!module.PrimaryActor.IsTargetable && !module.FindComponent<Cauterize>()!.ActiveCasters.Any())

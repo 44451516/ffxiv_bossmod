@@ -1,4 +1,5 @@
 ﻿using BossMod;
+using BossMod.Pathfinding;
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,7 @@ namespace UIDev
     {
         private ReplayPlayer _player;
         private BossModuleManager _mgr;
+        private AIHints _hints = new();
         private DateTime _first;
         private DateTime _last;
         private DateTime _curTime; // note that is could fall between frames
@@ -22,6 +24,12 @@ namespace UIDev
         private bool _showConfig;
         private EventList _events;
         private AnalysisManager _analysis;
+
+        private UITree _pfTree = new();
+        private AIHintsVisualizer? _pfVisu;
+        private float _pfTargetRadius = 3;
+        private Positional _pfPositional = Positional.Any;
+        private bool _pfTank = false;
 
         public ReplayVisualizer(Replay data)
         {
@@ -56,7 +64,7 @@ namespace UIDev
                 _mgr.ActiveModule.Draw(_azimuth / 180 * MathF.PI, _povSlot, null);
                 var drawTimerPost = DateTime.Now;
 
-                ImGui.TextUnformatted($"Draw time: {(drawTimerPost - drawTimerPre).TotalMilliseconds:f3}ms, Downtime in: {_mgr.ActiveModule.PlanExecution?.EstimateTimeToNextDowntime(_mgr.ActiveModule.StateMachine):f2}, Positioning in: {_mgr.ActiveModule.PlanExecution?.EstimateTimeToNextPositioning(_mgr.ActiveModule.StateMachine):f2}, Vuln in: {_mgr.ActiveModule.PlanExecution?.EstimateTimeToNextVulnerable(_mgr.ActiveModule.StateMachine):f2}, Components:");
+                ImGui.TextUnformatted($"Current state: {_mgr.ActiveModule.StateMachine.ActiveState?.ID:X}, Time since pull: {_mgr.ActiveModule.StateMachine.TimeSinceActivation:f3}, Draw time: {(drawTimerPost - drawTimerPre).TotalMilliseconds:f3}ms, Downtime in: {_mgr.ActiveModule.PlanExecution?.EstimateTimeToNextDowntime(_mgr.ActiveModule.StateMachine):f2}, Positioning in: {_mgr.ActiveModule.PlanExecution?.EstimateTimeToNextPositioning(_mgr.ActiveModule.StateMachine):f2}, Vuln in: {_mgr.ActiveModule.PlanExecution?.EstimateTimeToNextVulnerable(_mgr.ActiveModule.StateMachine):f2}, Components:");
                 foreach (var comp in _mgr.ActiveModule.Components)
                 {
                     ImGui.SameLine();
@@ -82,6 +90,7 @@ namespace UIDev
             DrawPartyTable();
             DrawEnemyTables();
             DrawAllActorsTable();
+            DrawAI();
 
             if (ImGui.CollapsingHeader("Events"))
                 _events.Draw();
@@ -221,9 +230,11 @@ namespace UIDev
 
                 bool isPOV = _povSlot == slot;
                 ImGui.TableNextColumn();
-                ImGui.Checkbox("###POV", ref isPOV);
-                if (isPOV)
+                if (ImGui.Checkbox("###POV", ref isPOV) && isPOV)
+                {
                     _povSlot = slot;
+                    ResetPF();
+                }
 
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(player.Class.ToString());
@@ -313,6 +324,35 @@ namespace UIDev
             ImGui.EndTable();
         }
 
+        private void DrawAI()
+        {
+            if (!ImGui.CollapsingHeader("AI hints"))
+                return;
+            if (_mgr.ActiveModule == null)
+                return;
+            var player = _mgr.ActiveModule.Raid[_povSlot];
+            if (player == null)
+                return;
+
+            if (_pfVisu == null)
+            {
+                _hints.Clear();
+                _hints.FillPotentialTargets(_mgr.WorldState);
+                _mgr.ActiveModule.CalculateAIHints(_povSlot, player, Service.Config.Get<PartyRolesConfig>()[_mgr.WorldState.Party.ContentIDs[_povSlot]], _hints);
+                _hints.Normalize();
+                _pfVisu = new(_hints, _mgr.WorldState, player, player.TargetID, e => (e, _pfTargetRadius, _pfPositional, _pfTank));
+            }
+            _pfVisu?.Draw(_pfTree);
+
+            bool rebuild = false;
+            //rebuild |= ImGui.SliderFloat("Zone cushion", ref _pfCushion, 0.1f, 5);
+            rebuild |= ImGui.SliderFloat("Ability range", ref _pfTargetRadius, 3, 25);
+            rebuild |= UICombo.Enum("Ability positional", ref _pfPositional);
+            rebuild |= ImGui.Checkbox("Prefer tanking", ref _pfTank);
+            if (rebuild)
+                ResetPF();
+        }
+
         private void MoveTo(DateTime t)
         {
             if (t < _player.WorldState.CurrentTime)
@@ -322,12 +362,18 @@ namespace UIDev
             }
             _player.AdvanceTo(t, _mgr.Update);
             _curTime = t;
+            ResetPF();
         }
 
         private void Rewind(float seconds)
         {
             _playSpeed = 0;
             MoveTo(_curTime.AddSeconds(-seconds));
+        }
+
+        private void ResetPF()
+        {
+            _pfVisu = null;
         }
     }
 }

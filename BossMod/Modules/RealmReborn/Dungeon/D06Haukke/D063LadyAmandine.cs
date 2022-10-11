@@ -37,7 +37,7 @@ namespace BossMod.RealmReborn.Dungeon.D06Haukke.D063LadyAmandine
         public BeguilingMist() : base(ActionID.MakeSpell(AID.BeguilingMist), "Forced movement towards boss") { }
     }
 
-    class VoidThunder : Components.CastHint
+    class VoidThunder : Components.SingleTargetCast
     {
         public VoidThunder() : base(ActionID.MakeSpell(AID.VoidThunder3), "Interruptible tankbuster") { }
     }
@@ -61,18 +61,17 @@ namespace BossMod.RealmReborn.Dungeon.D06Haukke.D063LadyAmandine
 
     public class D063LadyAmandine : BossModule
     {
-        private List<Actor> _add;
+        public D063LadyAmandine(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(0, 4), 20)) { }
 
-        public D063LadyAmandine(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(0, 4), 20))
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            _add = Enemies(OID.Handmaiden);
-        }
-
-        public override bool FillTargets(BossTargets targets, int pcSlot)
-        {
-            if (!targets.AddIfValid(_add))
-                targets.AddIfValid(PrimaryActor);
-            return true;
+            base.CalculateAIHints(slot, actor, assignment, hints);
+            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            {
+                OID.Handmaiden => 2,
+                OID.Boss => 1,
+                _ => 0
+            });
         }
     }
 }

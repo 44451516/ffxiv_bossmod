@@ -48,15 +48,13 @@
     // try to always stay in active crystal closest to boss
     class Positioning : BossComponent
     {
-        private static AOEShapeCircle _shape = new(8); // TODO: verify range
-
-        public override void UpdateSafeZone(BossModule module, int slot, Actor actor, SafeZone zone)
+        public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             if (module.PrimaryActor.CastInfo == null) // do not restrict zone while boss is casting, to allow avoiding aoe, even if it means temporarily leaving crystal veil
             {
                 var closestCrystal = module.Enemies(OID.Crystal).Closest(module.PrimaryActor.Position);
                 if (closestCrystal != null)
-                    zone.RestrictToZone(_shape, closestCrystal.Position, new(), module.WorldState.CurrentTime, 10000);
+                    hints.AddForbiddenZone(ShapeDistance.InvertedCircle(closestCrystal.Position, 8)); // TODO: verify range
             }
         }
     }
@@ -78,12 +76,11 @@
     {
         public D111AllSeeingEye(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(40, 70), 30)) { }
 
-        public override bool FillTargets(BossTargets targets, int pcSlot)
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            targets.Autofill(WorldState);
+            base.CalculateAIHints(slot, actor, assignment, hints);
             if (PrimaryActor.FindStatus(SID.Invincibility) != null)
-                targets.Valid.Remove(PrimaryActor);
-            return true;
+                hints.PotentialTargets.RemoveAll(e => e.Actor == PrimaryActor);
         }
     }
 }

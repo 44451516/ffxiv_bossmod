@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BossMod.RealmReborn.Trial.T03GarudaN
 {
@@ -33,13 +30,11 @@ namespace BossMod.RealmReborn.Trial.T03GarudaN
     // disallow clipping monoliths
     class Friction : BossComponent
     {
-        private AOEShapeCircle _shape = new(5);
-
-        public override void UpdateSafeZone(BossModule module, int slot, Actor actor, SafeZone zone)
+        public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             if (module.PrimaryActor.CastInfo == null) // don't forbid standing near monoliths while boss is casting to allow avoiding aoes
                 foreach (var m in module.Enemies(OID.Monolith))
-                    zone.ForbidZone(_shape, m.Position, new(), module.WorldState.CurrentTime, 10000);
+                    hints.AddForbiddenZone(ShapeDistance.Circle(m.Position, 5));
         }
     }
 
@@ -55,7 +50,8 @@ namespace BossMod.RealmReborn.Trial.T03GarudaN
 
     class MistralSongP1 : Components.CastLineOfSightAOE
     {
-        public MistralSongP1() : base(ActionID.MakeSpell(AID.MistralSongP1), (uint)OID.Monolith, 31.7f) { }
+        public MistralSongP1() : base(ActionID.MakeSpell(AID.MistralSongP1), 31.7f, true) { }
+        public override IEnumerable<Actor> BlockerActors(BossModule module) => module.Enemies(OID.Monolith);
     }
 
     // actual casts happen every ~6s after aerial blast cast
@@ -65,7 +61,7 @@ namespace BossMod.RealmReborn.Trial.T03GarudaN
 
         public EyeOfTheStorm() : base(ActionID.MakeSpell(AID.AerialBlast)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             if (NumCasts > 0)
                 foreach (var c in module.Enemies(OID.EyeOfTheStormHelper))
@@ -100,20 +96,24 @@ namespace BossMod.RealmReborn.Trial.T03GarudaN
 
     public class T03GarudaN : BossModule
     {
-        public T03GarudaN(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-0, 0), 21)) { }
+        public T03GarudaN(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(0, 0), 21)) { }
 
-        public override bool FillTargets(BossTargets targets, int pcSlot)
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            if (!targets.AddIfValid(Enemies(OID.RazorPlumeP1)) && !targets.AddIfValid(Enemies(OID.RazorPlumeP2)))
-                targets.AddIfValid(PrimaryActor);
-            return true;
+            base.CalculateAIHints(slot, actor, assignment, hints);
+            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            {
+                OID.RazorPlumeP1 or OID.RazorPlumeP2 => 2,
+                OID.Boss => 1,
+                _ => 0
+            });
         }
 
         protected override void DrawEnemies(int pcSlot, Actor pc)
         {
             Arena.Actor(PrimaryActor, ArenaColor.Enemy);
             foreach (var m in Enemies(OID.Monolith))
-                Arena.Actor(m, ArenaColor.Danger);
+                Arena.Actor(m, ArenaColor.Danger, true);
         }
     }
 }

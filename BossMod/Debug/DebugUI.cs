@@ -3,7 +3,6 @@ using ImGuiNET;
 using System;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.InteropServices;
 
 namespace BossMod
 {
@@ -17,7 +16,7 @@ namespace BossMod
         private DebugAction _debugAction;
         private DebugHate _debugHate = new();
         private DebugInput _debugInput;
-        private DebugAI _debugAI;
+        private DebugAutorotation _debugAutorot;
         private DebugClassDefinitions _debugClassDefinitions;
 
         public DebugUI(WorldState ws, Autorotation autorot, InputOverride inputOverride)
@@ -26,13 +25,13 @@ namespace BossMod
             _autorot = autorot;
             _debugAction = new(ws);
             _debugInput = new(inputOverride, autorot);
-            _debugAI = new(autorot);
+            _debugAutorot = new(autorot);
             _debugClassDefinitions = new(ws);
         }
 
         public void Dispose()
         {
-            _debugAI.Dispose();
+            _debugInput.Dispose();
             _debugClassDefinitions.Dispose();
         }
 
@@ -75,9 +74,9 @@ namespace BossMod
             {
                 _debugParty.DrawPartyCustom();
             }
-            if (ImGui.CollapsingHeader("AI"))
+            if (ImGui.CollapsingHeader("Autorotation"))
             {
-                _debugAI.Draw();
+                _debugAutorot.Draw();
             }
             if (ImGui.CollapsingHeader("Graphics scene"))
             {
@@ -90,6 +89,10 @@ namespace BossMod
             if (Camera.Instance != null && ImGui.CollapsingHeader("Matrices"))
             {
                 _debugGraphics.DrawMatrices();
+            }
+            if (Camera.Instance != null && ImGui.CollapsingHeader("In-game overlay"))
+            {
+                _debugGraphics.DrawOverlay();
             }
             if (ImGui.CollapsingHeader("Action manager ex"))
             {

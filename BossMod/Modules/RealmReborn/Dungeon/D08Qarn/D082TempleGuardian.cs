@@ -46,18 +46,17 @@ namespace BossMod.RealmReborn.Dungeon.D08Qarn.D082TempleGuardian
 
     public class D082TempleGuardian : BossModule
     {
-        private List<Actor> _soulstone;
+        public D082TempleGuardian(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(50, -10), 15)) { }
 
-        public D082TempleGuardian(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(50, -10), 15))
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            _soulstone = Enemies(OID.GolemSoulstone);
-        }
-
-        public override bool FillTargets(BossTargets targets, int pcSlot)
-        {
-            if (!targets.AddIfValid(_soulstone))
-                targets.AddIfValid(PrimaryActor);
-            return true;
+            base.CalculateAIHints(slot, actor, assignment, hints);
+            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            {
+                OID.GolemSoulstone => 2,
+                OID.Boss => 1,
+                _ => 0
+            });
         }
     }
 }

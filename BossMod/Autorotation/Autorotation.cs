@@ -1,10 +1,8 @@
-﻿using Dalamud;
-using Dalamud.Game.ClientState.Objects.Types;
+﻿using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Hooking;
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace BossMod
 {
@@ -37,6 +35,7 @@ namespace BossMod
         private Network _network;
         private AutorotationConfig _config;
         private BossModuleManager _bossmods;
+        private AutoHints _autoHints;
         private WindowManager.Window? _ui;
         private CommonActions? _classActions;
 
@@ -56,8 +55,9 @@ namespace BossMod
 
         public Actor? PrimaryTarget; // this is usually a normal (hard) target, but AI can override; typically used for damage abilities
         public Actor? SecondaryTarget; // this is usually a mouseover, but AI can override; typically used for heal and utility abilities
-        public BossTargets PotentialTargets = new();
+        public AIHints Hints = new();
         public bool Moving => _inputOverride.IsMoveRequested(); // TODO: reconsider
+        public bool AboutToStartCast { get; private set; }
         public float EffAnimLock => ActionManagerEx.Instance!.EffectiveAnimationLock;
         public float AnimLockDelay => ActionManagerEx.Instance!.EffectiveAnimationLockDelay;
 
@@ -66,6 +66,7 @@ namespace BossMod
             _network = network;
             _config = Service.Config.Get<AutorotationConfig>();
             _bossmods = bossmods;
+            _autoHints = new(bossmods.WorldState);
             _inputOverride = inputOverride;
 
             ActionManagerEx.Instance!.PostUpdate += OnActionManagerUpdate;
@@ -91,6 +92,7 @@ namespace BossMod
 
             _useActionHook.Dispose();
             _classActions?.Dispose();
+            _autoHints.Dispose();
         }
 
         public void Update()
@@ -100,9 +102,15 @@ namespace BossMod
             var player = WorldState.Party.Player();
             PrimaryTarget = WorldState.Actors.Find(player?.TargetID ?? 0);
             SecondaryTarget = WorldState.Actors.Find(Mouseover.Instance?.Object?.ObjectId ?? 0);
-            PotentialTargets.Clear();
-            if (Bossmods.ActiveModule?.StateMachine.ActivePhase == null || !Bossmods.ActiveModule.FillTargets(PotentialTargets, PartyState.PlayerSlot))
-                PotentialTargets.Autofill(WorldState);
+
+            var activeModule = Bossmods.ActiveModule?.StateMachine.ActivePhase != null ? Bossmods.ActiveModule : null;
+            Hints.Clear();
+            Hints.FillPotentialTargets(WorldState);
+            if (activeModule != null && player != null)
+                activeModule.CalculateAIHints(PartyState.PlayerSlot, player, Service.Config.Get<PartyRolesConfig>()[WorldState.Party.ContentIDs[PartyState.PlayerSlot]], Hints);
+            else if (player != null)
+                _autoHints.CalculateAIHints(Hints, player.Position);
+            Hints.Normalize();
 
             Type? classType = null;
             if (_config.Enabled && player != null)
@@ -110,14 +118,14 @@ namespace BossMod
                 classType = player.Class switch
                 {
                     Class.WAR => typeof(WAR.Actions),
-                    Class.PLD => Service.ClientState.LocalPlayer?.Level <= 52 ? typeof(PLD.Actions) : null,
-                    Class.MNK => Service.ClientState.LocalPlayer?.Level <= 52 ? typeof(MNK.Actions) : null,
-                    Class.DRG => Service.ClientState.LocalPlayer?.Level <= 52 ? typeof(DRG.Actions) : null,
-                    Class.BRD => Service.ClientState.LocalPlayer?.Level <= 52 ? typeof(BRD.Actions) : null,
-                    Class.BLM => Service.ClientState.LocalPlayer?.Level <= 52 ? typeof(BLM.Actions) : null,
+                    Class.PLD => Service.ClientState.LocalPlayer?.Level <= 60 ? typeof(PLD.Actions) : null,
+                    Class.MNK => Service.ClientState.LocalPlayer?.Level <= 60 ? typeof(MNK.Actions) : null,
+                    Class.DRG => Service.ClientState.LocalPlayer?.Level <= 60 ? typeof(DRG.Actions) : null,
+                    Class.BRD => Service.ClientState.LocalPlayer?.Level <= 60 ? typeof(BRD.Actions) : null,
+                    Class.BLM => Service.ClientState.LocalPlayer?.Level <= 60 ? typeof(BLM.Actions) : null,
                     Class.SMN => Service.ClientState.LocalPlayer?.Level <= 30 ? typeof(SMN.Actions) : null,
                     Class.WHM => typeof(WHM.Actions),
-                    Class.SCH => Service.ClientState.LocalPlayer?.Level <= 52 ? typeof(SCH.Actions) : null,
+                    Class.SCH => Service.ClientState.LocalPlayer?.Level <= 60 ? typeof(SCH.Actions) : null,
                     _ => null
                 };
             }
@@ -151,26 +159,17 @@ namespace BossMod
             }
         }
 
-        public IEnumerable<Actor> PotentialTargetsInRange(WPos center, float radius)
-        {
-            return PotentialTargets.Valid.Where(a => (a.Position - center).LengthSq() <= (a.HitboxRadius + radius) * (a.HitboxRadius + radius));
-        }
-
-        public IEnumerable<Actor> PotentialTargetsInRangeFromPlayer(float radius)
-        {
-            var player = WorldState.Party.Player();
-            return player != null ? PotentialTargetsInRange(player.Position, radius) : Enumerable.Empty<Actor>();
-        }
-
         private void DrawOverlay()
         {
             if (_classActions == null)
                 return;
             var next = _classActions.CalculateNextAction();
+            var state = _classActions.GetState();
+            var strategy = _classActions.GetStrategy();
             ImGui.TextUnformatted($"Next: {next.Action} ({next.Source})");
-            //ImGui.TextUnformatted(_strategy.ToString());
-            //ImGui.TextUnformatted($"Raidbuffs: {_state.RaidBuffsLeft:f2}s left, next in {_strategy.RaidBuffsIn:f2}s");
-            //ImGui.TextUnformatted($"Downtime: {_strategy.FightEndIn:f2}s, pos-lock: {_strategy.PositionLockIn:f2}");
+            ImGui.TextUnformatted(strategy.ToString());
+            ImGui.TextUnformatted($"Raidbuffs: {state.RaidBuffsLeft:f2}s left, next in {strategy.RaidBuffsIn:f2}s");
+            ImGui.TextUnformatted($"Downtime: {strategy.FightEndIn:f2}s, pos-lock: {strategy.PositionLockIn:f2}");
             ImGui.TextUnformatted($"GCD={Cooldowns[CommonDefinitions.GCDGroup]:f3}, AnimLock={EffAnimLock:f3}+{AnimLockDelay:f3}");
         }
 
@@ -185,6 +184,7 @@ namespace BossMod
         // returns whether input should be blocked
         private bool ActionManagerUpdateImpl()
         {
+            AboutToStartCast = false;
             if (_classActions == null)
                 return false; // disabled
 
@@ -208,7 +208,8 @@ namespace BossMod
             var actionAdj = next.Action == CommonDefinitions.IDSprint ? new(ActionType.Spell, 3) : next.Action.Type == ActionType.Spell ? new(ActionType.Spell, am.GetAdjustedActionID(next.Action.ID)) : next.Action;
 
             // note: if we cancel movement and start casting immediately, it will be canceled some time later - instead prefer to delay for one frame
-            bool lockMovementForNext = _config.PreventMovingWhileCasting && next.Definition.CastTime > 0 && am.GCD() < 0.1f;
+            AboutToStartCast = next.Definition.CastTime > 0 && am.GCD() < 0.1f;
+            bool lockMovementForNext = _config.PreventMovingWhileCasting && AboutToStartCast;
             if (lockMovementForNext && _inputOverride.IsMoving() || Cooldowns[next.Definition.CooldownGroup] > next.Definition.CooldownAtFirstCharge)
                 return lockMovementForNext; // action is still on cooldown
 

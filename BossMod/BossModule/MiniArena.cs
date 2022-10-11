@@ -138,6 +138,13 @@ namespace BossMod
             drawlist.PathStroke(color, ImDrawFlags.Closed, thickness);
         }
 
+        public void AddPolygon(IEnumerable<WPos> vertices, uint color, float thickness = 1)
+        {
+            foreach (var p in vertices)
+                PathLineTo(p);
+            PathStroke(true, color, thickness);
+        }
+
         // path api: add new point to path; this adds new edge from last added point, or defines first vertex if path is empty
         public void PathLineTo(WPos p)
         {
@@ -229,9 +236,9 @@ namespace BossMod
             }
         }
 
-        public void Actor(Actor? actor, uint color)
+        public void Actor(Actor? actor, uint color, bool allowDeadAndUntargetable = false)
         {
-            if (actor != null)
+            if (actor != null && !actor.IsDestroyed && (allowDeadAndUntargetable || actor.IsTargetable && !actor.IsDead))
                 Actor(actor.Position, actor.Rotation, color);
         }
 

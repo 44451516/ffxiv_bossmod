@@ -63,7 +63,7 @@ namespace BossMod
 
         private void SortByOrder(List<UINode> nodes)
         {
-            nodes.Sort((l, r) => l.Order.CompareTo(r.Order));
+            nodes.SortBy(e => e.Order);
             foreach (var n in nodes)
                 SortByOrder(n.Children);
         }
@@ -172,9 +172,9 @@ namespace BossMod
                     ImGui.TableSetupColumn("----");
                     ImGui.TableSetupColumn("Name");
                     ImGui.TableHeadersRow();
-                    for (int i = 0; i < (int)PartyRolesConfig.Role.Unassigned; ++i)
+                    for (int i = 0; i < (int)PartyRolesConfig.Assignment.Unassigned; ++i)
                     {
-                        var r = (PartyRolesConfig.Role)i;
+                        var r = (PartyRolesConfig.Assignment)i;
                         ImGui.TableNextRow();
                         for (int c = 0; c < group.Names.Length; ++c)
                         {

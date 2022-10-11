@@ -40,9 +40,9 @@
         public TargetedSupport() : base(ActionID.MakeSpell(AID.TargetedSupportAOE), new AOEShapeCircle(5)) { }
     }
 
-    class CermetDrill : Components.CastHint
+    class CermetDrill : Components.SingleTargetCast
     {
-        public CermetDrill() : base(ActionID.MakeSpell(AID.CermetDrill), "Tankbuster") { }
+        public CermetDrill() : base(ActionID.MakeSpell(AID.CermetDrill)) { }
     }
 
     class Overcharge : Components.SelfTargetedAOEs
@@ -66,6 +66,6 @@
 
     public class D132MagitekVanguardF1 : BossModule
     {
-        public D132MagitekVanguardF1(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsRect(new(-13, 31), 20.Degrees().ToDirection(), 20, 20)) { }
+        public D132MagitekVanguardF1(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsRect(new(-13, 31), 20, 20, 20.Degrees())) { }
     }
 }

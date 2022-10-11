@@ -9,13 +9,9 @@ namespace BossMod
     {
         public const int AutoActionNone = 0;
         public const int AutoActionAIIdle = 1;
-        public const int AutoActionAIIdleMove = 2;
-        public const int AutoActionFirstFight = 3;
-        public const int AutoActionAIFight = 3;
-        public const int AutoActionAIFightMove = 4;
-        public const int AutoActionFirstCustom = 5;
+        public const int AutoActionAIFight = 2;
+        public const int AutoActionFirstCustom = 3;
 
-        public enum Positional { Any, Flank, Rear }
         public enum ActionSource { Automatic, Planned, Manual, Emergency }
 
         public struct NextAction
@@ -38,15 +34,17 @@ namespace BossMod
 
         public struct Targeting
         {
-            public Actor? Target;
+            public AIHints.Enemy? Target;
             public float PreferredRange;
             public Positional PreferredPosition;
+            public bool PreferTanking;
 
-            public Targeting(Actor target, float range = 3, Positional pos = Positional.Any)
+            public Targeting(AIHints.Enemy target, float range = 3, Positional pos = Positional.Any, bool preferTanking = false)
             {
                 Target = target;
                 PreferredRange = range;
                 PreferredPosition = pos;
+                PreferTanking = preferTanking;
             }
         }
 
@@ -80,8 +78,9 @@ namespace BossMod
 
         public Actor Player { get; init; }
         public Dictionary<ActionID, SupportedAction> SupportedActions { get; init; } = new();
+        public int AutoAction { get; private set; }
+        public float MaxCastTime { get; private set; }
         protected Autorotation Autorot;
-        protected int AutoAction { get; private set; }
         private DateTime _autoActionExpire;
         private QuestLockCheck _lock;
         private ManualActionOverride _mq;
@@ -137,18 +136,19 @@ namespace BossMod
 
         // this also checks pending statuses
         // note that we check pending statuses first - otherwise we get the same problem with double refresh if we try to refresh early (we find old status even though we have pending one)
-        public (float Left, int Stacks) StatusDetails<SID>(Actor? actor, SID id, ulong sourceID, float pendingDuration = 1000) where SID : Enum
+        public (float Left, int Stacks) StatusDetails(Actor? actor, uint sid, ulong sourceID, float pendingDuration = 1000)
         {
             if (actor == null)
                 return (0, 0);
-            var pending = Autorot.WorldState.PendingEffects.PendingStatus(actor.InstanceID, (uint)(object)id, sourceID);
+            var pending = Autorot.WorldState.PendingEffects.PendingStatus(actor.InstanceID, sid, sourceID);
             if (pending != null)
                 return (pendingDuration, pending.Value);
-            var status = actor.FindStatus(id, sourceID);
+            var status = actor.FindStatus(sid, sourceID);
             if (status != null)
                 return (StatusDuration(status.Value.ExpireAt), status.Value.Extra & 0xFF);
             return (0, 0);
         }
+        public (float Left, int Stacks) StatusDetails<SID>(Actor? actor, SID sid, ulong sourceID, float pendingDuration = 1000) where SID : Enum => StatusDetails(actor, (uint)(object)sid, sourceID, pendingDuration);
 
         // check whether specified status is a damage buff
         public bool IsDamageBuff(uint statusID)
@@ -173,11 +173,12 @@ namespace BossMod
             };
         }
 
-        public void UpdateAutoAction(int autoAction)
+        public void UpdateAutoAction(int autoAction, float maxCastTime)
         {
             if (AutoAction != autoAction)
                 Log($"Auto action set to {autoAction}");
             AutoAction = autoAction;
+            MaxCastTime = maxCastTime;
             _autoActionExpire = Autorot.WorldState.CurrentTime.AddSeconds(1.0f);
         }
 
@@ -201,7 +202,7 @@ namespace BossMod
 
             if (supportedAction.PlaceholderForAuto != AutoActionNone)
             {
-                UpdateAutoAction(supportedAction.PlaceholderForAuto);
+                UpdateAutoAction(supportedAction.PlaceholderForAuto, float.MaxValue);
                 return true;
             }
 
@@ -285,7 +286,9 @@ namespace BossMod
         }
 
         public abstract void Dispose();
-        public virtual Targeting SelectBetterTarget(Actor initial) => new(initial);
+        public abstract CommonRotation.PlayerState GetState();
+        public abstract CommonRotation.Strategy GetStrategy();
+        public virtual Targeting SelectBetterTarget(AIHints.Enemy initial) => new(initial);
         protected virtual void OnTick() { }
         protected abstract void UpdateInternalState(int autoAction);
         protected abstract void QueueAIActions();
@@ -325,12 +328,13 @@ namespace BossMod
             var pc = Service.ClientState.LocalPlayer;
             s.Level = pc?.Level ?? 0;
             s.UnlockProgress = _lock.Progress();
-            s.CurMP = pc?.CurrentMp ?? 0;
+            s.CurMP = Player.CurMP;
             s.AnimationLock = am.EffectiveAnimationLock;
             s.AnimationLockDelay = am.EffectiveAnimationLockDelay;
             s.ComboTimeLeft = am.ComboTimeLeft;
             s.ComboLastAction = am.ComboLastMove;
 
+            s.RaidBuffsLeft = 0;
             foreach (var status in Player.Statuses.Where(s => IsDamageBuff(s.ID)))
             {
                 s.RaidBuffsLeft = MathF.Max(s.RaidBuffsLeft, StatusDuration(status.ExpireAt));
@@ -341,7 +345,10 @@ namespace BossMod
         // fill common strategy properties
         protected void FillCommonStrategy(CommonRotation.Strategy strategy, ActionID potion)
         {
+            var targetEnemy = Autorot.PrimaryTarget != null ? Autorot.Hints.PotentialTargets.Find(e => e.Actor == Autorot.PrimaryTarget) : null;
             strategy.Prepull = !Player.InCombat;
+            strategy.ForbidDOTs = targetEnemy?.ForbidDOTs ?? false;
+            strategy.ForceMovementIn = MaxCastTime;
             strategy.FightEndIn = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextDowntime(Autorot.Bossmods.ActiveModule?.StateMachine) ?? 0;
             strategy.RaidBuffsIn = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextVulnerable(Autorot.Bossmods.ActiveModule?.StateMachine) ?? 10000;
             if (Autorot.Bossmods.ActiveModule?.PlanConfig != null) // assumption: if there is no planning support for encounter (meaning it's something trivial, like outdoor boss), don't expect any cooldowns

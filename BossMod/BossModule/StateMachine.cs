@@ -66,8 +66,10 @@ namespace BossMod
         public List<Phase> Phases { get; private init; }
 
         private DateTime _curTime;
+        private DateTime _activation;
         private DateTime _phaseEnter;
         private DateTime _lastTransition;
+        public float TimeSinceActivation => (float)(_curTime - _activation).TotalSeconds;
         public float TimeSincePhaseEnter => (float)(_curTime - _phaseEnter).TotalSeconds;
         public float TimeSinceTransition => (float)(_curTime - _lastTransition).TotalSeconds;
         public float TimeSinceTransitionClamped => MathF.Min(TimeSinceTransition, ActiveState?.Duration ?? 0);
@@ -83,7 +85,7 @@ namespace BossMod
 
         public void Start(DateTime now)
         {
-            _curTime = now;
+            _activation = _curTime = now;
             if (Phases.Count > 0)
                 TransitionToPhase(0);
         }
@@ -155,8 +157,8 @@ namespace BossMod
             var timeLeft = MathF.Max(0, start.Duration - timeActive);
             if (writeTime && res.Length > 0)
             {
-                writeTime = false;
                 res.Append($" in {timeLeft:f1}s");
+                timeLeft = 0;
             }
 
             while (start.EndHint.HasFlag(StateHint.GroupWithNext) && start.Next != null)
@@ -169,15 +171,15 @@ namespace BossMod
                         res.Append(" + ");
                     res.Append(start.Name);
 
-                    if (writeTime)
+                    if (writeTime && timeLeft > 0)
                     {
-                        writeTime = false;
                         res.Append($" in {timeLeft:f1}s");
+                        timeLeft = 0;
                     }
                 }
             }
 
-            if (writeTime)
+            if (writeTime && timeLeft > 0)
             {
                 if (res.Length == 0)
                     res.Append("???");

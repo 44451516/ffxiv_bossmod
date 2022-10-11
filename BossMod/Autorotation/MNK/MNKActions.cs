@@ -36,10 +36,13 @@ namespace BossMod.MNK
             _config.Modified -= OnConfigModified;
         }
 
-        public override Targeting SelectBetterTarget(Actor initial)
+        public override CommonRotation.PlayerState GetState() => _state;
+        public override CommonRotation.Strategy GetStrategy() => _strategy;
+
+        public override Targeting SelectBetterTarget(AIHints.Enemy initial)
         {
             // TODO: multidotting support...
-            var pos = (_state.Form == Rotation.Form.Coeurl ? Rotation.GetCoeurlFormAction(_state, _strategy.NumPointBlankAOETargets) : AID.None) switch
+            var pos = (_state.Form == Rotation.Form.Coeurl ? Rotation.GetCoeurlFormAction(_state, _strategy.NumPointBlankAOETargets, _strategy.ForbidDOTs) : AID.None) switch
             {
                 AID.SnapPunch => Positional.Flank,
                 AID.Demolish => Positional.Rear,
@@ -52,13 +55,8 @@ namespace BossMod.MNK
         {
             UpdatePlayerState();
             FillCommonStrategy(_strategy, CommonDefinitions.IDPotionStr);
-            _strategy.NumPointBlankAOETargets = autoAction == AutoActionST ? 0 : Autorot.PotentialTargetsInRangeFromPlayer(5).Count();
-            _strategy.NumEnlightenmentTargets = 0;
-            if (Autorot.PrimaryTarget != null && autoAction != AutoActionST && _state.Unlocked(AID.HowlingFist))
-            {
-                var toTarget = (Autorot.PrimaryTarget.Position - Player.Position).Normalized();
-                _strategy.NumEnlightenmentTargets = Autorot.PotentialTargets.Valid.Where(a => a.Position.InRect(Player.Position, toTarget, 10, 0, _state.Unlocked(AID.Enlightenment) ? 2 : 1)).Count();
-            }
+            _strategy.NumPointBlankAOETargets = autoAction == AutoActionST ? 0 : NumTargetsHitByPBAOE();
+            _strategy.NumEnlightenmentTargets = Autorot.PrimaryTarget != null && autoAction != AutoActionST && _state.Unlocked(AID.HowlingFist) ? NumTargetsHitByEnlightenment(Autorot.PrimaryTarget) : 0;
         }
 
         protected override void QueueAIActions()
@@ -73,7 +71,7 @@ namespace BossMod.MNK
 
         protected override NextAction CalculateAutomaticGCD()
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
             var aid = Rotation.GetNextBestGCD(_state, _strategy);
             return MakeResult(aid, Autorot.PrimaryTarget);
@@ -81,7 +79,7 @@ namespace BossMod.MNK
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
 
             ActionID res = new();
@@ -136,9 +134,12 @@ namespace BossMod.MNK
             SupportedSpell(AID.ArmOfTheDestroyer).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
 
             // combo replacement
-            SupportedSpell(AID.FourPointFury).TransformAction = _config.AOECombos ? () => ActionID.MakeSpell(Rotation.GetNextComboAction(_state, 100)) : null;
+            SupportedSpell(AID.FourPointFury).TransformAction = _config.AOECombos ? () => ActionID.MakeSpell(Rotation.GetNextComboAction(_state, 100, false)) : null;
 
             // smart targets
         }
+
+        private int NumTargetsHitByPBAOE() => Autorot.Hints.NumPriorityTargetsInAOECircle(Player.Position, 5);
+        private int NumTargetsHitByEnlightenment(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOERect(Player.Position, (primary.Position - Player.Position).Normalized(), 10, _state.Unlocked(AID.Enlightenment) ? 2 : 1);
     }
 }

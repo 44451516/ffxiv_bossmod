@@ -23,15 +23,13 @@
         public Swinge() : base(ActionID.MakeSpell(AID.Swinge), new AOEShapeCone(40, 30.Degrees())) { } // TODO: verify angle
     }
 
-    // due to relatively short casts and the fact that boss likes moving across arena to cast swinge, we always want non-tanks to be positioned slightly behing
+    // due to relatively short casts and the fact that boss likes moving across arena to cast swinge, we always want non-tanks to be positioned slightly behind
     class Positioning : BossComponent
     {
-        private static AOEShapeCone _shape = new(10, 90.Degrees());
-
-        public override void UpdateSafeZone(BossModule module, int slot, Actor actor, SafeZone zone)
+        public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             if (actor.Role != Role.Tank)
-                zone.RestrictToZone(_shape, module.PrimaryActor.Position, module.PrimaryActor.Rotation + 180.Degrees(), module.WorldState.CurrentTime, 10000);
+                hints.AddForbiddenZone(ShapeDistance.Cone(module.PrimaryActor.Position, 10, module.PrimaryActor.Rotation, 90.Degrees()));
         }
     }
 
