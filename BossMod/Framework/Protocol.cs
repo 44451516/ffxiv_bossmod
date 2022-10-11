@@ -20,8 +20,8 @@ namespace BossMod
             ActionEffect32 = 0x2B2,
             ActorCast = 0x2E5,
             
-            EffectResult = 0x80,
-            EffectResultBasic = 0x0142,
+            EffectResult = 0x34C,
+            EffectResultBasic = 0x204,
             
             
             ActorControl = 0x1D4, // look at toggle weapon
