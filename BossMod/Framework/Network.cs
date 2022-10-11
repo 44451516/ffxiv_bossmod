@@ -130,36 +130,12 @@ namespace BossMod
                     case Protocol.Opcode.ActionEffect32:
                         HandleActionEffect32((Protocol.Server_ActionEffect32*)dataPtr, targetActorId);
                         break;
-                    case Protocol.Opcode.EffectResultBasic1:
-                        HandleEffectResultBasic(Math.Min((byte)1, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                    case Protocol.Opcode.EffectResultBasic:
+                        HandleEffectResultBasic((Protocol.Server_EffectResultBasic*)dataPtr, targetActorId);
                         break;
-                    // case Protocol.Opcode.EffectResultBasic4:
-                    //     HandleEffectResultBasic(Math.Min((byte)4, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
-                    //     break;
-                    // case Protocol.Opcode.EffectResultBasic8:
-                    //     HandleEffectResultBasic(Math.Min((byte)8, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
-                    //     break;
-                    // case Protocol.Opcode.EffectResultBasic16:
-                    //     HandleEffectResultBasic(Math.Min((byte)16, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
-                    //     break;
-                    // case Protocol.Opcode.EffectResultBasic32:
-                    //     HandleEffectResultBasic(Math.Min((byte)32, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
-                    //     break;
-                    // case Protocol.Opcode.EffectResultBasic64:
-                    //     HandleEffectResultBasic(Math.Min((byte)64, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                    case Protocol.Opcode.EffectResult:
+                        HandleEffectResult((Protocol.Server_EffectResult*)dataPtr, targetActorId);
                         break;
-                    case Protocol.Opcode.EffectResult1:
-                        HandleEffectResult(Math.Min((byte)1, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
-                        break;
-                    // case Protocol.Opcode.EffectResult4:
-                    //     HandleEffectResult(Math.Min((byte)4, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
-                    //     break;
-                    // case Protocol.Opcode.EffectResult8:
-                    //     HandleEffectResult(Math.Min((byte)8, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
-                    //     break;
-                    // case Protocol.Opcode.EffectResult16:
-                    //     HandleEffectResult(Math.Min((byte)16, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
-                    //     break;
                     case Protocol.Opcode.ActorCast:
                         HandleActorCast((Protocol.Server_ActorCast*)dataPtr, targetActorId);
                         break;
@@ -178,9 +154,42 @@ namespace BossMod
                     case Protocol.Opcode.PresetWaymark:
                         HandlePresetWaymark((Protocol.Server_PresetWaymark*)dataPtr);
                         break;
-                    // case Protocol.Opcode.RSVData:
-                    //     HandleRSVData(MemoryHelper.ReadStringNullTerminated(dataPtr + 4), MemoryHelper.ReadString(dataPtr + 0x34, *(int*)dataPtr));
-                    //     break;
+                    
+                    /*
+                    case Protocol.Opcode.EffectResultBasic1:
+                        HandleEffectResultBasic(Math.Min((byte)1, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResultBasic4:
+                        HandleEffectResultBasic(Math.Min((byte)4, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResultBasic8:
+                        HandleEffectResultBasic(Math.Min((byte)8, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResultBasic16:
+                        HandleEffectResultBasic(Math.Min((byte)16, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResultBasic32:
+                        HandleEffectResultBasic(Math.Min((byte)32, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResultBasic64:
+                        HandleEffectResultBasic(Math.Min((byte)64, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResult1:
+                        HandleEffectResult(Math.Min((byte)1, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                     case Protocol.Opcode.EffectResult4:
+                         HandleEffectResult(Math.Min((byte)4, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
+                         break;
+                     case Protocol.Opcode.EffectResult8:
+                         HandleEffectResult(Math.Min((byte)8, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
+                         break;
+                     case Protocol.Opcode.EffectResult16:
+                         HandleEffectResult(Math.Min((byte)16, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
+                         break;
+                     case Protocol.Opcode.RSVData:
+                         HandleRSVData(MemoryHelper.ReadStringNullTerminated(dataPtr + 4), MemoryHelper.ReadString(dataPtr + 0x34, *(int*)dataPtr));
+                         break;
+                    */
                 }
             }
             else
@@ -254,33 +263,51 @@ namespace BossMod
             var targets = Math.Min(header->NumTargets, maxTargets);
             for (int i = 0; i < targets; ++i)
             {
-                var target = new ActorCastEvent.Target();
-                target.ID = targetIDs[i];
-                for (int j = 0; j < 8; ++j)
-                    target.Effects[j] = *(ulong*)(effects + (i * 8) + j);
-                info.Targets.Add(target);
+                ulong targetID = targetIDs[i];
+                if (targetID != 0)
+                {
+                    var target = new ActorCastEvent.Target();
+                    target.ID = targetID;
+                    for (int j = 0; j < 8; ++j)
+                        target.Effects[j] = *(ulong*)(effects + (i * 8) + j);
+                    info.Targets.Add(target);
+                }
             }
 
             EventActionEffect?.Invoke(this, (casterID, info));
         }
 
-        private unsafe void HandleEffectResultBasic(int count, Protocol.Server_EffectResultBasicEntry* p, uint actorID)
+        // private unsafe void HandleEffectResultBasic(int count, Protocol.Server_EffectResultBasicEntry* p, uint actorID)
+        // {
+        //     for (int i = 0; i < count; ++i)
+        //     {
+        //         EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
+        //         ++p;
+        //     }
+        // }
+        
+        private unsafe void HandleEffectResultBasic(Protocol.Server_EffectResultBasic* p, uint actorID)
         {
-            for (int i = 0; i < count; ++i)
-            {
-                EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
-                ++p;
-            }
+            EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
+        }
+        
+
+        // private unsafe void HandleEffectResult(int count, Protocol.Server_EffectResultEntry* p, uint actorID)
+        // {
+        //     for (int i = 0; i < count; ++i)
+        //     {
+        //         EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
+        //         ++p;
+        //     }
+        // }
+        //
+        
+        private unsafe void HandleEffectResult(Protocol.Server_EffectResult* p, uint actorID)
+        {
+            EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
         }
 
-        private unsafe void HandleEffectResult(int count, Protocol.Server_EffectResultEntry* p, uint actorID)
-        {
-            for (int i = 0; i < count; ++i)
-            {
-                EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
-                ++p;
-            }
-        }
+        
 
         private unsafe void HandleActorCast(Protocol.Server_ActorCast* p, uint actorID)
         {
@@ -303,16 +330,16 @@ namespace BossMod
                 case Protocol.Server_ActorControlCategory.TetherCancel:
                     EventActorControlTetherCancel?.Invoke(this, actorID);
                     break;
-                case Protocol.Server_ActorControlCategory.EObjSetState:
-                    // p2 is unused (seems to be director id?), p3==1 means housing (?) item instead of event obj, p4 is housing item id
-                    EventActorControlEObjSetState?.Invoke(this, (actorID, (ushort)p->param1));
-                    break;
-                case Protocol.Server_ActorControlCategory.EObjAnimation:
-                    EventActorControlEObjAnimation?.Invoke(this, (actorID, (ushort)p->param1, (ushort)p->param2));
-                    break;
-                case Protocol.Server_ActorControlCategory.PlayActionTimeline:
-                    EventActorControlPlayActionTimeline?.Invoke(this, (actorID, (ushort)p->param1));
-                    break;
+                // case Protocol.Server_ActorControlCategory.EObjSetState:
+                //     // p2 is unused (seems to be director id?), p3==1 means housing (?) item instead of event obj, p4 is housing item id
+                //     EventActorControlEObjSetState?.Invoke(this, (actorID, (ushort)p->param1));
+                //     break;
+                // case Protocol.Server_ActorControlCategory.EObjAnimation:
+                //     EventActorControlEObjAnimation?.Invoke(this, (actorID, (ushort)p->param1, (ushort)p->param2));
+                //     break;
+                // case Protocol.Server_ActorControlCategory.PlayActionTimeline:
+                //     EventActorControlPlayActionTimeline?.Invoke(this, (actorID, (ushort)p->param1));
+                //     break;
             }
         }
 

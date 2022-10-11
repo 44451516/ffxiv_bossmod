@@ -32,6 +32,9 @@ namespace BossMod
             EffectResultBasic32 = 0x0204,
             EffectResultBasic64 = 0x0204,
             
+            EffectResult = 0x34C,
+            EffectResultBasic = 0x204,
+            
             
             ActorControl = 0x1D4, // look at toggle weapon
             ActorControlSelf = 0x12C, // look at cooldown
@@ -607,6 +610,40 @@ namespace BossMod
             public float LocZ;
             public uint u4;
             public ulong u5;
+        }
+        
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public unsafe struct Server_EffectResult
+        {
+            public byte Count; // always 1?..
+            public byte padding1;
+            public short padding2;
+            public uint RelatedActionSequence;
+            public uint ActorID;
+            public uint CurrentHP;
+            public uint MaxHP;
+            public ushort CurrentMP;
+            public byte RelatedTargetIndex;
+            public byte ClassJob;
+            public byte DamageShield;
+            public byte EffectCount;
+            public ushort padding3;
+            public fixed byte Effects[4 * 4 * 4]; // Server_EffectResultEntry[4]
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public unsafe struct Server_EffectResultBasic
+        {
+            public byte Count; // always 1?..
+            public byte padding1;
+            public short padding2;
+            public uint RelatedActionSequence;
+            public uint ActorID;
+            public uint CurrentHP;
+            public byte RelatedTargetIndex;
+            public byte padding3;
+            public ushort padding4;
+            public uint padding5;
         }
     }
 }
