@@ -66,14 +66,14 @@ namespace BossMod.RealmReborn.Dungeon.D08Qarn.D081Teratotaur
                 hints.Add("Go to glowing platform!");
         }
 
-        public override void UpdateSafeZone(BossModule module, int slot, Actor actor, SafeZone zone)
+        public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             if (_dooms[slot])
             {
                 var target = ActivePlatform;
                 if (target != null)
                 {
-                    zone.RestrictToZone(_platformShape, target.Position, 0.Degrees(), actor.FindStatus(SID.Doom)!.Value.ExpireAt);
+                    hints.AddForbiddenZone(ShapeDistance.InvertedCircle(target.Position, _platformShape.Radius), actor.FindStatus(SID.Doom)!.Value.ExpireAt);
                 }
             }
         }
@@ -111,18 +111,17 @@ namespace BossMod.RealmReborn.Dungeon.D08Qarn.D081Teratotaur
 
     public class D081Teratotaur : BossModule
     {
-        private List<Actor> _wespe;
+        public D081Teratotaur(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(-70, -60), 20)) { }
 
-        public D081Teratotaur(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(-70, -60), 20))
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            _wespe = Enemies(OID.DungWespe);
-        }
-
-        public override bool FillTargets(BossTargets targets, int pcSlot)
-        {
-            if (!targets.AddIfValid(_wespe))
-                targets.AddIfValid(PrimaryActor);
-            return true;
+            base.CalculateAIHints(slot, actor, assignment, hints);
+            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            {
+                OID.DungWespe => 2,
+                OID.Boss => 1,
+                _ => 0
+            });
         }
     }
 }

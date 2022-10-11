@@ -39,6 +39,11 @@
         {
             public int NumLadonsbiteTargets; // range 12 90-degree cone
             public int NumRainOfDeathTargets; // range 8 circle around target
+
+            public override string ToString()
+            {
+                return $"AOE={NumRainOfDeathTargets}/{NumLadonsbiteTargets}, no-dots={ForbidDOTs}";
+            }
         }
 
         public static bool RefreshDOT(State state, float timeLeft) => timeLeft < state.GCD + 3.0f; // TODO: tweak threshold so that we don't overwrite or miss ticks...
@@ -53,9 +58,9 @@
             else
             {
                 // 1. dots
-                if (state.Unlocked(AID.Windbite) && RefreshDOT(state, state.TargetStormbiteLeft))
+                if (!strategy.ForbidDOTs && state.Unlocked(AID.Windbite) && RefreshDOT(state, state.TargetStormbiteLeft))
                     return state.BestStormbite;
-                if (state.Unlocked(AID.VenomousBite) && RefreshDOT(state, state.TargetCausticLeft))
+                if (!strategy.ForbidDOTs && state.Unlocked(AID.VenomousBite) && RefreshDOT(state, state.TargetCausticLeft))
                     return state.BestCausticBite;
 
                 // 2. straight shot if possible

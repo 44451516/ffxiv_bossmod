@@ -30,14 +30,14 @@ namespace BossMod
                 var actor = ws?.Actors.Find(instanceID);
                 return actor != null ? $"{actor.InstanceID:X8}/{actor.OID:X}/{actor.Name}/{actor.Type}/{StrVec3(actor.PosRot.XYZ())}/{actor.Rotation}" : $"{instanceID:X8}";
             }
-            protected static string StrHP(ActorHP hp) => $"{hp.Cur}/{hp.Max}/{hp.Shield}";
+            protected static string StrHPMP(ActorHP hp, uint curMP) => $"{hp.Cur}/{hp.Max}/{hp.Shield}/{curMP}";
         }
 
         public IEnumerable<Operation> CompareToInitial()
         {
             foreach (var act in this)
             {
-                yield return new OpCreate() { InstanceID = act.InstanceID, OID = act.OID, Name = act.Name, Type = act.Type, Class = act.Class, PosRot = act.PosRot, HitboxRadius = act.HitboxRadius, HP = act.HP, IsTargetable = act.IsTargetable, IsAlly = act.IsAlly, OwnerID = act.OwnerID };
+                yield return new OpCreate() { InstanceID = act.InstanceID, OID = act.OID, SpawnIndex = act.SpawnIndex, Name = act.Name, Type = act.Type, Class = act.Class, PosRot = act.PosRot, HitboxRadius = act.HitboxRadius, HP = act.HP, CurMP = act.CurMP, IsTargetable = act.IsTargetable, IsAlly = act.IsAlly, OwnerID = act.OwnerID };
                 if (act.IsDead)
                     yield return new OpDead() { InstanceID = act.InstanceID, Value = true };
                 if (act.InCombat)
@@ -59,12 +59,14 @@ namespace BossMod
         public class OpCreate : Operation
         {
             public uint OID;
+            public int SpawnIndex;
             public string Name = "";
             public ActorType Type;
             public Class Class;
             public Vector4 PosRot;
             public float HitboxRadius;
             public ActorHP HP;
+            public uint CurMP;
             public bool IsTargetable;
             public bool IsAlly;
             public ulong OwnerID;
@@ -72,11 +74,11 @@ namespace BossMod
             protected override void ExecActor(WorldState ws, Actor actor) { }
             protected override void Exec(WorldState ws)
             {
-                var actor = ws.Actors._actors[InstanceID] = new Actor(InstanceID, OID, Name, Type, Class, PosRot, HitboxRadius, HP, IsTargetable, IsAlly, OwnerID);
+                var actor = ws.Actors._actors[InstanceID] = new Actor(InstanceID, OID, SpawnIndex, Name, Type, Class, PosRot, HitboxRadius, HP, CurMP, IsTargetable, IsAlly, OwnerID);
                 ws.Actors.Added?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"ACT+|{StrActor(ws, InstanceID)}|{Class}|{IsTargetable}|{HitboxRadius:f3}|{StrActor(ws, OwnerID)}|{StrHP(HP)}|{IsAlly}";
+            public override string Str(WorldState? ws) => $"ACT+|{StrActor(ws, InstanceID)}|{Class}|{IsTargetable}|{HitboxRadius:f3}|{StrActor(ws, OwnerID)}|{StrHPMP(HP, CurMP)}|{IsAlly}|{SpawnIndex}";
         }
 
         public event EventHandler<Actor>? Removed;
@@ -171,18 +173,20 @@ namespace BossMod
             public override string Str(WorldState? ws) => $"ACSZ|{StrActor(ws, InstanceID)}|{HitboxRadius:f3}";
         }
 
-        public event EventHandler<Actor>? HPChanged;
-        public class OpHP : Operation
+        public event EventHandler<Actor>? HPMPChanged;
+        public class OpHPMP : Operation
         {
-            public ActorHP Value;
+            public ActorHP HP;
+            public uint CurMP;
 
             protected override void ExecActor(WorldState ws, Actor actor)
             {
-                actor.HP = Value;
-                ws.Actors.HPChanged?.Invoke(ws, actor);
+                actor.HP = HP;
+                actor.CurMP = CurMP;
+                ws.Actors.HPMPChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"HP  |{StrActor(ws, InstanceID)}|{StrHP(Value)}";
+            public override string Str(WorldState? ws) => $"HP  |{StrActor(ws, InstanceID)}|{StrHPMP(HP, CurMP)}";
         }
 
         public event EventHandler<Actor>? IsTargetableChanged;
@@ -353,6 +357,21 @@ namespace BossMod
             }
         }
 
+        // note: this is inherently an event, it can't be accessed from actor fields
+        public event EventHandler<(Actor Source, uint Seq, int TargetIndex)>? EffectResult;
+        public class OpEffectResult : Operation
+        {
+            public uint Seq;
+            public int TargetIndex;
+
+            protected override void ExecActor(WorldState ws, Actor actor)
+            {
+                ws.Actors.EffectResult?.Invoke(ws, (actor, Seq, TargetIndex));
+            }
+
+            public override string Str(WorldState? ws) => $"ER  |{StrActor(ws, InstanceID)}|{Seq}|{TargetIndex}";
+        }
+
         public event EventHandler<(Actor, int)>? StatusGain; // called when status appears -or- when extra or expiration time is changed
         public event EventHandler<(Actor, int)>? StatusLose; // note that status structure still contains details when this is invoked; invoked if actor disappears
         public class OpStatus : Operation
@@ -388,6 +407,49 @@ namespace BossMod
             }
 
             public override string Str(WorldState? ws) => $"ICON|{StrActor(ws, InstanceID)}|{IconID}";
+        }
+
+        // TODO: this should be an actor field (?)
+        public event EventHandler<(Actor, ushort)>? EventObjectStateChange;
+        public class OpEventObjectStateChange : Operation
+        {
+            public ushort State;
+
+            protected override void ExecActor(WorldState ws, Actor actor)
+            {
+                ws.Actors.EventObjectStateChange?.Invoke(ws, (actor, State));
+            }
+
+            public override string Str(WorldState? ws) => $"ESTA|{StrActor(ws, InstanceID)}|{State:X4}";
+        }
+
+        // TODO: this should be an actor field (?)
+        public event EventHandler<(Actor, ushort, ushort)>? EventObjectAnimation;
+        public class OpEventObjectAnimation : Operation
+        {
+            public ushort Param1;
+            public ushort Param2;
+
+            protected override void ExecActor(WorldState ws, Actor actor)
+            {
+                ws.Actors.EventObjectAnimation?.Invoke(ws, (actor, Param1, Param2));
+            }
+
+            public override string Str(WorldState? ws) => $"EANM|{StrActor(ws, InstanceID)}|{Param1:X4}|{Param2:X4}";
+        }
+
+        // TODO: this needs more reversing...
+        public event EventHandler<(Actor, ushort)>? PlayActionTimelineEvent;
+        public class OpPlayActionTimelineEvent : Operation
+        {
+            public ushort ActionTimelineID;
+
+            protected override void ExecActor(WorldState ws, Actor actor)
+            {
+                ws.Actors.PlayActionTimelineEvent?.Invoke(ws, (actor, ActionTimelineID));
+            }
+
+            public override string Str(WorldState? ws) => $"PATE|{StrActor(ws, InstanceID)}|{ActionTimelineID:X4}";
         }
     }
 }

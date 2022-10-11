@@ -32,11 +32,9 @@ namespace BossMod.RealmReborn.Dungeon.D12AurumVale.D121Locksmith
     // arena has multiple weirdly-shaped puddles, so just prefer standing in large safe zone
     class AIPosition : BossComponent
     {
-        private AOEShapeRect _shape = new(5, 5, 5);
-
-        public override void UpdateSafeZone(BossModule module, int slot, Actor actor, SafeZone zone)
+        public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            zone.RestrictToZone(_shape, new(30, 0), new(), module.WorldState.CurrentTime, 10000);
+            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(new(30, 0), 5));
         }
     }
 
@@ -53,6 +51,6 @@ namespace BossMod.RealmReborn.Dungeon.D12AurumVale.D121Locksmith
 
     public class D121Locksmith : BossModule
     {
-        public D121Locksmith(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsRect(new(35, 0), new(1, 0), 15, 25)) { }
+        public D121Locksmith(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsRect(new(35, 0), 15, 25)) { }
     }
 }

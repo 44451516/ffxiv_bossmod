@@ -28,6 +28,7 @@ namespace BossMod.BRD
             SupportedSpell(AID.QuickNock).TransformAction = SupportedSpell(AID.Ladonsbite).TransformAction = () => ActionID.MakeSpell(_state.BestLadonsbite);
 
             SupportedSpell(AID.Peloton).Condition = _ => !Player.InCombat;
+            SupportedSpell(AID.HeadGraze).Condition = target => target?.CastInfo?.Interruptible ?? false;
 
             _config.Modified += OnConfigModified;
             OnConfigModified(null, EventArgs.Empty);
@@ -38,17 +39,20 @@ namespace BossMod.BRD
             _config.Modified -= OnConfigModified;
         }
 
-        public override Targeting SelectBetterTarget(Actor initial)
+        public override CommonRotation.PlayerState GetState() => _state;
+        public override CommonRotation.Strategy GetStrategy() => _strategy;
+
+        public override Targeting SelectBetterTarget(AIHints.Enemy initial)
         {
             // TODO: min range to better hit clump with cone...
             // TODO: targeting for rain of death
             var bestTarget = initial;
             if (_state.Unlocked(AID.QuickNock))
             {
-                var bestAOECount = NumTargetsHitByLadonsbite(initial);
-                foreach (var candidate in Autorot.PotentialTargetsInRangeFromPlayer(12).Exclude(initial))
+                var bestAOECount = NumTargetsHitByLadonsbite(initial.Actor);
+                foreach (var candidate in Autorot.Hints.PriorityTargets.Where(e => e != initial && e.Actor.Position.InCircle(Player.Position, 12)))
                 {
-                    var candidateAOECount = NumTargetsHitByLadonsbite(candidate);
+                    var candidateAOECount = NumTargetsHitByLadonsbite(candidate.Actor);
                     if (candidateAOECount > bestAOECount)
                     {
                         bestTarget = candidate;
@@ -56,7 +60,7 @@ namespace BossMod.BRD
                     }
                 }
             }
-            return new(bestTarget, 12);
+            return new(bestTarget, bestTarget.StayAtLongRange ? 25 : 12);
         }
 
         protected override void UpdateInternalState(int autoAction)
@@ -69,6 +73,11 @@ namespace BossMod.BRD
 
         protected override void QueueAIActions()
         {
+            if (_state.Unlocked(AID.HeadGraze))
+            {
+                var interruptibleEnemy = Autorot.Hints.PotentialTargets.FirstOrDefault(e => e.ShouldBeInterrupted && (e.Actor.CastInfo?.Interruptible ?? false) && e.Actor.Position.InCircle(Player.Position, 25 + e.Actor.HitboxRadius + Player.HitboxRadius));
+                SimulateManualActionForAI(ActionID.MakeSpell(AID.HeadGraze), interruptibleEnemy?.Actor, interruptibleEnemy != null);
+            }
             if (_state.Unlocked(AID.SecondWind))
                 SimulateManualActionForAI(ActionID.MakeSpell(AID.SecondWind), Player, Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.5f);
             if (_state.Unlocked(AID.WardensPaean))
@@ -77,12 +86,12 @@ namespace BossMod.BRD
                 SimulateManualActionForAI(ActionID.MakeSpell(AID.WardensPaean), esunableTarget, esunableTarget != null);
             }
             if (_state.Unlocked(AID.Peloton))
-                SimulateManualActionForAI(ActionID.MakeSpell(AID.Peloton), Player, !Player.InCombat && _state.PelotonLeft < 3 && AutoAction is AutoActionAIIdleMove or AutoActionAIFightMove);
+                SimulateManualActionForAI(ActionID.MakeSpell(AID.Peloton), Player, !Player.InCombat && _state.PelotonLeft < 3 && _strategy.ForceMovementIn == 0);
         }
 
         protected override NextAction CalculateAutomaticGCD()
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
             var aid = Rotation.GetNextBestGCD(_state, _strategy);
             return MakeResult(aid, Autorot.PrimaryTarget);
@@ -90,7 +99,7 @@ namespace BossMod.BRD
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
 
             ActionID res = new();
@@ -170,12 +179,7 @@ namespace BossMod.BRD
             // smart targets
         }
 
-        private int NumTargetsHitByLadonsbite(Actor primary)
-        {
-            var dir = Angle.FromDirection(primary.Position - Player.Position);
-            return 1 + Autorot.PotentialTargetsInRangeFromPlayer(12).Count(a => a != primary && a.Position.InCone(Player.Position, dir, 45.Degrees()));
-        }
-
-        private int NumTargetsHitByRainOfDeath(Actor primary) => Autorot.PotentialTargetsInRange(primary.Position, 8).Count();
+        private int NumTargetsHitByLadonsbite(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOECone(Player.Position, 12, (primary.Position - Player.Position).Normalized(), 45.Degrees());
+        private int NumTargetsHitByRainOfDeath(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOECircle(primary.Position, 8);
     }
 }

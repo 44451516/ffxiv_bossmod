@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace BossMod.WAR
 {
-    class Actions : CommonActions
+    class Actions : TankActions
     {
         public const int AutoActionST = AutoActionFirstCustom + 0;
         public const int AutoActionAOE = AutoActionFirstCustom + 1;
@@ -32,7 +32,7 @@ namespace BossMod.WAR
             SupportedSpell(AID.RawIntuition).TransformAction = SupportedSpell(AID.Bloodwhetting).TransformAction = () => ActionID.MakeSpell(_state.BestBloodwhetting);
 
             SupportedSpell(AID.Equilibrium).Condition = _ => Player.HP.Cur < Player.HP.Max;
-            SupportedSpell(AID.Reprisal).Condition = _ => Autorot.PotentialTargetsInRangeFromPlayer(5).Any(); // TODO: consider checking only target?..
+            SupportedSpell(AID.Reprisal).Condition = _ => Autorot.Hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(Player.Position, 5 + e.Actor.HitboxRadius)); // TODO: consider checking only target?..
             SupportedSpell(AID.Interject).Condition = target => target?.CastInfo?.Interruptible ?? false;
             // TODO: SIO - check that raid is in range?..
             // TODO: Provoke - check that not already MT?
@@ -47,13 +47,17 @@ namespace BossMod.WAR
             _config.Modified -= OnConfigModified;
         }
 
+        public override CommonRotation.PlayerState GetState() => _state;
+        public override CommonRotation.Strategy GetStrategy() => _strategy;
+
         protected override void UpdateInternalState(int autoAction)
         {
+            base.UpdateInternalState(autoAction);
             _aoe = autoAction switch
             {
                 AutoActionST => false,
                 AutoActionAOE => true, // TODO: consider making AI-like check
-                AutoActionAIFight or AutoActionAIFightMove => Autorot.PotentialTargetsInRangeFromPlayer(5).Count() >= 3,
+                AutoActionAIFight => NumTargetsHitByAOE() >= 3,
                 _ => false, // irrelevant...
             };
             UpdatePlayerState();
@@ -62,19 +66,28 @@ namespace BossMod.WAR
 
         protected override void QueueAIActions()
         {
+            if (_state.Unlocked(AID.Interject))
+            {
+                var interruptibleEnemy = Autorot.Hints.PotentialTargets.FirstOrDefault(e => e.ShouldBeInterrupted && (e.Actor.CastInfo?.Interruptible ?? false) && e.Actor.Position.InCircle(Player.Position, 3 + e.Actor.HitboxRadius + Player.HitboxRadius));
+                SimulateManualActionForAI(ActionID.MakeSpell(AID.Interject), interruptibleEnemy?.Actor, interruptibleEnemy != null);
+            }
+            if (_state.Unlocked(AID.Defiance))
+                SimulateManualActionForAI(ActionID.MakeSpell(AID.Defiance), Player, ShouldSwapStance());
         }
 
         protected override NextAction CalculateAutomaticGCD()
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
+            if (AutoAction == AutoActionAIFight && !Autorot.PrimaryTarget.Position.InCircle(Player.Position, 3 + Autorot.PrimaryTarget.HitboxRadius + Player.HitboxRadius) && _state.Unlocked(AID.Tomahawk))
+                return MakeResult(AID.Tomahawk, Autorot.PrimaryTarget); // TODO: reconsider...
             var aid = Rotation.GetNextBestGCD(_state, _strategy, _aoe);
             return MakeResult(aid, Autorot.PrimaryTarget);
         }
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
 
             ActionID res = new();
@@ -87,6 +100,7 @@ namespace BossMod.WAR
 
         protected override void OnActionExecuted(ActionID action, Actor? target)
         {
+            base.OnActionExecuted(action, target);
             Log($"Executed {action} @ {target} [{_state}]");
         }
 
@@ -145,5 +159,7 @@ namespace BossMod.WAR
         }
 
         private AID ComboLastMove => (AID)ActionManagerEx.Instance!.ComboLastMove;
+
+        private int NumTargetsHitByAOE() => Autorot.Hints.NumPriorityTargetsInAOECircle(Player.Position, 5);
     }
 }

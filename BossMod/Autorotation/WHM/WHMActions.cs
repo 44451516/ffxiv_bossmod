@@ -15,7 +15,6 @@ namespace BossMod.WHM
         private WHMConfig _config;
         private Rotation.State _state;
         private Rotation.Strategy _strategy;
-        private (Actor? Target, float HPRatio) _bestSTHeal;
         private bool _allowDelayingNextGCD;
 
         public Actions(Autorotation autorot, Actor player)
@@ -43,19 +42,22 @@ namespace BossMod.WHM
             base.Dispose();
         }
 
-        public override Targeting SelectBetterTarget(Actor initial)
+        public override CommonRotation.PlayerState GetState() => _state;
+        public override CommonRotation.Strategy GetStrategy() => _strategy;
+
+        public override Targeting SelectBetterTarget(AIHints.Enemy initial)
         {
             // TODO: look for good place to cast holy and move closer...
 
             // look for target to multidot, if initial target already has dot
-            if (_state.Unlocked(AID.Aero1) && !WithoutDOT(initial))
+            if (_state.Unlocked(AID.Aero1) && !WithoutDOT(initial.Actor))
             {
-                var multidotTarget = Autorot.PotentialTargetsInRangeFromPlayer(25).FirstOrDefault(t => t != initial && WithoutDOT(t));
+                var multidotTarget = Autorot.Hints.PriorityTargets.FirstOrDefault(t => t != initial && !t.ForbidDOTs && t.Actor.Position.InCircle(Player.Position, 25) && WithoutDOT(t.Actor));
                 if (multidotTarget != null)
-                    return new(multidotTarget, 10);
+                    return new(multidotTarget, multidotTarget.StayAtLongRange ? 25 : 10);
             }
 
-            return new(initial, 10);
+            return new(initial, initial.StayAtLongRange ? 25 : 10);
         }
 
         protected override void UpdateInternalState(int autoAction)
@@ -63,15 +65,14 @@ namespace BossMod.WHM
             base.UpdateInternalState(autoAction);
             UpdatePlayerState();
             FillCommonStrategy(_strategy, CommonDefinitions.IDPotionMnd);
-            _strategy.NumAssizeMedica1Targets = _state.Unlocked(AID.Medica1) ? CountAOEHealTargets(15, Player.Position) : 0;
+            _strategy.NumAssizeMedica1Targets = _state.Unlocked(AID.Medica1) ? CountAOEHealTargets(15, Player.Position, 0.5f) : 0;
             _strategy.NumRaptureMedica2Targets = _state.Unlocked(AID.Medica2) ? CountAOEHealTargets(20, Player.Position) : 0;
             _strategy.NumCure3Targets = _state.Unlocked(AID.Cure3) ? SmartCure3Target().Item2 : 0;
-            _strategy.NumHolyTargets = _state.Unlocked(AID.Holy1) ? Autorot.PotentialTargetsInRangeFromPlayer(8).Count() : 0;
+            _strategy.NumHolyTargets = _state.Unlocked(AID.Holy1) ? Autorot.Hints.NumPriorityTargetsInAOECircle(Player.Position, 8) : 0;
             _strategy.EnableAssize = AllowAssize(); // note: should be plannable...
             _strategy.AllowReplacingHealWithMisery = _config.NeverOvercapBloodLilies && Autorot.PrimaryTarget?.Type == ActorType.Enemy;
             _strategy.Heal = _strategy.AOE = false;
-            _strategy.Moving = autoAction is AutoActionAIIdleMove or AutoActionAIFightMove;
-            _bestSTHeal = FindBestSTHealTarget();
+            _strategy.BestSTHeal = FindBestSTHealTarget();
             if (autoAction >= AutoActionFirstCustom)
             {
                 _strategy.Heal = autoAction is AutoActionSTHeal or AutoActionAOEHeal;
@@ -100,25 +101,24 @@ namespace BossMod.WHM
                     // AI: aoe heals > st heals > esuna > damage
                     // i don't really think 'rotation/actions' split is particularly good fit for healers AI...
                     // TODO: raise support...
-                    bool allowCasts = !_strategy.Moving || _state.SwiftcastLeft > _state.GCD;
 
                     // TODO: L52+ (afflatus rapture)
                     // 2. medica 2, if possible and useful, and buff is not already up; we consider it ok to overwrite last tick
-                    if (allowCasts && _strategy.NumRaptureMedica2Targets > 2 && _state.CanCastMedica2 && _state.MedicaLeft <= _state.GCD + 2.5f)
+                    if (Rotation.CanCast(_state, _strategy, 2) && _strategy.NumRaptureMedica2Targets > 2 && _state.CanCastMedica2 && _state.MedicaLeft <= _state.GCD + 2.5f)
                         return MakeResult(AID.Medica2, Player);
                     // 3. cure 3, if possible and useful
-                    if (allowCasts && _strategy.NumCure3Targets > 2 && _state.CanCastCure3)
+                    if (Rotation.CanCast(_state, _strategy, 2) && _strategy.NumCure3Targets > 2 && _state.CanCastCure3)
                         return MakeResult(AID.Cure3, SmartCure3Target().Item1 ?? Player);
                     // 4. medica 1, if possible and useful
-                    if (allowCasts && _strategy.NumAssizeMedica1Targets > 2 && _state.CanCastMedica1)
+                    if (Rotation.CanCast(_state, _strategy, 2) && _strategy.NumAssizeMedica1Targets > 2 && _state.CanCastMedica1)
                         return MakeResult(AID.Medica1, Player);
 
                     // now check ST heals (TODO: afflatus solace)
-                    if (allowCasts && _bestSTHeal.Target != null)
-                        return MakeResult(_state.CanCastCure2 ? AID.Cure2 : AID.Cure1, _bestSTHeal.Target);
+                    if (Rotation.CanCast(_state, _strategy, 2) && _strategy.BestSTHeal.Target != null && _strategy.BestSTHeal.HPRatio <= 0.5f)
+                        return MakeResult(_state.CanCastCure2 ? AID.Cure2 : AID.Cure1, _strategy.BestSTHeal.Target);
 
                     // now check esuna
-                    if (allowCasts)
+                    if (Rotation.CanCast(_state, _strategy, 1))
                     {
                         var esunaTarget = FindEsunaTarget();
                         if (esunaTarget != null)
@@ -131,11 +131,13 @@ namespace BossMod.WHM
                         return MakeResult(AID.Regen, regenTarget);
 
                     // finally perform damage rotation
-                    if (allowCasts && _strategy.NumHolyTargets >= 3)
-                        return MakeResult(_state.BestHoly, Player);
-
-                    if (Autorot.PrimaryTarget != null)
-                        return MakeResult(Rotation.GetNextBestSTDamageGCD(_state, _strategy), Autorot.PrimaryTarget);
+                    if (_state.CurMP > 3000)
+                    {
+                        if (Rotation.CanCast(_state, _strategy, 2.5f) && _strategy.NumHolyTargets >= 3)
+                            return MakeResult(_state.BestHoly, Player);
+                        if (Autorot.PrimaryTarget != null)
+                            return MakeResult(Rotation.GetNextBestSTDamageGCD(_state, _strategy), Autorot.PrimaryTarget);
+                    }
 
                     return new(); // chill
             }
@@ -143,7 +145,7 @@ namespace BossMod.WHM
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (AutoAction < AutoActionFirstFight)
+            if (AutoAction < AutoActionAIFight)
                 return new();
 
             if (deadline < float.MaxValue && _allowDelayingNextGCD)
@@ -162,11 +164,11 @@ namespace BossMod.WHM
             // TODO: L52+
 
             // benediction at extremely low hp (TODO: unless planned, tweak threshold)
-            if (_bestSTHeal.Target != null && _bestSTHeal.HPRatio <= 0 && _state.Unlocked(AID.Benediction) && _state.CanWeave(CDGroup.Benediction, 0.6f, deadline))
-                return MakeResult(AID.Benediction, _bestSTHeal.Target);
+            if (_strategy.BestSTHeal.Target != null && _strategy.BestSTHeal.HPRatio <= 0 && _state.Unlocked(AID.Benediction) && _state.CanWeave(CDGroup.Benediction, 0.6f, deadline))
+                return MakeResult(AID.Benediction, _strategy.BestSTHeal.Target);
 
             // swiftcast, if can't cast any gcd (TODO: current check is not very good...)
-            if (deadline >= 10000 && _strategy.Moving && _state.Unlocked(AID.Swiftcast) && _state.CanWeave(CDGroup.Swiftcast, 0.6f, deadline))
+            if (deadline >= 10000 && _strategy.ForceMovementIn < 5 && _state.Unlocked(AID.Swiftcast) && _state.CanWeave(CDGroup.Swiftcast, 0.6f, deadline))
                 return MakeResult(AID.Swiftcast, Player);
 
             // pom (TODO: consider delaying until raidbuffs?)
@@ -250,13 +252,13 @@ namespace BossMod.WHM
         private (Actor?, int) SmartCure3Target()
         {
             var rsq = 30 * 30;
-            return Autorot.WorldState.Party.WithoutSlot().Select(o => (o, (o.Position - Player.Position).LengthSq() <= rsq ? CountAOEHealTargets(10, o.Position) : -1)).MaxBy(oc => oc.Item2);
+            return Autorot.WorldState.Party.WithoutSlot().Select(o => (o, (o.Position - Player.Position).LengthSq() <= rsq ? CountAOEHealTargets(10, o.Position, 0.5f) : -1)).MaxBy(oc => oc.Item2);
         }
 
         // check whether any targetable enemies are in assize range
         private bool AllowAssize()
         {
-            return Autorot.PotentialTargetsInRangeFromPlayer(15).Any();
+            return Autorot.Hints.NumPriorityTargetsInAOECircle(Player.Position, 15) > 0;
         }
     }
 }

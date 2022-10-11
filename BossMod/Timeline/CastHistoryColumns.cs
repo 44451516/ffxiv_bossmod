@@ -34,7 +34,7 @@ namespace BossMod
 
         public void AddEvent(ActionID aid, ActionUseColumn.Event ev)
         {
-            if (aid == CommonDefinitions.IDAutoAttack)
+            if (aid == CommonDefinitions.IDAutoAttack || aid == CommonDefinitions.IDAutoShot)
             {
                 _autoAttacks.Events.Add(ev);
             }
@@ -54,6 +54,18 @@ namespace BossMod
                     if (def.Definition.Cooldown > 0)
                         col.Entries.Add(new(ev.AttachNode, ev.Delay, 0, def.Definition.EffectDuration, def.Definition.Cooldown, aid.ToString()));
                 }
+            }
+        }
+
+        public void ClearEvents()
+        {
+            _autoAttacks.Events.Clear();
+            _animLock.Events.Clear();
+            _animLock.Entries.Clear();
+            foreach (var c in _columns)
+            {
+                c.Events.Clear();
+                c.Entries.Clear();
             }
         }
     }

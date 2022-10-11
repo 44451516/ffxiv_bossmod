@@ -72,13 +72,6 @@ namespace BossMod
             return $"{Math.Max(0, (expireAt - now).TotalSeconds):f3}";
         }
 
-        public static string KnockbackString(uint knockbackID)
-        {
-            var kbData = Service.LuminaRow<Lumina.Excel.GeneratedSheets.Knockback>(knockbackID);
-            string details = kbData != null ? $"distance={kbData.Distance}" : "not found";
-            return $"{knockbackID} ({details})";
-        }
-
         public static string CastTimeString(float current, float total)
         {
             return $"{current:f2}/{total:f2}";
@@ -222,6 +215,10 @@ namespace BossMod
             }
             return first;
         }
+
+        // sort elements of a list by key
+        public static void SortBy<TValue, TKey>(this List<TValue> list, Func<TValue, TKey> proj) where TKey : notnull, IComparable => list.Sort((l, r) => proj(l).CompareTo(proj(r)));
+        public static void SortByReverse<TValue, TKey>(this List<TValue> list, Func<TValue, TKey> proj) where TKey : notnull, IComparable => list.Sort((l, r) => proj(r).CompareTo(proj(l)));
 
         // get all types defined in specified assembly
         public static IEnumerable<Type?> GetAllTypes(Assembly asm)

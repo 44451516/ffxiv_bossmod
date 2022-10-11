@@ -56,7 +56,7 @@ namespace BossMod.RealmReborn.Dungeon.D09Cutter.D093Chimera
 
     class RamsKeeperVoidzone : Components.PersistentVoidzone
     {
-        public RamsKeeperVoidzone() : base((uint)OID.RamsKeeper, new AOEShapeCircle(6)) { }
+        public RamsKeeperVoidzone() : base(6, m => m.Enemies(OID.RamsKeeper)) { }
     }
 
     class ChaoticChorus : Components.GenericAOEs
@@ -65,7 +65,7 @@ namespace BossMod.RealmReborn.Dungeon.D09Cutter.D093Chimera
 
         public ChaoticChorus() : base(ActionID.MakeSpell(AID.ChaoticChorus)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             // TODO: timings
             return module.Enemies(OID.Cacophony).Where(c => !c.IsDead).Select(c => (_shape, c.Position, c.Rotation, module.WorldState.CurrentTime));

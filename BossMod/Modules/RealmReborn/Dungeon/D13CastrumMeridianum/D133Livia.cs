@@ -40,14 +40,14 @@ namespace BossMod.RealmReborn.Dungeon.D13CastrumMeridianum.D133Livia
         ArtificialPlasmaBoostRest = 29353, // Boss->self, no cast, raidwide
     };
 
-    class AglaeaClimb : Components.CastHint
+    class AglaeaClimb : Components.SingleTargetCast
     {
-        public AglaeaClimb() : base(ActionID.MakeSpell(AID.AglaeaClimb), "Tankbuster") { }
+        public AglaeaClimb() : base(ActionID.MakeSpell(AID.AglaeaClimb)) { }
     }
 
-    class ArtificialPlasma : Components.CastHint
+    class ArtificialPlasma : Components.RaidwideCast
     {
-        public ArtificialPlasma() : base(ActionID.MakeSpell(AID.ArtificialPlasma), "Raidwide") { }
+        public ArtificialPlasma() : base(ActionID.MakeSpell(AID.ArtificialPlasma)) { }
     }
 
     class Roundhouse : Components.GenericAOEs
@@ -60,7 +60,7 @@ namespace BossMod.RealmReborn.Dungeon.D13CastrumMeridianum.D133Livia
 
         public Roundhouse() : base(ActionID.MakeSpell(AID.Roundhouse)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             if (_castersRoundhouse.Count > 0)
                 return _castersRoundhouse.Select(c => (_shapeRoundhouse, c.Position, c.CastInfo!.Rotation, c.CastInfo!.FinishAt));
@@ -100,7 +100,7 @@ namespace BossMod.RealmReborn.Dungeon.D13CastrumMeridianum.D133Livia
 
         public InfiniteReach() : base(ActionID.MakeSpell(AID.InfiniteReachDischarge)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             bool haveSets = false;
             int currentSet = NumCasts / 6;
@@ -158,7 +158,7 @@ namespace BossMod.RealmReborn.Dungeon.D13CastrumMeridianum.D133Livia
 
         public StunningSweep() : base(ActionID.MakeSpell(AID.StunningSweep)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             if (_castersSweepDischarge.Count > 0)
                 return _castersSweepDischarge.Select(c => (_shapeSweepDischarge, c.Position, c.CastInfo!.Rotation, c.CastInfo!.FinishAt));
@@ -194,7 +194,7 @@ namespace BossMod.RealmReborn.Dungeon.D13CastrumMeridianum.D133Livia
 
         public AngrySalamander() : base(ActionID.MakeSpell(AID.AngrySalamander)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             foreach (var c in _castersSalamander)
                 yield return (_shapeSalamander, c.Position, c.CastInfo!.Rotation, c.CastInfo!.FinishAt);

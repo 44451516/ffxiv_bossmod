@@ -22,7 +22,7 @@ namespace BossMod.BLM
             _config = Service.Config.Get<BLMConfig>();
             _state = new(autorot.Cooldowns);
             _strategy = new();
-            _prevMP = Service.ClientState.LocalPlayer?.CurrentMp ?? 0;
+            _prevMP = player.CurMP;
 
             _config.Modified += OnConfigModified;
             OnConfigModified(null, EventArgs.Empty);
@@ -33,16 +33,19 @@ namespace BossMod.BLM
             _config.Modified -= OnConfigModified;
         }
 
-        public override Targeting SelectBetterTarget(Actor initial)
+        public override CommonRotation.PlayerState GetState() => _state;
+        public override CommonRotation.Strategy GetStrategy() => _strategy;
+
+        public override Targeting SelectBetterTarget(AIHints.Enemy initial)
         {
             // TODO: multidot?..
             var bestTarget = initial;
             if (_state.Unlocked(AID.Blizzard2))
             {
-                var bestAOECount = Autorot.PotentialTargetsInRange(initial.Position, 5).Count();
-                foreach (var candidate in Autorot.PotentialTargetsInRangeFromPlayer(25).Exclude(initial))
+                var bestAOECount = NumTargetsHitByAOE(initial.Actor);
+                foreach (var candidate in Autorot.Hints.PriorityTargets.Where(e => e != initial && e.Actor.Position.InCircle(Player.Position, 25)))
                 {
-                    var candidateAOECount = Autorot.PotentialTargetsInRange(candidate.Position, 5).Count();
+                    var candidateAOECount = NumTargetsHitByAOE(candidate.Actor);
                     if (candidateAOECount > bestAOECount)
                     {
                         bestTarget = candidate;
@@ -50,41 +53,38 @@ namespace BossMod.BLM
                     }
                 }
             }
-            return new(bestTarget, 15);
+            return new(bestTarget, bestTarget.StayAtLongRange ? 25 : 15);
         }
 
         protected override void OnTick()
         {
             // track mana ticks
-            var currMP = Service.ClientState.LocalPlayer?.CurrentMp ?? 0;
-            if (_prevMP < currMP)
+            if (_prevMP < Player.CurMP)
             {
                 var gauge = Service.JobGauges.Get<BLMGauge>();
                 if (!gauge.InAstralFire)
                 {
                     var expectedTick = Rotation.MPTick(-gauge.UmbralIceStacks);
-                    if (currMP - _prevMP == expectedTick)
+                    if (Player.CurMP - _prevMP == expectedTick)
                     {
                         _lastManaTick = Autorot.WorldState.CurrentTime;
                     }
                 }
             }
-            _prevMP = currMP;
+            _prevMP = Player.CurMP;
         }
 
         protected override void UpdateInternalState(int autoAction)
         {
             UpdatePlayerState();
             FillCommonStrategy(_strategy, CommonDefinitions.IDPotionInt);
-            if (autoAction is AutoActionAIFight or AutoActionAIFightMove)
+            if (autoAction == AutoActionAIFight)
             {
-                _strategy.AOE = Autorot.PrimaryTarget != null && Autorot.PotentialTargetsInRange(Autorot.PrimaryTarget.Position, 5).Count() >= 3;
-                _strategy.Moving = AutoAction == AutoActionAIFightMove;
+                _strategy.NumAOETargets = Autorot.PrimaryTarget != null ? NumTargetsHitByAOE(Autorot.PrimaryTarget) : 0;
             }
             else
             {
-                _strategy.AOE = autoAction == AutoActionAOE; // TODO: consider making AI-like check
-                _strategy.Moving = false;
+                _strategy.NumAOETargets = autoAction == AutoActionAOE ? 100 : 0; // TODO: consider making AI-like check
             }
         }
 
@@ -98,7 +98,7 @@ namespace BossMod.BLM
 
         protected override NextAction CalculateAutomaticGCD()
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
             var aid = Rotation.GetNextBestGCD(_state, _strategy);
             return MakeResult(aid, Autorot.PrimaryTarget);
@@ -106,7 +106,7 @@ namespace BossMod.BLM
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
 
             ActionID res = new();
@@ -152,5 +152,7 @@ namespace BossMod.BLM
             // smart targets
             SupportedSpell(AID.AetherialManipulation).TransformTarget = _config.MouseoverFriendly ? SmartTargetFriendly : null;
         }
+
+        private int NumTargetsHitByAOE(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOECircle(primary.Position, 5);
     }
 }

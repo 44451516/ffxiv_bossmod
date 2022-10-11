@@ -120,6 +120,9 @@ namespace BossMod
             WorldState.Actors.StatusLose += OnActorStatusLose;
             WorldState.Actors.IconAppeared += OnActorIcon;
             WorldState.Actors.CastEvent += OnActorCastEvent;
+            WorldState.Actors.EventObjectStateChange += OnActorEState;
+            WorldState.Actors.EventObjectAnimation += OnActorEAnim;
+            WorldState.Actors.PlayActionTimelineEvent += OnActorPlayActionTimelineEvent;
             WorldState.EnvControl += OnEnvControl;
             foreach (var v in WorldState.Actors)
                 OnActorCreated(null, v);
@@ -151,6 +154,9 @@ namespace BossMod
                 WorldState.Actors.StatusLose -= OnActorStatusLose;
                 WorldState.Actors.IconAppeared -= OnActorIcon;
                 WorldState.Actors.CastEvent -= OnActorCastEvent;
+                WorldState.Actors.EventObjectStateChange -= OnActorEState;
+                WorldState.Actors.EventObjectAnimation -= OnActorEAnim;
+                WorldState.Actors.PlayActionTimelineEvent -= OnActorPlayActionTimelineEvent;
                 WorldState.EnvControl -= OnEnvControl;
             }
         }
@@ -226,7 +232,7 @@ namespace BossMod
 
             // draw enemies & player
             DrawEnemies(pcSlot, pc);
-            Arena.Actor(pc, ArenaColor.PC);
+            Arena.Actor(pc, ArenaColor.PC, true);
         }
 
         public BossComponent.TextHints CalculateHintsForRaidMember(int slot, Actor actor, BossComponent.MovementHints? movementHints = null)
@@ -245,27 +251,14 @@ namespace BossMod
             return hints;
         }
 
-        public SafeZone CalculateSafeZone(int slot, Actor actor)
+        public virtual void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            SafeZone zone = new(Bounds);
+            hints.Bounds = Bounds;
             foreach (var comp in _components)
-                comp.UpdateSafeZone(this, slot, actor, zone);
-            return zone;
+                comp.AddAIHints(this, slot, actor, assignment, hints);
         }
 
-        // called by AI to determine targets to focus; return false if module does not need any custom logic - in this case targets are filled automatically, as if module was not active
-        public virtual bool FillTargets(BossTargets targets, int pcSlot) => false;
-
-        // TODO: move to some better place...
-        public static WPos AdjustPositionForKnockback(WPos pos, WPos origin, float distance)
-        {
-            return pos != origin ? pos + distance * (pos - origin).Normalized() : pos;
-        }
-
-        public static WPos AdjustPositionForKnockback(WPos pos, Actor? source, float distance)
-        {
-            return source != null ? AdjustPositionForKnockback(pos, source.Position, distance) : pos;
-        }
+        public virtual bool NeedToJump(WPos from, WDir dir) => false; // if arena has complicated shape that requires jumps to navigate, module can provide this info to AI
 
         public void ReportError(BossComponent? comp, string message)
         {
@@ -435,6 +428,25 @@ namespace BossMod
             if ((arg.actor.Type is not ActorType.Player and not ActorType.Pet and not ActorType.Chocobo) && arg.cast.IsSpell())
                 foreach (var comp in _components)
                     comp.OnEventCast(this, arg.actor, arg.cast);
+        }
+
+        private void OnActorEState(object? sender, (Actor actor, ushort state) arg)
+        {
+            foreach (var comp in _components)
+                comp.OnActorEState(this, arg.actor, arg.state);
+        }
+
+        private void OnActorEAnim(object? sender, (Actor actor, ushort p1, ushort p2) arg)
+        {
+            uint state = ((uint)arg.p1 << 16) | arg.p2;
+            foreach (var comp in _components)
+                comp.OnActorEAnim(this, arg.actor, state);
+        }
+
+        private void OnActorPlayActionTimelineEvent(object? sender, (Actor actor, ushort id) arg)
+        {
+            foreach (var comp in _components)
+                comp.OnActorPlayActionTimelineEvent(this, arg.actor, arg.id);
         }
 
         private void OnEnvControl(object? sender, WorldState.OpEnvControl op)

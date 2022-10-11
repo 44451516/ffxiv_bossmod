@@ -48,7 +48,7 @@ namespace BossMod.RealmReborn.Dungeon.D05Totorak.D053Graffias
 
     class PollenZone : Components.PersistentVoidzone
     {
-        public PollenZone() : base((uint)OID.PollenZone, new AOEShapeCircle(10)) { }
+        public PollenZone() : base(10, m => m.Enemies(OID.PollenZone)) { }
     }
 
     class D053GraffiasStates : StateMachineBuilder
@@ -66,21 +66,20 @@ namespace BossMod.RealmReborn.Dungeon.D05Totorak.D053Graffias
 
     public class D053Graffias : BossModule
     {
-        private List<Actor> _tail;
-        private List<Actor> _adds;
+        public D053Graffias(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(215, -145), 20)) { }
 
-        public D053Graffias(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(215, -145), 20))
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            _tail = Enemies(OID.GraffiasTail);
-            _adds = Enemies(OID.Comesmite);
-        }
+            base.CalculateAIHints(slot, actor, assignment, hints);
 
-        public override bool FillTargets(BossTargets targets, int pcSlot)
-        {
-            if (!targets.AddIfValid(_tail))
-                targets.AddIfValid(PrimaryActor);
-            targets.AddIfValid(_adds);
-            return true;
+            bool haveTail = Enemies(OID.GraffiasTail).Count > 0;
+            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            {
+                OID.GraffiasTail => 2,
+                OID.Comesmite => haveTail ? 2 : 1,
+                OID.Boss => 1,
+                _ => 0,
+            });
         }
     }
 }

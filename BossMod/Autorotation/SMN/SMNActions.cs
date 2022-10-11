@@ -30,7 +30,10 @@ namespace BossMod.SMN
             _config.Modified -= OnConfigModified;
         }
 
-        public override Targeting SelectBetterTarget(Actor initial)
+        public override CommonRotation.PlayerState GetState() => _state;
+        public override CommonRotation.Strategy GetStrategy() => _strategy;
+
+        public override Targeting SelectBetterTarget(AIHints.Enemy initial)
         {
             // TODO: AOE & multidotting
             return new(initial, 25);
@@ -42,7 +45,7 @@ namespace BossMod.SMN
             {
                 AutoActionST => false,
                 AutoActionAOE => true, // TODO: consider making AI-like check
-                AutoActionAIFight or AutoActionAIFightMove => Autorot.PrimaryTarget != null && Autorot.PotentialTargetsInRange(Autorot.PrimaryTarget.Position, 5).Count() >= 3,
+                AutoActionAIFight => Autorot.PrimaryTarget != null && Autorot.Hints.NumPriorityTargetsInAOECircle(Autorot.PrimaryTarget.Position, 5) >= 3,
                 _ => false, // irrelevant...
             };
             UpdatePlayerState();
@@ -60,15 +63,15 @@ namespace BossMod.SMN
             //if ((AutoStrategy & AutoAction.GCDHeal) != 0)
             //    return MakeResult(AID.Physick, Autorot.SecondaryTarget); // TODO: automatic target selection
 
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
-            var aid = Rotation.GetNextBestGCD(_state, _strategy, _aoe, AutoAction == AutoActionAIFightMove);
+            var aid = Rotation.GetNextBestGCD(_state, _strategy, _aoe, _strategy.ForceMovementIn < 5);
             return MakeResult(aid, Autorot.PrimaryTarget);
         }
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionFirstFight)
+            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
                 return new();
 
             ActionID res = new();

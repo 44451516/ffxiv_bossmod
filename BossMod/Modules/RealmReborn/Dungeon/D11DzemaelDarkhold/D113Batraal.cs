@@ -44,7 +44,7 @@ namespace BossMod.RealmReborn.Dungeon.D11DzemaelDarkhold.D113Batraal
 
         public SeaOfPitch() : base(ActionID.MakeSpell(AID.SeaOfPitch)) { }
 
-        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module)
+        public override IEnumerable<(AOEShape shape, WPos origin, Angle rotation, DateTime time)> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             // TODO: proper timings...
             return module.Enemies(OID.VoidPitch).Where(a => !a.IsDead).Select(a => (_shape, a.Position, new Angle(), module.WorldState.CurrentTime));
@@ -67,11 +67,15 @@ namespace BossMod.RealmReborn.Dungeon.D11DzemaelDarkhold.D113Batraal
     {
         public D113Batraal(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(85, -180), 25)) { }
 
-        public override bool FillTargets(BossTargets targets, int pcSlot)
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            if (!targets.AddIfValid(Enemies(OID.CorruptedCrystal)))
-                targets.AddIfValid(PrimaryActor);
-            return true;
+            base.CalculateAIHints(slot, actor, assignment, hints);
+            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            {
+                OID.CorruptedCrystal => 2,
+                OID.Boss => 1,
+                _ => 0
+            });
         }
     }
 }

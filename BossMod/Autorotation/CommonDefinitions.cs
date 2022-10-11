@@ -54,12 +54,13 @@ namespace BossMod
     public static class CommonDefinitions
     {
         public static ActionID IDAutoAttack = new(ActionType.Spell, 7);
+        public static ActionID IDAutoShot = new(ActionType.Spell, 8);
         public static ActionID IDSprint = new(ActionType.General, 4);
-        public static ActionID IDPotionStr = new(ActionType.Item, 1036109); // hq grade 6 tincture of strength
-        public static ActionID IDPotionDex = new(ActionType.Item, 1036110); // hq grade 6 tincture of dexterity
-        public static ActionID IDPotionVit = new(ActionType.Item, 1036111); // hq grade 6 tincture of vitality
-        public static ActionID IDPotionInt = new(ActionType.Item, 1036112); // hq grade 6 tincture of intelligence
-        public static ActionID IDPotionMnd = new(ActionType.Item, 1036113); // hq grade 6 tincture of mind
+        public static ActionID IDPotionStr = new(ActionType.Item, 1037840); // hq grade 7 tincture of strength
+        public static ActionID IDPotionDex = new(ActionType.Item, 1037841); // hq grade 7 tincture of dexterity
+        public static ActionID IDPotionVit = new(ActionType.Item, 1037842); // hq grade 7 tincture of vitality
+        public static ActionID IDPotionInt = new(ActionType.Item, 1037843); // hq grade 7 tincture of intelligence
+        public static ActionID IDPotionMnd = new(ActionType.Item, 1037844); // hq grade 7 tincture of mind
 
         public static int SprintCDGroup = 55;
         public static int GCDGroup = 57;
@@ -81,5 +82,17 @@ namespace BossMod
             => res[ActionID.MakeSpell(aid)] = new(range, 0, (int)(object)cdGroup, cooldown, 1, animationLock);
         public static ActionDefinition OGCDWithCharges<AID, CDGroup>(this Dictionary<ActionID, ActionDefinition> res, AID aid, float range, CDGroup cdGroup, float cooldown, int maxChargesAtCap, float animationLock = 0.6f) where AID : Enum where CDGroup : Enum
             => res[ActionID.MakeSpell(aid)] = new(range, 0, (int)(object)cdGroup, cooldown, maxChargesAtCap, animationLock);
+
+        // check whether given actor has tank stance
+        public static bool HasTankStance(Actor a)
+        {
+            var stanceSID = a.Class switch
+            {
+                Class.WAR => (uint)WAR.SID.Defiance,
+                Class.PLD => (uint)PLD.SID.IronWill,
+                _ => 0u
+            };
+            return stanceSID != 0 && a.FindStatus(stanceSID) != null;
+        }
     }
 }

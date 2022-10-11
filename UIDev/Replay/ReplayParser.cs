@@ -78,7 +78,7 @@ namespace UIDev
             _ws.Actors.IsTargetableChanged += ActorTargetable;
             _ws.Actors.IsDeadChanged += ActorDead;
             _ws.Actors.Moved += ActorMoved;
-            _ws.Actors.HPChanged += ActorHP;
+            _ws.Actors.HPMPChanged += ActorHPMP;
             _ws.Actors.CastStarted += CastStart;
             _ws.Actors.CastFinished += CastFinish;
             _ws.Actors.Tethered += TetherAdd;
@@ -178,11 +178,11 @@ namespace UIDev
 
         private void ActorAdded(object? sender, Actor actor)
         {
-            var p = _participants[actor.InstanceID] = new() { InstanceID = actor.InstanceID, OID = actor.OID, Type = actor.Type, Name = actor.Name, Existence = new(_ws.CurrentTime) };
+            var p = _participants[actor.InstanceID] = new() { InstanceID = actor.InstanceID, OID = actor.OID, Type = actor.Type, OwnerID = actor.OwnerID, Name = actor.Name, Existence = new(_ws.CurrentTime) };
             if (actor.IsTargetable)
                 p.TargetableHistory.Add(_ws.CurrentTime, true);
             p.PosRotHistory.Add(_ws.CurrentTime, actor.PosRot);
-            p.HPHistory.Add(_ws.CurrentTime, actor.HP);
+            p.HPMPHistory.Add(_ws.CurrentTime, (actor.HP, actor.CurMP));
             _res.Participants.Add(p);
             foreach (var e in _modules.Values)
                 if (e.ActiveState != null)
@@ -210,16 +210,16 @@ namespace UIDev
             _participants[actor.InstanceID].PosRotHistory.Add(_ws.CurrentTime, actor.PosRot);
         }
 
-        private void ActorHP(object? sender, Actor actor)
+        private void ActorHPMP(object? sender, Actor actor)
         {
-            _participants[actor.InstanceID].HPHistory.Add(_ws.CurrentTime, actor.HP);
+            _participants[actor.InstanceID].HPMPHistory.Add(_ws.CurrentTime, (actor.HP, actor.CurMP));
         }
 
         private void CastStart(object? sender, Actor actor)
         {
             var c = actor.CastInfo!;
             var target = _participants.GetValueOrDefault(c.TargetID);
-            _participants[actor.InstanceID].Casts.Add(new() { ID = c.Action, ExpectedCastTime = c.TotalTime, Time = new(_ws.CurrentTime), Target = target, Location = c.TargetID == 0 ? c.Location : (_ws.Actors.Find(c.TargetID)?.PosRot.XYZ() ?? new()) });
+            _participants[actor.InstanceID].Casts.Add(new() { ID = c.Action, ExpectedCastTime = c.TotalTime, Time = new(_ws.CurrentTime), Target = target, Location = c.TargetID == 0 ? c.Location : (_ws.Actors.Find(c.TargetID)?.PosRot.XYZ() ?? new()), Rotation = c.Rotation, Interruptible = c.Interruptible });
         }
 
         private void CastFinish(object? sender, Actor actor)

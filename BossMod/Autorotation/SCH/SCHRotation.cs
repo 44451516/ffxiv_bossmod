@@ -32,12 +32,18 @@
         // strategy configuration
         public class Strategy : CommonRotation.Strategy
         {
-            public bool Moving;
             public int NumWhisperingDawnTargets; // how many targets would whispering dawn heal (15y around fairy)
             public int NumSuccorTargets; // how many targets would succor heal (15y around self)
             public int NumArtOfWarTargets; // how many targets art of war would hit (5y around self)
+            public (Actor? Target, float HPRatio) BestSTHeal;
+
+            public override string ToString()
+            {
+                return $"AOE={NumArtOfWarTargets}, SH={BestSTHeal.Target?.Name.Substring(0, 4)}={BestSTHeal.HPRatio:f2}, AH={NumSuccorTargets}/{NumWhisperingDawnTargets}, no-dots={ForbidDOTs}, movement-in={ForceMovementIn:f3}";
+            }
         }
 
+        public static bool CanCast(State state, Strategy strategy, float castTime) => state.SwiftcastLeft > state.GCD || strategy.ForceMovementIn >= state.GCD + castTime;
         public static bool RefreshDOT(State state, float timeLeft) => timeLeft < state.GCD + 3.0f; // TODO: tweak threshold so that we don't overwrite or miss ticks...
 
         public static AID GetNextBestSTHealGCD(State state, Strategy strategy)
@@ -48,13 +54,13 @@
         public static AID GetNextBestDamageGCD(State state, Strategy strategy)
         {
             // TODO: priorities change at L54, L64, L72, L82
-            bool allowRuin = !strategy.Moving || state.SwiftcastLeft > state.GCD;
+            bool allowRuin = CanCast(state, strategy, 1.5f);
             if (state.Unlocked(AID.ArtOfWar1))
             {
                 // L46: spam art of war at 3+ targets, otherwise bio > art of war (even at 1 target) > ruin (if out of range) > ruin2 (on the move)
                 if (strategy.NumArtOfWarTargets >= 3)
                     return AID.ArtOfWar1;
-                else if (RefreshDOT(state, state.TargetBioLeft))
+                else if (!strategy.ForbidDOTs && RefreshDOT(state, state.TargetBioLeft))
                     return AID.Bio2;
                 else if (strategy.NumArtOfWarTargets >= 1)
                     return AID.ArtOfWar1;
@@ -67,12 +73,12 @@
             {
                 // L26: bio2 on all targets is more important than ruin
                 // L38: cast ruin2 on the move
-                return RefreshDOT(state, state.TargetBioLeft) ? AID.Bio2 : allowRuin ? AID.Ruin1 : (state.Unlocked(AID.Ruin2) ? AID.Ruin2 : AID.None);
+                return !strategy.ForbidDOTs && RefreshDOT(state, state.TargetBioLeft) ? AID.Bio2 : allowRuin ? AID.Ruin1 : (state.Unlocked(AID.Ruin2) ? AID.Ruin2 : AID.None);
             }
             else if (state.Unlocked(AID.Bio1))
             {
                 // L2: bio1 is only used on the move (TODO: it is slightly more potency than ruin on single target, but only if it ticks to the end)
-                return allowRuin ? AID.Ruin1 : RefreshDOT(state, state.TargetBioLeft) ? AID.Bio1 : AID.None;
+                return allowRuin ? AID.Ruin1 : !strategy.ForbidDOTs && RefreshDOT(state, state.TargetBioLeft) ? AID.Bio1 : AID.None;
             }
             else
             {

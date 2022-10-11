@@ -29,12 +29,10 @@
     // arena has multiple weirdly-shaped puddles, so just prefer standing in large safe zone
     class AIPosition : BossComponent
     {
-        private AOEShapeRect _shape = new(5, 5, 5);
         private WPos[] _centers = { new(-395, -130), new(-402, -114) };
-
-        public override void UpdateSafeZone(BossModule module, int slot, Actor actor, SafeZone zone)
+        public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            zone.RestrictToZone(_shape, _centers.MinBy(p => (p - module.PrimaryActor.Position).LengthSq()), new(), module.WorldState.CurrentTime, 10000);
+            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(_centers.MinBy(p => (p - module.PrimaryActor.Position).LengthSq()), 5));
         }
     }
 
@@ -53,11 +51,15 @@
     {
         public D123MisersMistress(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(-400, -130), 25)) { }
 
-        public override bool FillTargets(BossTargets targets, int pcSlot)
+        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            if (!targets.AddIfValid(Enemies(OID.MorbolFruit)))
-                targets.AddIfValid(PrimaryActor);
-            return true;
+            base.CalculateAIHints(slot, actor, assignment, hints);
+            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            {
+                OID.MorbolFruit => 2,
+                OID.Boss => 1,
+                _ => 0
+            });
         }
     }
 }

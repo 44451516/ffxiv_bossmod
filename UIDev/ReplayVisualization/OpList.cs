@@ -11,11 +11,13 @@ namespace UIDev
         private Replay _replay;
         private ModuleRegistry.Info? _moduleInfo;
         private IEnumerable<WorldState.Operation> _ops;
+        private DateTime _relativeTS;
         private Action<DateTime> _scrollTo;
         private List<(DateTime Timestamp, string Text, Action<UITree>? Children, Action? ContextMenu)> _nodes = new();
         private HashSet<uint> _filteredOIDs = new();
         private HashSet<ActionID> _filteredActions = new();
         private HashSet<uint> _filteredStatuses = new();
+        private HashSet<uint> _filteredDirectorUpdateTypes = new();
         private bool _nodesUpToDate;
 
         public OpList(Replay r, ModuleRegistry.Info? moduleInfo, IEnumerable<WorldState.Operation> ops, Action<DateTime> scrollTo)
@@ -35,18 +37,18 @@ namespace UIDev
 
             if (!_nodesUpToDate)
             {
-                var aidType = _moduleInfo?.ActionIDType;
                 _nodes.Clear();
                 foreach (var op in _ops.Where(FilterOp))
                 {
-                    _nodes.Add((op.Timestamp, OpName(op, aidType), OpChildren(op), OpContextMenu(op)));
+                    _nodes.Add((op.Timestamp, OpName(op), OpChildren(op), OpContextMenu(op)));
                 }
                 _nodesUpToDate = true;
             }
 
+            var timeRef = ImGui.GetIO().KeyShift && _relativeTS != new DateTime() ? _relativeTS : reference;
             foreach (var node in _nodes)
             {
-                foreach (var n in tree.Node($"{(node.Timestamp - reference).TotalSeconds:f3}: {node.Text}", node.Children == null, 0xffffffff, node.ContextMenu, () => _scrollTo(node.Timestamp)))
+                foreach (var n in tree.Node($"{(node.Timestamp - timeRef).TotalSeconds:f3}: {node.Text}", node.Children == null, 0xffffffff, node.ContextMenu, () => _scrollTo(node.Timestamp), () => _relativeTS = node.Timestamp))
                 {
                     if (node.Children != null)
                         node.Children(tree);
@@ -59,14 +61,15 @@ namespace UIDev
             _filteredOIDs.Clear();
             _filteredActions.Clear();
             _filteredStatuses.Clear();
+            _filteredDirectorUpdateTypes.Clear();
             _nodesUpToDate = false;
         }
 
         private bool FilterInterestingActor(ulong instanceID, DateTime timestamp, bool allowPlayers)
         {
             var p = FindParticipant(instanceID, timestamp)!;
-            if (p.Type is ActorType.Pet or ActorType.Chocobo or ActorType.Area)
-                return false;
+            if ((p.OwnerID & 0xFF000000) == 0x10000000)
+                return false; // player's pet/area
             if (p.Type == ActorType.Player && !allowPlayers)
                 return false;
             if (_filteredOIDs.Contains(p.OID))
@@ -93,10 +96,11 @@ namespace UIDev
             return o switch
             {
                 WorldState.OpFrameStart => false,
+                WorldState.OpDirectorUpdate op => !_filteredDirectorUpdateTypes.Contains(op.UpdateID),
                 ActorState.OpCreate op => FilterInterestingActor(op.InstanceID, op.Timestamp, false),
                 ActorState.OpDestroy op => FilterInterestingActor(op.InstanceID, op.Timestamp, false),
                 ActorState.OpMove => false,
-                ActorState.OpHP => false,
+                ActorState.OpHPMP => false,
                 ActorState.OpTargetable op => FilterInterestingActor(op.InstanceID, op.Timestamp, false),
                 ActorState.OpDead op => FilterInterestingActor(op.InstanceID, op.Timestamp, true),
                 ActorState.OpCombat => false,
@@ -104,27 +108,31 @@ namespace UIDev
                 ActorState.OpTarget => false, // reconsider...
                 ActorState.OpCastInfo op => FilterInterestingActor(op.InstanceID, op.Timestamp, false) && !_filteredActions.Contains(FindCast(FindParticipant(op.InstanceID, op.Timestamp), op.Timestamp, op.Value != null)!.ID),
                 ActorState.OpCastEvent op => FilterInterestingActor(op.InstanceID, op.Timestamp, false) && !_filteredActions.Contains(op.Value.Action),
+                ActorState.OpEffectResult => false,
                 ActorState.OpStatus op => FilterInterestingStatus(op.InstanceID, op.Index, op.Timestamp, op.Value.ID != 0),
                 _ => true
             };
         }
 
-        private string OpName(WorldState.Operation o, Type? aidType)
+        private string OpName(WorldState.Operation o)
         {
             return o switch
             {
-                ActorState.OpCreate op => $"Actor create: {ActorString(op.InstanceID, op.Timestamp)}",
+                ActorState.OpCreate op => $"Actor create: {ActorString(op.InstanceID, op.Timestamp)} #{op.SpawnIndex}",
                 ActorState.OpDestroy op => $"Actor destroy: {ActorString(op.InstanceID, op.Timestamp)}",
                 ActorState.OpRename op => $"Actor rename: {ActorString(op.InstanceID, op.Timestamp)} -> {op.Name}",
                 ActorState.OpClassChange op => $"Actor class change: {ActorString(op.InstanceID, op.Timestamp)} -> {op.Class}",
                 ActorState.OpTargetable op => $"{(op.Value ? "Targetable" : "Untargetable")}: {ActorString(op.InstanceID, op.Timestamp)}",
                 ActorState.OpDead op => $"{(op.Value ? "Die" : "Resurrect")}: {ActorString(op.InstanceID, op.Timestamp)}",
                 ActorState.OpEventState op => $"Event state: {ActorString(op.InstanceID, op.Timestamp)} -> {op.Value}",
-                ActorState.OpTether op => $"Tether: {ActorString(op.InstanceID, op.Timestamp)} {op.Value.ID} @ {ActorString(op.Value.Target, op.Timestamp)}",
-                ActorState.OpCastInfo op => $"Cast {(op.Value != null ? "started" : "ended")}: {CastString(op.InstanceID, op.Timestamp, aidType, op.Value != null)}",
-                ActorState.OpCastEvent op => $"Cast event: {ActorString(op.InstanceID, op.Timestamp)}: {op.Value.Action} ({aidType?.GetEnumName(op.Value.Action.ID)}) @ {CastEventTargetString(op.Value, op.Timestamp)} ({op.Value.Targets.Count} targets affected) #{op.Value.GlobalSequence}",
+                ActorState.OpTether op => $"Tether: {ActorString(op.InstanceID, op.Timestamp)} {op.Value.ID} ({_moduleInfo?.TetherIDType?.GetEnumName(op.Value.ID)}) @ {ActorString(op.Value.Target, op.Timestamp)}",
+                ActorState.OpCastInfo op => $"Cast {(op.Value != null ? "started" : "ended")}: {CastString(op.InstanceID, op.Timestamp, op.Value != null)}",
+                ActorState.OpCastEvent op => $"Cast event: {ActorString(op.InstanceID, op.Timestamp)}: {op.Value.Action} ({_moduleInfo?.ActionIDType?.GetEnumName(op.Value.Action.ID)}) @ {CastEventTargetString(op.Value, op.Timestamp)} ({op.Value.Targets.Count} targets affected) #{op.Value.GlobalSequence}",
                 ActorState.OpStatus op => $"Status {(op.Value.ID != 0 ? "gain" : "lose")}: {StatusString(op.InstanceID, op.Index, op.Timestamp, op.Value.ID != 0)}",
-                ActorState.OpIcon op => $"Icon: {ActorString(op.InstanceID, op.Timestamp)} -> {op.IconID}",
+                ActorState.OpIcon op => $"Icon: {ActorString(op.InstanceID, op.Timestamp)} -> {op.IconID} ({_moduleInfo?.IconIDType?.GetEnumName(op.IconID)})",
+                ActorState.OpEventObjectStateChange op => $"EObjState: {ActorString(op.InstanceID, op.Timestamp)} = {op.State:X4}",
+                ActorState.OpEventObjectAnimation op => $"EObjAnim: {ActorString(op.InstanceID, op.Timestamp)} = {((uint)op.Param1 << 16) | op.Param2:X8}",
+                ActorState.OpPlayActionTimelineEvent op => $"Play action timeline: {ActorString(op.InstanceID, op.Timestamp)} = {op.ActionTimelineID:X4}",
                 _ => o.ToString() ?? o.GetType().Name
             };
         }
@@ -150,12 +158,22 @@ namespace UIDev
         {
             return o switch
             {
+                WorldState.OpDirectorUpdate op => () => ContextMenuDirectorUpdate(op),
                 ActorState.OpStatus op => () => ContextMenuActorStatus(op),
                 ActorState.OpCastInfo op => () => ContextMenuActorCast(op),
                 ActorState.OpCastEvent op => () => ContextMenuEventCast(op),
                 ActorState.Operation op => () => ContextMenuActor(op),
                 _ => null,
             };
+        }
+
+        private void ContextMenuDirectorUpdate(WorldState.OpDirectorUpdate op)
+        {
+            if (ImGui.MenuItem($"Filter out type {op.UpdateID:X8}"))
+            {
+                _filteredDirectorUpdateTypes.Add(op.UpdateID);
+                _nodesUpToDate = false;
+            }
         }
 
         private void ContextMenuActor(ActorState.Operation op)
@@ -204,9 +222,14 @@ namespace UIDev
         private Replay.Status? FindStatus(ulong instanceID, int index, DateTime timestamp, bool gain) => _replay.Statuses.Find(s => s.Target?.InstanceID == instanceID && s.Index == index && (gain ? s.Time.Start : s.Time.End) == timestamp);
         private Replay.Cast? FindCast(Replay.Participant? participant, DateTime timestamp, bool start) => participant?.Casts.Find(c => (start ? c.Time.Start : c.Time.End) == timestamp);
 
+        private string ActorString(Replay.Participant? p, DateTime timestamp)
+        {
+            return p != null ? $"{ReplayUtils.ParticipantString(p)} ({_moduleInfo?.ObjectIDType?.GetEnumName(p.OID)}) {Utils.PosRotString(p.PosRotAt(timestamp))}" : "<none>";
+        }
+
         private string ActorString(ulong instanceID, DateTime timestamp)
         {
-            return ReplayUtils.ParticipantPosRotString(FindParticipant(instanceID, timestamp), timestamp);
+            return ActorString(FindParticipant(instanceID, timestamp), timestamp);
         }
 
         private string CastEventTargetString(ActorCastEvent ev, DateTime timestamp)
@@ -217,17 +240,17 @@ namespace UIDev
                 return Utils.Vec3String(ev.TargetPos);
         }
 
-        private string CastString(ulong instanceID, DateTime timestamp, Type? aidType, bool start)
+        private string CastString(ulong instanceID, DateTime timestamp, bool start)
         {
             var p = FindParticipant(instanceID, timestamp);
             var c = FindCast(p, timestamp, start)!;
-            return $"{ReplayUtils.ParticipantPosRotString(p, timestamp)}: {c.ID} ({aidType?.GetEnumName(c.ID.ID)}), {c.ExpectedCastTime:f2}s ({c.Time} actual) @ {ReplayUtils.ParticipantString(c.Target)} {Utils.Vec3String(c.Location)}";
+            return $"{ActorString(p, timestamp)}: {c.ID} ({_moduleInfo?.ActionIDType?.GetEnumName(c.ID.ID)}), {c.ExpectedCastTime:f2}s ({c.Time} actual){(c.Interruptible ? " (interruptible)" : "")} @ {ReplayUtils.ParticipantString(c.Target)} {Utils.Vec3String(c.Location)} / {c.Rotation}";
         }
 
         private string StatusString(ulong instanceID, int index, DateTime timestamp, bool gain)
         {
             var s = FindStatus(instanceID, index, timestamp, gain)!;
-            return $"{ReplayUtils.ParticipantPosRotString(s.Target, timestamp)}: {Utils.StatusString(s!.ID)} ({s.StartingExtra:X}), {s.InitialDuration:f2}s / {s.Time}, from {ReplayUtils.ParticipantPosRotString(s.Source, timestamp)}";
+            return $"{ActorString(s.Target, timestamp)}: {Utils.StatusString(s!.ID)} ({_moduleInfo?.StatusIDType?.GetEnumName(s.ID)}) ({s.StartingExtra:X}), {s.InitialDuration:f2}s / {s.Time}, from {ActorString(s.Source, timestamp)}";
         }
     }
 }

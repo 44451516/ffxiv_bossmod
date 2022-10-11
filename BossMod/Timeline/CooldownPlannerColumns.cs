@@ -20,6 +20,8 @@ namespace BossMod
 
         private float _trackWidth = 80;
 
+        public Class PlanClass => _plan.Class;
+
         public CooldownPlannerColumns(CooldownPlan plan, Action onModified, Timeline timeline, StateMachineTree tree, List<int> phaseBranches)
         {
             _plan = plan;
@@ -45,6 +47,12 @@ namespace BossMod
         public void AddEvent(ActionID aid, ActionUseColumn.Event ev)
         {
             _columns.GetValueOrDefault(aid)?.Events.Add(ev);
+        }
+
+        public void ClearEvents()
+        {
+            foreach (var c in _columns.Values)
+                c.Events.Clear();
         }
 
         public void DrawControls()
