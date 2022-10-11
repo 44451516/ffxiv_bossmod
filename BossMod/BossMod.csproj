@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Authors></Authors>
     <Company></Company>
-    <Version>0.0.0.60</Version>
+    <Version>0.0.0.61</Version>
     <Description>Boss mod.</Description>
     <Copyright></Copyright>
     <PackageProjectUrl></PackageProjectUrl>
@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <DalamudLibPath>E:\Games\FFVIX\Dalamud6.0\addon\Hooks\6.4.0.47\</DalamudLibPath>
+    <DalamudLibPath>E:\Games\FFVIX\Dalamud6.0\addon\Hooks\6.4.0.48\</DalamudLibPath>
   </PropertyGroup>
 
   <ItemGroup>
