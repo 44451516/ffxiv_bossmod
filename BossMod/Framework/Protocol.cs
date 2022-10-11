@@ -35,8 +35,10 @@ namespace BossMod
             ActorSetPos = 0x0317,
             ActorGauge = 0x030D,
             
-            PresetWaymark = 0x0225, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
-            Waymark = 0x262, // FFXIVOpcodes calls this PlaceFieldMarker
+            PresetWaymark = 0x010B
+            , // FFXIVOpcodes calls this PlaceFieldMarkerPreset
+            Waymark = 0x02D1
+            , // FFXIVOpcodes calls this PlaceFieldMarker
             
             SystemLogMessage = 0x0296, // FFXIVOpcodes calls this SomeDirectorUnk4
 

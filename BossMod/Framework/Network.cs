@@ -318,6 +318,7 @@ namespace BossMod
 
         private unsafe void DumpClientMessage(IntPtr dataPtr, ushort opCode)
         {
+            /*
             Service.Log($"[Network] Client message {(Protocol.Opcode)opCode}");
             switch ((Protocol.Opcode)opCode)
             {
@@ -334,6 +335,7 @@ namespace BossMod
                         break;
                     }
             }
+            */
         }
 
         private unsafe void DumpServerMessage(IntPtr dataPtr, ushort opCode, uint targetActorId)
