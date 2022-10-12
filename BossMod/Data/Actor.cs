@@ -86,6 +86,7 @@ namespace BossMod
         public uint ID;
         public ulong SourceID;
         public ushort Extra;
+        public byte StackCount;
         public DateTime ExpireAt;
     }
 
