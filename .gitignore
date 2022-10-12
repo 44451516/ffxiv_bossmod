@@ -4,3 +4,6 @@ bin/
 *.user
 logs/
 .idea
+.idea/
+.idea.BossMod
+.idea.BossMod/
