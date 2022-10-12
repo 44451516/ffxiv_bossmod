@@ -73,9 +73,9 @@ namespace BossMod.Endwalker.Extreme.Ex3Endsigner
             if ((SID)status.ID == SID.RewindTwinsong)
             {
                 
-                var stackCount = status.Extra<<8|status.StackCount;
+                // var stackCount = status.Extra<<8|status.StackCount;
                 
-                int rings = stackCount switch
+                int rings = status.Extra switch
                 {
                     0x178 => 1,
                     0x179 => 2,

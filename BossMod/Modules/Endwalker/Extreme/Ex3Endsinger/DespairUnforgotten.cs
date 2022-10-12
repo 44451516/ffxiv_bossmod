@@ -38,6 +38,9 @@ namespace BossMod.Endwalker.Extreme.Ex3Endsigner
             switch ((SID)status.ID)
             {
                 case SID.RewindDespair:
+                    
+                    // var stackCount = status.Extra<<8|status.StackCount;
+                    
                     int rings = status.Extra switch
                     {
                         0x17C => 1,

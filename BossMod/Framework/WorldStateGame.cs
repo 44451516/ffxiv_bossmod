@@ -222,9 +222,13 @@ namespace BossMod
                         var dur = Math.Min(Math.Abs(s.RemainingTime), 100000);
                         curStatus.ID = s.StatusId;
                         curStatus.SourceID = SanitizedObjectID(s.SourceID);
-                        // curStatus.Extra = StatusExtra(s);
-                        curStatus.Extra = s.Param;
-                        curStatus.StackCount = s.StackCount;
+                        curStatus.Extra = StatusExtra(s);
+                        
+                        //6.2 内容
+                        // curStatus.Extra = s.Param;
+                        // curStatus.StackCount = s.StackCount;
+                        
+                        
                         curStatus.ExpireAt = CurrentTime.AddSeconds(dur);
                     }
                     UpdateActorStatus(act, i, curStatus);
