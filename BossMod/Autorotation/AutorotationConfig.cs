@@ -3,6 +3,10 @@
     [ConfigDisplay(Name = "Autorotation settings (experimental!)", Order = 4)]
     class AutorotationConfig : ConfigNode
     {
+        [PropertyDisplay("兼容模式")]
+        public bool ActionManagerExHookEnabled = true;
+        
+        
         [PropertyDisplay("Enable autorotation")]
         public bool Enabled = false;
 

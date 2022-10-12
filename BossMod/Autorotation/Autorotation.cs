@@ -64,7 +64,10 @@ namespace BossMod
         public unsafe Autorotation(Network network, BossModuleManager bossmods, InputOverride inputOverride)
         {
             _network = network;
+            
             _config = Service.Config.Get<AutorotationConfig>();
+            
+            
             _bossmods = bossmods;
             _autoHints = new(bossmods.WorldState);
             _inputOverride = inputOverride;
@@ -77,8 +80,14 @@ namespace BossMod
             _network.EventActorControlSelfActionRejected += OnNetworkActionReject;
 
             var useActionAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 64 B1 01");
+            
             _useActionHook = Hook<UseActionDelegate>.FromAddress(useActionAddress, UseActionDetour);
-            _useActionHook.Enable();
+            
+            if (_config.ActionManagerExHookEnabled == false)
+            {
+                _useActionHook.Enable();
+            }
+           
         }
 
         public void Dispose()
@@ -89,8 +98,12 @@ namespace BossMod
             _network.EventActionEffect -= OnNetworkActionEffect;
             _network.EventActorControlCancelCast -= OnNetworkActionCancel;
             _network.EventActorControlSelfActionRejected -= OnNetworkActionReject;
-
-            _useActionHook.Dispose();
+            
+            if (_config.ActionManagerExHookEnabled == false)
+            {
+                _useActionHook.Dispose();
+            }
+            
             _classActions?.Dispose();
             _autoHints.Dispose();
         }
@@ -325,6 +338,7 @@ namespace BossMod
 
         private unsafe bool UseActionDetour(FFXIVClientStructs.FFXIV.Client.Game.ActionManager* self, ActionType actionType, uint actionID, ulong targetID, uint itemLocation, uint callType, uint comboRouteID, bool* outOptGTModeStarted)
         {
+            
             // when spamming e.g. HS, every click (~0.2 sec) this function is called; aid=HS, a4=a5=a6=a7==0, returns True
             // 0.5s before CD end, action becomes queued (this function returns True); while anything is queued, further calls return False
             // callType is 0 for normal calls, 1 if called by queue mechanism, 2 if called from macro, 3 if combo (in such case comboRouteID is ActionComboRoute row id)

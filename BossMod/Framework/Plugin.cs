@@ -31,18 +31,20 @@ namespace BossMod
             [RequiredVersion("1.0")] CommandManager commandManager)
         {
             dalamud.Create<Service>();
+            
+            Service.Config.Initialize();
+            Service.Config.LoadFromFile(dalamud.ConfigFile);
+            Service.Config.Modified += (_, _) => Service.Config.SaveToFile(dalamud.ConfigFile);
+            
             Service.LogHandler = (string msg) => PluginLog.Log(msg);
             Service.LuminaGameData = Service.DataManager.GameData;
             //Service.Device = pluginInterface.UiBuilder.Device;
             Service.Condition.ConditionChange += OnConditionChanged;
             MultiboxUnlock.Exec();
-            Camera.Instance = new();
-            Mouseover.Instance = new();
-            ActionManagerEx.Instance = new();
+            Camera.Instance = new Camera();
+            Mouseover.Instance = new Mouseover();
+            ActionManagerEx.Instance = new ActionManagerEx();
 
-            Service.Config.Initialize();
-            Service.Config.LoadFromFile(dalamud.ConfigFile);
-            Service.Config.Modified += (_, _) => Service.Config.SaveToFile(dalamud.ConfigFile);
 
             _commandManager = commandManager;
             _commandManager.AddHandler("/vbm", new CommandInfo(OnCommand) { HelpMessage = "Show boss mod config UI" });
