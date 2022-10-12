@@ -160,12 +160,13 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
     {
         public T01CaduceusStates(BossModule module) : base(module)
         {
-            TrivialPhase()
+            SimplePhase(0, id => { SimpleState(id, 600, "Enrage"); }, "Boss death")
                 .ActivateOnEnter<HoodSwing>()
                 .ActivateOnEnter<WhipBack>()
                 .ActivateOnEnter<Regorge>()
                 .ActivateOnEnter<Syrup>()
-                .ActivateOnEnter<CloneMerge>();
+                .ActivateOnEnter<CloneMerge>()
+                .Raw.Update = () => (module.PrimaryActor.IsDead || module.PrimaryActor.IsDestroyed) && module.FindComponent<CloneMerge>()!.CloneIfValid == null;
         }
     }
 
@@ -190,9 +191,10 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
                 if ((OID)e.Actor.OID == OID.DarkMatterSlime)
                 {
                     // for now, let kiter damage it until 20%
+                    var predictedHP = (int)e.Actor.HP.Cur + WorldState.PendingEffects.PendingHPDifference(e.Actor.InstanceID);
                     e.Priority =
-                        //e.Actor.HP.Cur > 0.7f * e.Actor.HP.Max ? (actor.Role is Role.Ranged or Role.Melee ? 3 : -1) :
-                        e.Actor.HP.Cur > 0.2f * e.Actor.HP.Max ? (e.Actor.TargetID == actor.InstanceID ? 3 : -1) :
+                        //predictedHP > 0.7f * e.Actor.HP.Max ? (actor.Role is Role.Ranged or Role.Melee ? 3 : -1) :
+                        predictedHP > 0.2f * e.Actor.HP.Max ? (e.Actor.TargetID == actor.InstanceID ? 3 : -1) :
                         -1;
                     e.TankAffinity = AIHints.TankAffinity.None;
                     e.ForbidDOTs = true;
