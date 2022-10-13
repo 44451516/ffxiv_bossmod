@@ -208,9 +208,9 @@ namespace BossMod.AI
 
         public void DrawDebug()
         {
-            ImGui.Checkbox("Forbid actions", ref _forbidActions);
+            ImGui.Checkbox("不放技能", ref _forbidActions);
             ImGui.SameLine();
-            ImGui.Checkbox("Forbid movement", ref _forbidMovement);
+            ImGui.Checkbox("不要移动", ref _forbidMovement);
             var player = _autorot.WorldState.Party.Player();
             var dist = _naviDecision.Destination != null && player != null ? (_naviDecision.Destination.Value - player.Position).Length() : 0;
             ImGui.TextUnformatted($"Max-cast={MathF.Min(_maxCastTime, 1000):f3}, afk={_afkMode}, follow={_followMaster}, algo={_naviDecision.DecisionType} {_naviDecision.Destination} (d={dist:f3}), master standing for {Math.Clamp((_autorot.WorldState.CurrentTime - _masterLastMoved).TotalSeconds, 0, 1000):f1}");

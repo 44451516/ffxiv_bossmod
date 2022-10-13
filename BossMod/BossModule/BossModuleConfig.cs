@@ -19,7 +19,7 @@
         public bool RotateArena = true;
 
         // [PropertyDisplay("Show arena border")]
-        [PropertyDisplay("现实场地边界")]
+        [PropertyDisplay("显示场地边界")]
         public bool ShowBorder = true;
 
         // [PropertyDisplay("Change arena border color if player is at risk")]
@@ -38,11 +38,11 @@
         public bool ShowMechanicTimers = true;
 
         // [PropertyDisplay("Show raidwide hints")]
-        [PropertyDisplay("显示副本提示")]
+        [PropertyDisplay("显示副本提示[英文的]")]
         public bool ShowGlobalHints = true;
 
         // [PropertyDisplay("Show warnings and hints for player")]
-        [PropertyDisplay("显示警告和提示")]
+        [PropertyDisplay("显示警告和提示[英文的]")]
         public bool ShowPlayerHints = true;
 
         [PropertyDisplay("Trisha mode: show radar without window")]
