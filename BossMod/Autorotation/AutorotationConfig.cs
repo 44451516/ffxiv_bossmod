@@ -1,9 +1,9 @@
 ﻿namespace BossMod
 {
-    [ConfigDisplay(Name = "Autorotation settings (experimental!)", Order = 4)]
+    [ConfigDisplay(Name = "自动输出[测试中]", Order = 4)]
     class AutorotationConfig : ConfigNode
     {
-        [PropertyDisplay("兼容模式")]
+        [PropertyDisplay("兼容模式[和其他插件冲突选中这个]")]
         public bool ActionManagerExHookEnabled = true;
         
         

@@ -1,13 +1,13 @@
 ﻿namespace BossMod
 {
-    [ConfigDisplay(Name = "Boss module window settings", Order = 1)]
+    [ConfigDisplay(Name = "画图", Order = 1)]
     public class BossModuleConfig : ConfigNode
     {
         [PropertyDisplay("Arena scale factor")]
         [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
         public float ArenaScale = 1;
 
-        [PropertyDisplay("Enable boss modules")]
+        [PropertyDisplay("启动 boss modules")]
         public bool Enable = true;
 
         // [PropertyDisplay("Lock movement and mouse interaction")]
