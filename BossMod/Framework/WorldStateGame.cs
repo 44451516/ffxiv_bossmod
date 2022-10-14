@@ -81,6 +81,29 @@ namespace BossMod
 
         private void UpdateActors()
         {
+            
+            Dictionary<ulong, GameObject> seenIDs = new();
+            foreach (var obj in Service.ObjectTable)
+                if (obj.ObjectId != GameObject.InvalidGameObjectId)
+                    seenIDs[obj.ObjectId] = obj;
+
+            List<Actor> delActors = new();
+            foreach (var e in Actors)
+                if (!seenIDs.ContainsKey(e.InstanceID))
+                    delActors.Add(e);
+
+            foreach (var actor in delActors)
+                RemoveActor(actor);
+
+            foreach ((_, var obj) in seenIDs)
+                UpdateActor(obj);
+
+            foreach (var (id, ops) in _actorOps)
+                Service.Log($"[WorldState] {ops.Count} actor events for unknown entity {id:X}");
+            _actorOps.Clear();
+            
+            
+            /*
             for (int i = 0; i < _actorsByIndex.Length; ++i)
             {
                 var actor = _actorsByIndex[i];
@@ -114,6 +137,7 @@ namespace BossMod
             foreach (var (id, ops) in _actorOps)
                 Service.Log($"[WorldState] {ops.Count} actor events for unknown entity {id:X}");
             _actorOps.Clear();
+            */
         }
 
         private void RemoveActor(Actor actor)
@@ -122,6 +146,114 @@ namespace BossMod
             Execute(new ActorState.OpDestroy() { InstanceID = actor.InstanceID });
         }
 
+        
+         private void UpdateActor(GameObject obj)
+        {
+            var character = obj as Character;
+            var name = obj.Name.TextValue;
+            var classID = (Class)(character?.ClassJob.Id ?? 0);
+            var posRot = new Vector4(obj.Position, obj.Rotation);
+            var hp = new ActorHP();
+            uint curMP = 0;
+            if (character != null)
+            {
+                hp.Cur = character.CurrentHp;
+                hp.Max = character.MaxHp;
+                hp.Shield = (uint)(Utils.CharacterShieldValue(character) * 0.01f * hp.Max);
+                curMP = character.CurrentMp;
+            }
+            var targetable = Utils.GameObjectIsTargetable(obj);
+            var friendly = Utils.GameObjectIsFriendly(obj);
+            var isDead = Utils.GameObjectIsDead(obj);
+            var inCombat = character?.StatusFlags.HasFlag(StatusFlags.InCombat) ?? false;
+            var target = character == null ? 0 : SanitizedObjectID(obj != Service.ClientState.LocalPlayer ? Utils.CharacterTargetID(character) : (Service.TargetManager.Target?.ObjectId ?? 0)); // this is a bit of a hack - when changing targets, we want AI to see changes immediately rather than wait for server response
+            var modelState = character != null ? Utils.CharacterModelState(character) : (byte)0; // TODO: consider this (reading memory) vs network (actor control 63)
+            var eventState = Utils.GameObjectEventState(obj);
+            var radius = Utils.GameObjectRadius(obj);
+
+            var act = Actors.Find(obj.ObjectId);
+            if (act == null)
+            {
+                Execute(new ActorState.OpCreate() {
+                    InstanceID = obj.ObjectId,
+                    OID = obj.DataId,
+                    Name = name,
+                    Type = (ActorType)(((int)obj.ObjectKind << 8) + obj.SubKind),
+                    Class = classID,
+                    PosRot = posRot,
+                    HitboxRadius = radius,
+                    HP = hp,
+                    CurMP = curMP,
+                    IsTargetable = targetable,
+                    IsAlly = friendly,
+                    OwnerID = SanitizedObjectID(obj.OwnerId)
+                });
+                act = Actors.Find(obj.ObjectId)!;
+            }
+            else
+            {
+                if (act.Name != name)
+                    Execute(new ActorState.OpRename() { InstanceID = act.InstanceID, Name = name });
+                if (act.Class != classID)
+                    Execute(new ActorState.OpClassChange() { InstanceID = act.InstanceID, Class = classID });
+                if (act.PosRot != posRot)
+                    Execute(new ActorState.OpMove() { InstanceID = act.InstanceID, PosRot = posRot });
+                if (act.HitboxRadius != radius)
+                    Execute(new ActorState.OpSizeChange() { InstanceID = act.InstanceID, HitboxRadius = radius });
+                if (act.HP.Cur != hp.Cur || act.HP.Max != hp.Max || act.HP.Shield != hp.Shield || act.CurMP != curMP)
+                    Execute(new ActorState.OpHPMP() { InstanceID = act.InstanceID, HP = hp, CurMP = act.CurMP });
+                if (act.IsTargetable != targetable)
+                    Execute(new ActorState.OpTargetable() { InstanceID = act.InstanceID, Value = targetable });
+                if (act.IsAlly != friendly)
+                    Execute(new ActorState.OpAlly() { InstanceID = act.InstanceID, Value = friendly });
+            }
+
+            if (act.IsDead != isDead)
+                Execute(new ActorState.OpDead() { InstanceID = act.InstanceID, Value = isDead });
+            if (act.InCombat != inCombat)
+                Execute(new ActorState.OpCombat() { InstanceID = act.InstanceID, Value = inCombat });
+            if (act.ModelState != modelState)
+                Execute(new ActorState.OpModelState() { InstanceID = act.InstanceID, Value = modelState });
+            if (act.EventState != eventState)
+                Execute(new ActorState.OpEventState() { InstanceID = act.InstanceID, Value = eventState });
+            if (act.TargetID != target)
+                Execute(new ActorState.OpTarget() { InstanceID = act.InstanceID, Value = target });
+            DispatchActorEvents(act.InstanceID);
+
+            var chara = obj as BattleChara;
+            if (chara != null)
+            {
+                ActorCastInfo? curCast = chara.IsCasting
+                    ? new ActorCastInfo
+                    {
+                        Action = new((ActionType)chara.CastActionType, chara.CastActionId),
+                        TargetID = SanitizedObjectID(chara.CastTargetObjectId),
+                        Rotation = Utils.CharacterCastRotation(chara).Radians(),
+                        Location = Utils.BattleCharaCastLocation(chara),
+                        TotalTime = chara.TotalCastTime,
+                        FinishAt = CurrentTime.AddSeconds(Math.Clamp(chara.TotalCastTime - chara.CurrentCastTime, 0, 100000)),
+                        Interruptible = chara.IsCastInterruptible
+                    } : null;
+                UpdateActorCastInfo(act, curCast);
+
+                for (int i = 0; i < chara.StatusList.Length; ++i)
+                {
+                    // note: sometimes (Ocean Fishing) remaining-time is weird (I assume too large?) and causes exception in AddSeconds - so we just clamp it to some reasonable range
+                    // note: self-cast buffs with duration X will have duration -X until EffectResult (~0.6s later); see autorotation for more details
+                    ActorStatus curStatus = new();
+                    var s = chara.StatusList[i];
+                    if (s != null && s.StatusId != 0)
+                    {
+                        var dur = Math.Min(Math.Abs(s.RemainingTime), 100000);
+                        curStatus.ID = s.StatusId;
+                        curStatus.SourceID = SanitizedObjectID(s.SourceID);
+                        curStatus.Extra = s.Param;
+                        curStatus.ExpireAt = CurrentTime.AddSeconds(dur);
+                    }
+                    UpdateActorStatus(act, i, curStatus);
+                }
+            }
+        }
         private void UpdateActor(GameObject obj, int index, Actor? act)
         {
             var character = obj as Character;
