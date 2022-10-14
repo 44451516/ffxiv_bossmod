@@ -84,30 +84,36 @@ namespace BossMod
             for (int i = 0; i < _actorsByIndex.Length; ++i)
             {
                 var actor = _actorsByIndex[i];
-                var obj = Service.ObjectTable[i];
 
-                if (obj != null && obj.ObjectId == GameObject.InvalidGameObjectId)
-                    obj = null; // ignore non-networked objects (really?..)
 
-                if (obj != null && (obj.ObjectId & 0xFF000000) == 0xFF000000)
+                if (actor != null)
                 {
-                    Service.Log($"[WorldState] Skipping bad object #{i} with id {obj.ObjectId:X}");
-                    obj = null;
-                }
+                    var obj = Service.ObjectTable.SearchById(actor.OID);
+                    // var obj = Service.ObjectTable[i];
 
-                if (actor != null && actor.InstanceID != obj?.ObjectId)
-                {
-                    RemoveActor(actor);
-                    actor = _actorsByIndex[i] = null;
-                }
+                    if (obj != null && obj.ObjectId == GameObject.InvalidGameObjectId)
+                        obj = null; // ignore non-networked objects (really?..)
 
-                if (obj != null)
-                {
-                    if (actor != Actors.Find(obj.ObjectId))
+                    if (obj != null && (obj.ObjectId & 0xFF000000) == 0xFF000000)
                     {
-                        Service.Log($"[WorldState] Actor position mismatch for #{i} {actor}");
+                        Service.Log($"[WorldState] Skipping bad object #{i} with id {obj.ObjectId:X}");
+                        obj = null;
                     }
-                    UpdateActor(obj, i, actor);
+
+                    if (actor.InstanceID != obj?.ObjectId)
+                    {
+                        RemoveActor(actor);
+                        actor = _actorsByIndex[i] = null;
+                    }
+
+                    if (obj != null)
+                    {
+                        if (actor != Actors.Find(obj.ObjectId))
+                        {
+                            Service.Log($"[WorldState] Actor position mismatch for #{i} {actor}");
+                        }
+                        UpdateActor(obj, i, actor);
+                    }
                 }
             }
 
