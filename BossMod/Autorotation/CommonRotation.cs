@@ -43,7 +43,7 @@ namespace BossMod
 
         public class Strategy
         {
-            public enum PotionUse { Manual, DelayUntilRaidBuffs, DelayUntilPersonalBuffs, Immediate }
+            public enum PotionUse { 手动, 延迟到团队BUFF, 延迟到个人BUFF_空实现, 马上 }
 
             public bool Prepull; // true if neither self nor target are in combat; TODO consider replacing with countdown timer
             public bool ForbidDOTs;

@@ -17,9 +17,23 @@ namespace BossMod
             ActionEffect16 = 0xC3,
             ActionEffect24 = 0x3BF,
             ActionEffect32 = 0x2B2,
-            
-            
             ActorCast = 0x2E5,
+            
+            EffectResult = 0x34C,
+            EffectResultBasic = 0x204,
+            
+            
+            ActorControl = 0x1D4, // look at toggle weapon
+            ActorControlSelf = 0x12C, // look at cooldown
+            
+            PresetWaymark = 0x010B, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
+            Waymark = 0x02D1, // FFXIVOpcodes calls this PlaceFieldMarker   
+            
+            EnvironmentControl = 0x3AF, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
+            
+            ActionRequest = 0x69, // just begin casting return...
+            ActionRequestGroundTargeted = 0x25B, // XIVAlexander
+            
             
             EffectResult1 = 0x034C,
             EffectResult4 = 0x034C,
@@ -32,12 +46,7 @@ namespace BossMod
             EffectResultBasic32 = 0x0204,
             EffectResultBasic64 = 0x0204,
             
-            EffectResult = 0x34C,
-            EffectResultBasic = 0x204,
-            
-            
-            ActorControl = 0x1D4, // look at toggle weapon
-            ActorControlSelf = 0x12C, // look at cooldown
+      
             
             ActorControlTarget = 0x0212, // look at target change
             UpdateHpMpTp = 0xF102,
@@ -47,8 +56,7 @@ namespace BossMod
             ActorMove = 0xF0B3,
             ActorSetPos = 0xF1BA,
             ActorGauge = 0xF2AB,
-            PresetWaymark = 0x010B, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
-            Waymark = 0x02D1, // FFXIVOpcodes calls this PlaceFieldMarker
+
             SystemLogMessage = 0xF1DB, // FFXIVOpcodes calls this SomeDirectorUnk4
 
             // opcodes from FFXIVOpcodes
@@ -115,7 +123,7 @@ namespace BossMod
             UpdatePositionInstance = 0xF24B,
 
             // below are opcodes i've reversed myself...
-            EnvironmentControl = 0x3AF, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
+
             UpdateRecastTimes = 0x03BE, // payload = 80 floats 'elapsed' + 80 floats 'total'
             UpdateHate = 0x0225, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
             UpdateHater = 0x039B, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
@@ -124,8 +132,7 @@ namespace BossMod
             
             RSVData = 0x03D6,
             
-            ActionRequest = 0x69, // just begin casting return...
-            ActionRequestGroundTargeted = 0x25B, // XIVAlexander
+
             // old - 0x1fd == EventObjSpawn? for stuff like exit points, etc.
         }
 

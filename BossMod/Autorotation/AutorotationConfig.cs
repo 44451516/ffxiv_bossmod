@@ -3,6 +3,10 @@
     [ConfigDisplay(Name = "自动循环设置 (实验性!)", Order = 4)]
     class AutorotationConfig : ConfigNode
     {
+        
+        [PropertyDisplay("兼容模式[和自动循环冲突]")]
+        public bool ActionManagerExHookEnabled = true;
+        
         [PropertyDisplay("启用自动循环")]
         public bool Enabled = false;
 
@@ -25,7 +29,7 @@
         public bool RemoveAnimationLockDelay = false;
 
         [PropertyDisplay("药水使用策略")]
-        public CommonRotation.Strategy.PotionUse PotionUse = CommonRotation.Strategy.PotionUse.Manual;
+        public CommonRotation.Strategy.PotionUse PotionUse = CommonRotation.Strategy.PotionUse.手动;
 
         public enum GroundTargetingMode
         {

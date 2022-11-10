@@ -252,17 +252,17 @@ namespace BossMod.WAR
             // 1. potion, if required by strategy, and not too early in opener (TODO: reconsider priority)
             // TODO: reconsider potion use during opener (delayed IR prefers after maim, early IR prefers after storm eye, to cover third IC on 13th GCD)
             // note: this check will not allow using potions before lvl 50, but who cares...
-            if (strategy.Potion != Strategy.PotionUse.Manual && state.CanWeave(state.PotionCD, 1.1f, deadline) && (state.SurgingTempestLeft > 0 || state.ComboLastMove == AID.Maim))
+            if (strategy.Potion != Strategy.PotionUse.手动 && state.CanWeave(state.PotionCD, 1.1f, deadline) && (state.SurgingTempestLeft > 0 || state.ComboLastMove == AID.Maim))
             {
                 // note: potion should never be delayed during opener slot
                 // we have a problem with late buff application during opener: between someone casting first raidbuff and us receiving buff, RaidBuffsLeft will be 0 and RaidBuffsIn will be very large
                 // after opener this won't be a huge deal, since we have several GCDs of leeway + most likely we have several raid buffs that are at least somewhat staggered
                 bool allowPotion = true;
-                if (strategy.Potion != Strategy.PotionUse.Immediate && state.SurgingTempestLeft > 0)
+                if (strategy.Potion != Strategy.PotionUse.马上 && state.SurgingTempestLeft > 0)
                 {
                     // if we're delaying potion, make sure it covers IR (note: if IR is already up, it is too late...)
                     allowPotion &= irCD < 15; // note: absolute max is 10, since we need 4 GCDs to fully consume IR
-                    if (strategy.Potion == Strategy.PotionUse.DelayUntilRaidBuffs)
+                    if (strategy.Potion == Strategy.PotionUse.延迟到团队BUFF)
                     {
                         // further delay potion until raidbuffs are up or imminent
                         // we can't really control whether raidbuffs cover IR window, so skip potion only if we're sure raidbuffs might be up for next IR window

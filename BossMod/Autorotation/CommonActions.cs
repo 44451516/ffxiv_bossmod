@@ -364,8 +364,8 @@ namespace BossMod
                 strategy.RaidBuffsIn = Math.Min(strategy.RaidBuffsIn, Autorot.Bossmods.RaidCooldowns.NextDamageBuffIn(Autorot.WorldState.CurrentTime));
             strategy.PositionLockIn = Autorot.Config.EnableMovement && !poslock.Item1 ? poslock.Item2 : 0;
             strategy.Potion = Autorot.Config.PotionUse;
-            if (strategy.Potion != CommonRotation.Strategy.PotionUse.Manual && !HaveItemInInventory(potion.ID)) // don't try to use potions if player doesn't have any
-                strategy.Potion = CommonRotation.Strategy.PotionUse.Manual;
+            if (strategy.Potion != CommonRotation.Strategy.PotionUse.手动 && !HaveItemInInventory(potion.ID)) // don't try to use potions if player doesn't have any
+                strategy.Potion = CommonRotation.Strategy.PotionUse.手动;
         }
 
         // smart targeting utility: return target (if friendly) or mouseover (if friendly) or null (otherwise)
