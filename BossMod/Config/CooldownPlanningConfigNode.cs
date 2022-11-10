@@ -44,7 +44,7 @@ namespace BossMod
                 NotifyModified();
             }
             ImGui.SameLine();
-            if (ImGui.Button(plans.SelectedIndex >= 0 ? "Edit plan" : "Create new plan"))
+            if (ImGui.Button(plans.SelectedIndex >= 0 ? "编辑计划" : "创建新计划"))
             {
                 if (plans.SelectedIndex < 0)
                 {
@@ -79,19 +79,19 @@ namespace BossMod
 
         public override void DrawCustom(UITree tree, WorldState ws)
         {
-            foreach (var _ in tree.Node("Cooldown plans"))
+            foreach (var _ in tree.Node("冷却计划"))
             {
                 foreach (var (c, plans) in CooldownPlans)
                 {
                     for (int i = 0; i < plans.Available.Count; ++i)
                     {
                         ImGui.PushID($"{c}/{i}");
-                        if (ImGui.Button($"Edit"))
+                        if (ImGui.Button($"编辑"))
                         {
                             StartPlanEditor(plans.Available[i]);
                         }
                         ImGui.SameLine();
-                        if (ImGui.Button($"Copy"))
+                        if (ImGui.Button($"Copy【创建副本】"))
                         {
                             var plan = plans.Available[i].Clone();
                             plan.Name += " Copy";
@@ -100,7 +100,7 @@ namespace BossMod
                             StartPlanEditor(plan);
                         }
                         ImGui.SameLine();
-                        if (ImGui.Button($"Delete"))
+                        if (ImGui.Button($"删除"))
                         {
                             if (plans.SelectedIndex == i)
                                 plans.SelectedIndex = -1;
@@ -120,7 +120,7 @@ namespace BossMod
                         ImGui.PopID();
                     }
                 }
-                ImGui.TextUnformatted("Add new plan:");
+                ImGui.TextUnformatted("添加新计划:");
                 foreach (var (c, plans) in CooldownPlans)
                 {
                     ImGui.SameLine();
