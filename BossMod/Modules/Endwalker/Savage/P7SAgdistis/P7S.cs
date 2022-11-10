@@ -45,6 +45,12 @@
         public HemitheosGlareMine() : base(ActionID.MakeSpell(AID.HemitheosGlareMine), new AOEShapeDonut(5, 30)) { } // TODO: verify inner radius
     }
 
+    [ConfigDisplay(Order = 0x170, Parent = typeof(EndwalkerConfig))]
+    public class P7SConfig : CooldownPlanningConfigNode
+    {
+        public P7SConfig() : base(90) { }
+    }
+
     public class P7S : BossModule
     {
         public P7S(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(100, 100), 27)) { }

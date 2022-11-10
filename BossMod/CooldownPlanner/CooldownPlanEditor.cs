@@ -6,32 +6,33 @@ namespace BossMod
 {
     public class CooldownPlanEditor
     {
-        private CooldownPlan _plan;
         private Action _onModified;
         private Timeline _timeline = new();
-        private StateMachineBranchColumn _colStates;
+        private ColumnStateMachineBranch _colStates;
         private CooldownPlannerColumns _planner;
+        private int _selectedPhase = 0;
         private bool _modified = false;
 
-        public CooldownPlanEditor(CooldownPlan plan, StateMachine sm, Action onModified)
+        public CooldownPlanEditor(CooldownPlan plan, StateMachine sm, ModuleRegistry.Info? moduleInfo, Action onModified)
         {
-            _plan = plan;
             _onModified = onModified;
 
             var tree = new StateMachineTree(sm);
             var phaseBranches = Enumerable.Repeat(0, tree.Phases.Count).ToList();
-            _colStates = _timeline.AddColumn(new StateMachineBranchColumn(_timeline, tree, phaseBranches));
-            _planner = new(plan, OnPlanModified, _timeline, tree, phaseBranches);
+            _colStates = _timeline.Columns.Add(new ColumnStateMachineBranch(_timeline, tree, phaseBranches));
+            _planner = _timeline.Columns.Add(new CooldownPlannerColumns(plan, OnPlanModified, _timeline, tree, phaseBranches, moduleInfo));
 
             _timeline.MaxTime = tree.TotalMaxTime;
         }
 
         public void Draw()
         {
-            if (ImGui.Button(_modified ? "Save" : "No changes") && _modified)
+            if (ImGui.Button(_modified ? "保存" : "无更改") && _modified)
                 Save();
             ImGui.SameLine();
-            _planner.DrawControls();
+            _planner.DrawCommonControls();
+
+            _selectedPhase = _planner.DrawPhaseControls(_selectedPhase);
 
             _timeline.Draw();
         }

@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace BossMod
 {
-    [ConfigDisplay(Name = "Party roles assignment", Order = 2)]
+    [ConfigDisplay(Name = "小队职责分配", Order = 2)]
     public class PartyRolesConfig : ConfigNode
     {
         public enum Assignment { MT, OT, H1, H2, M1, M2, R1, R2, Unassigned }
@@ -73,7 +73,7 @@ namespace BossMod
             {
                 foreach (var r in typeof(Assignment).GetEnumValues())
                     ImGui.TableSetupColumn(r.ToString(), ImGuiTableColumnFlags.None, 25);
-                ImGui.TableSetupColumn("Name");
+                ImGui.TableSetupColumn("名称");
                 ImGui.TableHeadersRow();
 
                 List<(ulong cid, string name, Role role, Assignment assignment)> party = new();
@@ -108,13 +108,13 @@ namespace BossMod
                 if (AssignmentsPerSlot(ws.Party).Length == 0)
                 {
                     ImGui.PushStyleColor(ImGuiCol.Text, 0xff00ffff);
-                    ImGui.TextUnformatted("Invalid assignments: there should be exactly one raid member per role");
+                    ImGui.TextUnformatted("无效分配: 每一个职责都必须有一个玩家!");
                     ImGui.PopStyleColor();
                 }
                 else
                 {
                     ImGui.PushStyleColor(ImGuiCol.Text, 0xff00ff00);
-                    ImGui.TextUnformatted("All good!");
+                    ImGui.TextUnformatted("没有问题!");
                     ImGui.PopStyleColor();
                 }
             }

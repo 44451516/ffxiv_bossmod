@@ -141,36 +141,31 @@ namespace BossMod
             };
         }
 
+        public (Node, float) AbsoluteTimeToNodeAndDelay(float t, List<int> phaseBranches)
+        {
+            int phaseIndex = FindPhaseAtTime(t);
+            var phase = Phases[phaseIndex];
+            t -= phase.StartTime;
+            var node = phase.TimeToBranchNode(phaseBranches[phaseIndex], t);
+            return (node, t - (node.Predecessor?.Time ?? 0));
+        }
+
         private (Node, float) LayoutNodeAndSuccessors(float t, int phaseID, int branchID, StateMachine.State state, Node? pred)
         {
             var node = _nodes[state.ID] = new Node(t + state.Duration, phaseID, branchID, state, pred);
             float succDuration = 0;
 
-            // first layout default state, if any
-            if (state.Next != null)
+            if (state.NextStates?.Length > 0)
             {
-                var (succ, dur) = LayoutNodeAndSuccessors(t + state.Duration, phaseID, branchID, state.Next, node);
-                node.Successors.Add(succ);
-                succDuration = dur;
-                node.NumBranches += succ.NumBranches;
-            }
-
-            // now layout extra successors, if any
-            if (state.PotentialSuccessors != null)
-            {
-                foreach (var s in state.PotentialSuccessors)
+                foreach (var s in state.NextStates)
                 {
-                    if (state.Next == s)
-                        continue; // this is already processed
-
                     var (succ, dur) = LayoutNodeAndSuccessors(t + state.Duration, phaseID, branchID + node.NumBranches, s, node);
                     node.Successors.Add(succ);
                     succDuration = Math.Max(succDuration, dur);
                     node.NumBranches += succ.NumBranches;
                 }
             }
-
-            if (state.Next == null && state.PotentialSuccessors == null)
+            else
             {
                 node.NumBranches++; // leaf
             }

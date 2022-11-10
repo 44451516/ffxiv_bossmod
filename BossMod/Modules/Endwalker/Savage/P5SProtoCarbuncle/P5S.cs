@@ -27,6 +27,12 @@
         public DevourBait() : base(ActionID.MakeSpell(AID.DevourBait)) { }
     }
 
+    [ConfigDisplay(Order = 0x150, Parent = typeof(EndwalkerConfig))]
+    public class P5SConfig : CooldownPlanningConfigNode
+    {
+        public P5SConfig() : base(90) { }
+    }
+
     public class P5S : BossModule
     {
         public P5S(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(100, 100), 15)) { }

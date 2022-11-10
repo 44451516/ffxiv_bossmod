@@ -45,7 +45,7 @@ namespace UIDev
 
                 DrawContents(e, moduleInfo);
                 DrawEncounterDetails(e, TimePrinter(e.Time.Start));
-                DrawPlayerActions(e);
+                DrawTimelines(e);
             }
         }
 
@@ -230,34 +230,28 @@ namespace UIDev
             return t => new Replay.TimeRange(start, t).ToString();
         }
 
-        private void OpenPlayerActions(Replay.Encounter enc, Class pcClass, Replay.Participant? pc = null)
+        private void OpenTimeline(Replay.Encounter enc, BitMask showPlayers)
         {
-            var planner = new PlayerActions(_replay, enc, pcClass, pc);
-            var w = WindowManager.CreateWindow($"Player actions timeline: {pcClass} {pc?.Name} {_replay.Path} @ {enc.Time.Start:O}", planner.Draw, planner.Close, () => true);
-            w.SizeHint = new(600, 600);
+            var tl = new ReplayTimeline(_replay, enc, showPlayers);
+            var w = WindowManager.CreateWindow($"Replay timeline: {_replay.Path} @ {enc.Time.Start:O}", tl.Draw, tl.Close, () => true);
+            w.SizeHint = new(1200, 1000);
             w.MinSize = new(100, 100);
         }
 
-        private void DrawPlayerActions(Replay.Encounter enc)
+        private void DrawTimelines(Replay.Encounter enc)
         {
-            foreach (var n in _tree.Node("Player actions timeline"))
+            if (ImGui.Button("Show timeline"))
+                OpenTimeline(enc, new());
+            ImGui.SameLine();
+            for (int i = 0; i < enc.PartyMembers.Count; i++)
             {
-                foreach (var c in AbilityDefinitions.Classes.Keys)
-                {
-                    if (ImGui.Button(c.ToString()))
-                    {
-                        OpenPlayerActions(enc, c);
-                    }
-                    foreach (var (p, _) in enc.PartyMembers.Where(pc => pc.Item2 == c))
-                    {
-                        ImGui.SameLine();
-                        if (ImGui.Button($"{p.Name}##{p.InstanceID:X}"))
-                        {
-                            OpenPlayerActions(enc, c, p);
-                        }
-                    }
-                }
+                var (p, c) = enc.PartyMembers[i];
+                if (ImGui.Button($"{c} {p.Name}"))
+                    OpenTimeline(enc, new(1u << i));
+                ImGui.SameLine();
             }
+            if (ImGui.Button("All"))
+                OpenTimeline(enc, new((1u << enc.PartyMembers.Count) - 1));
         }
 
         private void OpListContextMenu(OpList? list)

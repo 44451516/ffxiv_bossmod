@@ -68,13 +68,21 @@ namespace BossMod.Pathfinding
                     var res = FindPathFromUnsafe(map2, player.Position, 0, maxGoal, targetPos, targetRot, positional, playerSpeed);
                     if (res != null)
                         return res.Value;
-                }
 
-                // pathfind to any spot outside aoes we're in that doesn't enter new aoes
-                foreach (var (zf, inside) in hints.ForbiddenZones.Zip(inZone))
-                    if (inside)
-                        map.AddGoal(zf.shapeDistance, forbiddenZoneCushion, 0, -1);
-                return FindPathFromImminent(map, player.Position, playerSpeed);
+                    // pathfind to any spot outside aoes we're in that doesn't enter new aoes
+                    foreach (var (zf, inside) in hints.ForbiddenZones.Zip(inZone))
+                        if (inside)
+                            map.AddGoal(zf.shapeDistance, forbiddenZoneCushion, 0, -1);
+                    return FindPathFromImminent(map, player.Position, playerSpeed);
+                }
+                else
+                {
+                    // try to find a path out of imminent aoes that we're in, while remaining in non-imminent aoes that we're already in - it might be worth it...
+                    foreach (var (zf, inside) in hints.ForbiddenZones.Zip(inZone).Take(numImminentZones))
+                        if (inside)
+                            map.AddGoal(zf.shapeDistance, forbiddenZoneCushion, 0, -1);
+                    return FindPathFromImminent(map, player.Position, playerSpeed);
+                }
             }
 
             // we're safe, see if we can improve our position
@@ -202,10 +210,17 @@ namespace BossMod.Pathfinding
                     adjPrio = map.AddGoal(ShapeDistanceRear(targetPos, targetRot), 0, minPriority, 1);
                     break;
                 case Positional.Front:
+                    Func<int, int, bool> suitable = (x, y) =>
+                    {
+                        if (!map.InBounds(x, y))
+                            return false;
+                        var pixel = map[x, y];
+                        return pixel.Priority >= minPriority && pixel.MaxG == float.MaxValue;
+                    };
+
                     var dir = targetRot.ToDirection();
                     var maxRange = map.WorldToGrid(targetPos + dir * targetRadius);
-                    var pixel = map[maxRange.x, maxRange.y];
-                    if (pixel.Priority >= minPriority && pixel.MaxG == float.MaxValue)
+                    if (suitable(maxRange.x, maxRange.y))
                     {
                         adjPrio = map.AddGoal(maxRange.x, maxRange.y, 1);
                     }
@@ -214,8 +229,7 @@ namespace BossMod.Pathfinding
                         var minRange = map.WorldToGrid(targetPos + dir * 3);
                         foreach (var p in map.EnumeratePixelsInLine(maxRange.x, maxRange.y, minRange.x, minRange.y))
                         {
-                            pixel = map[p.x, p.y];
-                            if (pixel.Priority >= minPriority && pixel.MaxG == float.MaxValue)
+                            if (suitable(p.x, p.y))
                             {
                                 adjPrio = map.AddGoal(p.x, p.y, 1);
                                 break;
@@ -266,7 +280,6 @@ namespace BossMod.Pathfinding
 
         public static NavigationDecision FindPathFromImminent(Map map, WPos startPos, float speed = 6)
         {
-            // just run to closest safe spot, if no good path can be found
             var pathfind = new ThetaStar(map, 0, startPos, 1.0f / speed);
             int res = pathfind.Execute();
             if (res >= 0)
@@ -274,6 +287,7 @@ namespace BossMod.Pathfinding
                 return new() { Destination = GetFirstWaypoint(pathfind, res), LeewaySeconds = 0, TimeToGoal = pathfind.NodeByIndex(res).GScore, Map = map, MapGoal = 0, DecisionType = Decision.ImminentToSafe };
             }
 
+            // just run to closest safe spot, if no good path can be found
             var closest = map.EnumeratePixels().Where(p => { var px = map[p.x, p.y]; return px.Priority == 0 && px.MaxG == float.MaxValue; }).MinBy(p => (p.center - startPos).LengthSq()).center;
             return new() { Destination = closest, LeewaySeconds = 0, TimeToGoal = (closest - startPos).Length() / speed, Map = map, DecisionType = Decision.ImminentToClosest };
         }

@@ -101,14 +101,14 @@ namespace BossMod.RealmReborn.Raid.T02MultiADS
 
     class GravityField : Components.PersistentVoidzoneAtCastTarget
     {
-        public GravityField() : base(6, ActionID.MakeSpell(AID.GravityField), m => m.Enemies(OID.GravityField), 2, true) { }
+        public GravityField() : base(6, ActionID.MakeSpell(AID.GravityField), m => m.Enemies(OID.GravityField), 1) { }
     }
 
     class T02AI : BossComponent
     {
         public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
-            hints.UpdatePotentialTargets(e =>
+            foreach (var e in hints.PotentialTargets)
             {
                 if (e.Actor == module.PrimaryActor)
                 {
@@ -131,7 +131,7 @@ namespace BossMod.RealmReborn.Raid.T02MultiADS
                         }
                     }
                 }
-            });
+            }
         }
     }
 
@@ -155,7 +155,10 @@ namespace BossMod.RealmReborn.Raid.T02MultiADS
     }
 
     [ConfigDisplay(Order = 0x120, Parent = typeof(RealmRebornConfig))]
-    public class T02ADSConfig : CooldownPlanningConfigNode { }
+    public class T02ADSConfig : CooldownPlanningConfigNode
+    {
+        public T02ADSConfig() : base(50) { }
+    }
 
     [ModuleInfo(PrimaryActorOID = (uint)OID.ADS)]
     public class T02ADS : BossModule

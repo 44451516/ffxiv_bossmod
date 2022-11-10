@@ -7,7 +7,7 @@ using System.Linq;
 namespace BossMod
 {
     // a set of action-use columns that represent cooldown plan
-    public class CooldownPlannerColumns
+    public class CooldownPlannerColumns : Timeline.ColumnGroup
     {
         private CooldownPlan _plan;
         private Action _onModified;
@@ -15,83 +15,98 @@ namespace BossMod
         private List<int> _phaseBranches;
         private string _name = "";
         private StateMachineTimings _timings = new();
-        private Dictionary<ActionID, ActionUseColumn> _columns = new();
-        private int _selectedPhase = 0;
+        private List<ColumnPlannerTrackCooldown> _colCooldowns = new();
+        private Dictionary<ActionID, int> _aidToColCooldown = new();
 
         private float _trackWidth = 80;
 
         public Class PlanClass => _plan.Class;
 
-        public CooldownPlannerColumns(CooldownPlan plan, Action onModified, Timeline timeline, StateMachineTree tree, List<int> phaseBranches)
+        public CooldownPlannerColumns(CooldownPlan plan, Action onModified, Timeline timeline, StateMachineTree tree, List<int> phaseBranches, ModuleRegistry.Info? moduleInfo)
+            : base(timeline)
         {
             _plan = plan;
             _onModified = onModified;
             _tree = tree;
             _phaseBranches = phaseBranches;
-            foreach (var (aid, info) in AbilityDefinitions.Classes[plan.Class].Abilities)
+            var classDef = PlanDefinitions.Classes[plan.Class];
+            foreach (var track in classDef.CooldownTracks)
             {
-                if (!info.IsPlannable)
-                    continue;
-                var col = _columns[aid] = timeline.AddColumn(new ActionUseColumn(timeline, tree, phaseBranches));
-                col.Width = _trackWidth;
-                col.Name = Service.LuminaRow<Lumina.Excel.GeneratedSheets.Action>(aid.ID)?.Name.ToString() ?? "(unknown)";
-                col.Editable = true;
-                col.NotifyModified = onModified;
-                col.EffectDuration = info.Definition.EffectDuration;
-                col.Cooldown = info.Definition.Cooldown;
+                ActionID defaultAction = new();
+                foreach (var a in track.Actions.Where(a => a.minLevel <= plan.Level))
+                {
+                    _aidToColCooldown[a.aid] = _colCooldowns.Count;
+                    if (!defaultAction)
+                        defaultAction = a.aid;
+                }
+
+                if (defaultAction)
+                {
+                    var col = Add(new ColumnPlannerTrackCooldown(timeline, tree, phaseBranches, track.Name, moduleInfo, classDef, track, defaultAction, plan.Level));
+                    col.Width = _trackWidth;
+                    col.NotifyModified = onModified;
+                    _colCooldowns.Add(col);
+                }
             }
 
             ExtractPlanData(plan);
         }
 
-        public void AddEvent(ActionID aid, ActionUseColumn.Event ev)
+        // TODO: should be removed...
+        public ColumnPlannerTrackCooldown? TrackForAction(ActionID aid)
         {
-            _columns.GetValueOrDefault(aid)?.Events.Add(ev);
+            var index = _aidToColCooldown.GetValueOrDefault(aid, -1);
+            return index >= 0 ? _colCooldowns[index] : null;
         }
 
-        public void ClearEvents()
+        public void DrawCommonControls()
         {
-            foreach (var c in _columns.Values)
-                c.Events.Clear();
-        }
-
-        public void DrawControls()
-        {
-            if (ImGui.Button("Export to clipboard"))
+            if (ImGui.Button("导出至剪切板"))
                 ExportToClipboard();
             ImGui.SameLine();
-            if (ImGui.Button("Import from clipboard"))
+            if (ImGui.Button("从剪切板导入"))
                 ImportFromClipboard();
             ImGui.SameLine();
             ImGui.SetNextItemWidth(100);
-            if (ImGui.InputText("Name", ref _name, 255))
+            if (ImGui.InputText("名称", ref _name, 255))
                 _onModified();
+        }
 
-            if (ImGui.Button("<##Phase") && _selectedPhase > 0)
-                --_selectedPhase;
+        public int DrawPhaseControls(int selectedPhase)
+        {
+            if (ImGui.Button("<##Phase") && selectedPhase > 0)
+                --selectedPhase;
             ImGui.SameLine();
-            ImGui.TextUnformatted($"Current phase: {_selectedPhase + 1}/{_tree.Phases.Count}");
+            ImGui.TextUnformatted($"当前阶段: {selectedPhase + 1}/{_tree.Phases.Count}");
             ImGui.SameLine();
-            if (ImGui.Button(">##Phase") && _selectedPhase < _tree.Phases.Count - 1)
-                ++_selectedPhase;
+            if (ImGui.Button(">##Phase") && selectedPhase < _tree.Phases.Count - 1)
+                ++selectedPhase;
 
-            var selPhase = _tree.Phases[_selectedPhase];
+            var selPhase = _tree.Phases[selectedPhase];
             ImGui.SameLine();
             if (ImGui.SliderFloat("###phase-duration", ref selPhase.Duration, 0, selPhase.MaxTime, $"{selPhase.Name}: %.1f"))
             {
-                _timings.PhaseDurations[_selectedPhase] = selPhase.Duration;
+                _timings.PhaseDurations[selectedPhase] = selPhase.Duration;
                 _tree.ApplyTimings(_timings);
                 _onModified();
             }
 
             ImGui.SameLine();
-            if (ImGui.Button("<##Branch") && _phaseBranches[_selectedPhase] > 0)
-                --_phaseBranches[_selectedPhase];
+            if (ImGui.Button("<##Branch") && _phaseBranches[selectedPhase] > 0)
+                --_phaseBranches[selectedPhase];
             ImGui.SameLine();
-            ImGui.TextUnformatted($"Current branch: {_phaseBranches[_selectedPhase] + 1}/{selPhase.StartingNode.NumBranches}");
+            ImGui.TextUnformatted($"当前分支: {_phaseBranches[selectedPhase] + 1}/{selPhase.StartingNode.NumBranches}");
             ImGui.SameLine();
-            if (ImGui.Button(">##Branch") && _phaseBranches[_selectedPhase] < selPhase.StartingNode.NumBranches - 1)
-                ++_phaseBranches[_selectedPhase];
+            if (ImGui.Button(">##Branch") && _phaseBranches[selectedPhase] < selPhase.StartingNode.NumBranches - 1)
+                ++_phaseBranches[selectedPhase];
+
+            return selectedPhase;
+        }
+
+        public void DrawConfig()
+        {
+            DrawCommonControls();
+            // TODO: hide/show for tracks
         }
 
         public void UpdateEditedPlan()
@@ -99,7 +114,7 @@ namespace BossMod
             var plan = BuildPlan();
             _plan.Name = plan.Name;
             _plan.Timings = plan.Timings;
-            _plan.PlanAbilities = plan.PlanAbilities;
+            _plan.Actions = plan.Actions;
         }
 
         public void ExportToClipboard()
@@ -137,32 +152,34 @@ namespace BossMod
             foreach (var p in _tree.Phases)
                 _timings.PhaseDurations.Add(p.Duration);
 
-            foreach (var (aid, col) in _columns)
-            {
-                col.Entries.Clear();
-                var list = plan.PlanAbilities.GetValueOrDefault(aid.Raw);
-                if (list == null)
-                    continue;
+            foreach (var col in _colCooldowns)
+                while (col.Elements.Count > 0)
+                    col.RemoveElement(0);
 
-                foreach (var e in list)
+            foreach (var a in plan.Actions)
+            {
+                var col = TrackForAction(a.ID);
+                if (col != null)
                 {
-                    var state = _tree.Nodes.GetValueOrDefault(e.StateID);
+                    var state = _tree.Nodes.GetValueOrDefault(a.StateID);
                     if (state != null)
-                        col.Entries.Add(new(state, e.TimeSinceActivation, e.WindowLength, col.EffectDuration, col.Cooldown, col.Name));
+                    {
+                        col.AddElement(state, a.TimeSinceActivation, a.WindowLength, a.ID, a.LowPriority, a.Target.Clone(), a.Comment);
+                    }
                 }
             }
         }
 
         private CooldownPlan BuildPlan()
         {
-            var res = new CooldownPlan(_plan.Class, _name);
+            var res = new CooldownPlan(_plan.Class, _plan.Level, _name);
             res.Timings = _timings.Clone();
-            foreach (var (aid, col) in _columns)
+            foreach (var col in _colCooldowns)
             {
-                var list = res.PlanAbilities[aid.Raw];
-                foreach (var e in col.Entries.Where(e => e.AttachNode != null))
+                foreach (var e in col.Elements)
                 {
-                    list.Add(new(e.AttachNode!.State.ID, e.WindowStartDelay, e.WindowLength));
+                    var cast = (ColumnPlannerTrackCooldown.ActionElement)e;
+                    res.Actions.Add(new(cast.Action, e.Window.AttachNode.State.ID, e.Window.Delay, e.Window.Duration, cast.LowPriority, cast.Target.Clone(), cast.Comment));
                 }
             }
             return res;

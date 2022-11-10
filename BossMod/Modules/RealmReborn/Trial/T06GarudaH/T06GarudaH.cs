@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 
 namespace BossMod.RealmReborn.Trial.T06GarudaH
 {
@@ -118,14 +117,17 @@ namespace BossMod.RealmReborn.Trial.T06GarudaH
         public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             base.CalculateAIHints(slot, actor, assignment, hints);
-            hints.AssignPotentialTargetPriorities(a => (OID)a.OID switch
+            foreach (var e in hints.PotentialTargets)
             {
-                OID.Suparna or OID.Chirada => a.Tether.ID == (uint)TetherID.Rehabilitation ? 3 : 2,
-                OID.SatinPlume => 3,
-                OID.RazorPlume => 2,
-                OID.Boss => 1,
-                _ => 0
-            });
+                e.Priority = (OID)e.Actor.OID switch
+                {
+                    OID.Suparna or OID.Chirada => e.Actor.Tether.ID == (uint)TetherID.Rehabilitation ? 3 : 2,
+                    OID.SatinPlume => 3,
+                    OID.RazorPlume => 2,
+                    OID.Boss => 1,
+                    _ => 0
+                };
+            }
         }
 
         protected override void DrawEnemies(int pcSlot, Actor pc)

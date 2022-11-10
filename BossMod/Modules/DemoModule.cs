@@ -6,15 +6,15 @@
         {
             public override void AddHints(BossModule module, int slot, Actor actor, TextHints hints, MovementHints? movementHints)
             {
-                hints.Add("Hint", false);
-                hints.Add("Risk");
+                hints.Add("提示", false);
+                hints.Add("警告");
                 if (movementHints != null)
                     movementHints.Add(actor.Position, actor.Position + new WDir(10, 10), ArenaColor.Danger);
             }
 
             public override void AddGlobalHints(BossModule module, GlobalHints hints)
             {
-                hints.Add("Global");
+                hints.Add("全局提示");
             }
 
             public override void DrawArenaBackground(BossModule module, int pcSlot, Actor pc, MiniArena arena)

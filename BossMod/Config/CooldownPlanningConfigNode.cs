@@ -1,6 +1,9 @@
 ﻿using ImGuiNET;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace BossMod
 {
@@ -13,54 +16,65 @@ namespace BossMod
             public List<CooldownPlan> Available = new();
             public int SelectedIndex = -1;
 
-            public CooldownPlan? Selected() => SelectedIndex >= 0 ? Available[SelectedIndex] : null;
+            public CooldownPlan? Selected() => SelectedIndex >= 0 && SelectedIndex < Available.Count ? Available[SelectedIndex] : null;
         }
 
+        public int SyncLevel { get; private init; }
         public Dictionary<Class, PlanList> CooldownPlans = new();
 
         public CooldownPlan? SelectedPlan(Class c) => CooldownPlans.GetValueOrDefault(c)?.Selected();
 
-        public CooldownPlanningConfigNode()
+        public CooldownPlanningConfigNode(int syncLevel)
         {
-            foreach (var c in AbilityDefinitions.Classes.Keys)
+            SyncLevel = syncLevel;
+            foreach (var c in PlanDefinitions.Classes.Keys)
                 CooldownPlans[c] = new();
         }
 
-        public void DrawSelectionUI(Class c, StateMachine sm)
+        public void DrawSelectionUI(Class c, StateMachine sm, ModuleRegistry.Info? moduleInfo)
         {
-            if (!AbilityDefinitions.Classes.ContainsKey(c))
+            if (!PlanDefinitions.Classes.ContainsKey(c))
                 return; // class is not supported
 
             var plans = CooldownPlans.GetOrAdd(c);
-            ImGui.SetNextItemWidth(100);
-            if (ImGui.BeginCombo("Cooldown plan", plans.Selected()?.Name ?? "none"))
+            var newSelected = DrawPlanCombo(plans, plans.SelectedIndex, "Cooldown plan");
+            if (newSelected != plans.SelectedIndex)
             {
-                if (ImGui.Selectable("none", plans.SelectedIndex < 0))
-                {
-                    plans.SelectedIndex = -1;
-                    NotifyModified();
-                }
-                for (int i = 0; i < plans.Available.Count; ++i)
-                {
-                    if (ImGui.Selectable(plans.Available[i].Name, plans.SelectedIndex == i))
-                    {
-                        plans.SelectedIndex = i;
-                        NotifyModified();
-                    }
-                }
-                ImGui.EndCombo();
+                plans.SelectedIndex = newSelected;
+                NotifyModified();
             }
             ImGui.SameLine();
             if (ImGui.Button(plans.SelectedIndex >= 0 ? "Edit plan" : "Create new plan"))
             {
                 if (plans.SelectedIndex < 0)
                 {
-                    plans.Available.Add(new(c, $"New {plans.Available.Count + 1}"));
+                    plans.Available.Add(new(c, SyncLevel, $"New {plans.Available.Count + 1}"));
                     plans.SelectedIndex = plans.Available.Count - 1;
                     NotifyModified();
                 }
-                StartPlanEditor(plans.Available[plans.SelectedIndex], sm);
+                StartPlanEditor(plans.Available[plans.SelectedIndex], sm, moduleInfo);
             }
+        }
+
+        public static int DrawPlanCombo(PlanList list, int selected, string label)
+        {
+            ImGui.SetNextItemWidth(100);
+            if (ImGui.BeginCombo(label, selected >= 0 && selected < list.Available.Count ? list.Available[selected].Name : "none"))
+            {
+                if (ImGui.Selectable("none", selected < 0))
+                {
+                    selected = -1;
+                }
+                for (int i = 0; i < list.Available.Count; ++i)
+                {
+                    if (ImGui.Selectable(list.Available[i].Name, selected == i))
+                    {
+                        selected = i;
+                    }
+                }
+                ImGui.EndCombo();
+            }
+            return selected;
         }
 
         public override void DrawCustom(UITree tree, WorldState ws)
@@ -74,7 +88,7 @@ namespace BossMod
                         ImGui.PushID($"{c}/{i}");
                         if (ImGui.Button($"Edit"))
                         {
-                            StartPlanEditor(plans.Available[i], CreateStateMachine());
+                            StartPlanEditor(plans.Available[i]);
                         }
                         ImGui.SameLine();
                         if (ImGui.Button($"Copy"))
@@ -83,7 +97,7 @@ namespace BossMod
                             plan.Name += " Copy";
                             plans.Available.Add(plan);
                             NotifyModified();
-                            StartPlanEditor(plan, CreateStateMachine());
+                            StartPlanEditor(plan);
                         }
                         ImGui.SameLine();
                         if (ImGui.Button($"Delete"))
@@ -112,28 +126,108 @@ namespace BossMod
                     ImGui.SameLine();
                     if (ImGui.Button(c.ToString()))
                     {
-                        var plan = new CooldownPlan(c, $"New {plans.Available.Count}");
+                        var plan = new CooldownPlan(c, SyncLevel, $"New {plans.Available.Count}");
                         plans.Available.Add(plan);
                         NotifyModified();
-                        StartPlanEditor(plan, CreateStateMachine());
+                        StartPlanEditor(plan);
                     }
                 }
             }
         }
 
-        private void StartPlanEditor(CooldownPlan plan, StateMachine? sm)
+        public override void Deserialize(JObject j, JsonSerializer ser)
+        {
+            foreach (var p in CooldownPlans.Values)
+            {
+                p.Available.Clear();
+                p.SelectedIndex = -1;
+            }
+
+            foreach (var (f, data) in j)
+            {
+                if (f == "CooldownPlans")
+                    DeserializeCooldownPlans(data as JObject, ser);
+                else
+                    DeserializeField(f, data, ser);
+            }
+        }
+
+        public override JObject Serialize(JsonSerializer ser)
+        {
+            var baseType = typeof(CooldownPlanningConfigNode);
+            JObject res = new();
+            foreach (var f in GetType().GetFields().Where(f => f.DeclaringType != baseType))
+            {
+                var v = f.GetValue(this);
+                if (v != null)
+                {
+                    res[f.Name] = JToken.FromObject(v, ser);
+                }
+            }
+            res["CooldownPlans"] = SerializeCooldownPlans(ser);
+            return res;
+        }
+
+        private void StartPlanEditor(CooldownPlan plan, StateMachine? sm, ModuleRegistry.Info? moduleInfo)
         {
             if (sm == null)
                 return;
-            var editor = new CooldownPlanEditor(plan, sm, NotifyModified);
+            var editor = new CooldownPlanEditor(plan, sm, moduleInfo, NotifyModified);
             var w = WindowManager.CreateWindow($"Cooldown planner", editor.Draw, () => { }, () => true);
             w.SizeHint = new(600, 600);
             w.MinSize = new(100, 100);
         }
 
-        private StateMachine? CreateStateMachine()
+        private void StartPlanEditor(CooldownPlan plan)
         {
-            return ModuleRegistry.CreateModuleForConfigPlanning(GetType())?.StateMachine;
+            var m = ModuleRegistry.CreateModuleForConfigPlanning(GetType());
+            if (m != null)
+                StartPlanEditor(plan, m.StateMachine, m.Info);
+        }
+
+        private void DeserializeCooldownPlans(JObject? j, JsonSerializer ser)
+        {
+            if (j == null)
+                return;
+            foreach (var (c, data) in j)
+            {
+                Class cls;
+                if (!Enum.TryParse(c, out cls))
+                    continue; // invalid class
+                var plans = CooldownPlans.GetValueOrDefault(cls);
+                if (plans == null)
+                    continue; // non-plannable class
+                var jPlans = data?["Available"] as JArray;
+                if (jPlans == null)
+                    continue;
+
+                plans.SelectedIndex = data?["SelectedIndex"]?.Value<int>() ?? -1;
+                foreach (var jPlan in jPlans)
+                {
+                    var plan = CooldownPlan.FromJSON(cls, SyncLevel, jPlan as JObject, ser);
+                    if (plan != null)
+                    {
+                        plans.Available.Add(plan);
+                    }
+                }
+            }
+        }
+
+        private JObject SerializeCooldownPlans(JsonSerializer ser)
+        {
+            JObject res = new();
+            foreach (var (c, plans) in CooldownPlans)
+            {
+                if (plans.Available.Count == 0)
+                    continue;
+                var j = res[c.ToString()] = new JObject();
+                j["SelectedIndex"] = plans.SelectedIndex;
+                var jPlans = new JArray();
+                j["Available"] = jPlans;
+                foreach (var plan in plans.Available)
+                    jPlans.Add(plan.ToJSON(ser));
+            }
+            return res;
         }
     }
 }

@@ -123,21 +123,23 @@ namespace BossMod
             return active ? ReadField<float>(agent, 40) : null;
         }
 
-        // backport from .net 6
+        // backport from .net 6, except that it doesn't throw on empty enumerable...
         public static TSource? MinBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector) where TKey : IComparable
         {
-            var res = source.FirstOrDefault();
-            if (res != null)
+            using var e = source.GetEnumerator();
+            if (!e.MoveNext())
+                return default;
+
+            var res = e.Current;
+            var score = keySelector(res);
+            while (e.MoveNext())
             {
-                var score = keySelector(res);
-                foreach (var s in source.Skip(1))
+                var cur = e.Current;
+                var curScore = keySelector(cur);
+                if (curScore.CompareTo(score) < 0)
                 {
-                    var cur = keySelector(s);
-                    if (cur.CompareTo(score) < 0)
-                    {
-                        score = cur;
-                        res = s;
-                    }
+                    score = curScore;
+                    res = cur;
                 }
             }
             return res;
@@ -145,18 +147,20 @@ namespace BossMod
 
         public static TSource? MaxBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector) where TKey : IComparable
         {
-            var res = source.FirstOrDefault();
-            if (res != null)
+            using var e = source.GetEnumerator();
+            if (!e.MoveNext())
+                return default;
+
+            var res = e.Current;
+            var score = keySelector(res);
+            while (e.MoveNext())
             {
-                var score = keySelector(res);
-                foreach (var s in source.Skip(1))
+                var cur = e.Current;
+                var curScore = keySelector(cur);
+                if (curScore.CompareTo(score) > 0)
                 {
-                    var cur = keySelector(s);
-                    if (cur.CompareTo(score) > 0)
-                    {
-                        score = cur;
-                        res = s;
-                    }
+                    score = curScore;
+                    res = cur;
                 }
             }
             return res;
@@ -219,6 +223,14 @@ namespace BossMod
         // sort elements of a list by key
         public static void SortBy<TValue, TKey>(this List<TValue> list, Func<TValue, TKey> proj) where TKey : notnull, IComparable => list.Sort((l, r) => proj(l).CompareTo(proj(r)));
         public static void SortByReverse<TValue, TKey>(this List<TValue> list, Func<TValue, TKey> proj) where TKey : notnull, IComparable => list.Sort((l, r) => proj(r).CompareTo(proj(l)));
+
+        // swap to values
+        public static void Swap<T>(ref T l, ref T r)
+        {
+            var t = l;
+            l = r;
+            r = t;
+        }
 
         // get all types defined in specified assembly
         public static IEnumerable<Type?> GetAllTypes(Assembly asm)

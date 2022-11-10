@@ -87,7 +87,7 @@ namespace BossMod
 
         public SupportedAction SupportedSpell<AID>(AID aid) where AID : Enum => SupportedActions[ActionID.MakeSpell(aid)];
 
-        protected unsafe CommonActions(Autorotation autorot, Actor player, uint[] unlockData, Dictionary<ActionID, ActionDefinition> supportedActions)
+        protected CommonActions(Autorotation autorot, Actor player, uint[] unlockData, Dictionary<ActionID, ActionDefinition> supportedActions)
         {
             Player = player;
             Autorot = autorot;
@@ -257,27 +257,30 @@ namespace BossMod
             if (mqOGCD != null)
                 return new(mqOGCD.Action, mqOGCD.Target, mqOGCD.TargetPos, mqOGCD.Definition, ActionSource.Manual);
 
-            // see if there is anything from cooldown plan to be executed
-            var cooldownPlan = Autorot.Bossmods.ActiveModule?.PlanExecution;
-            if (cooldownPlan != null)
-            {
-                // TODO: support non-self targeting
-                // TODO: support custom conditions in planner
-                var planTarget = Player;
-                var cpAction = cooldownPlan.ActiveActions(Autorot.Bossmods.ActiveModule!.StateMachine).Where(x => CanExecutePlannedAction(x.Action, planTarget, x.Definition, effAnimLock, animLockDelay, ogcdDeadline)).MinBy(x => x.TimeLeft);
-                if (cpAction.Action)
-                    return new(cpAction.Action, planTarget, new(), cpAction.Definition, ActionSource.Planned);
-            }
+            // see if there is anything high-priority from cooldown plan to be executed
+            var cpActionHigh = Autorot.Hints.PlannedActions.FirstOrDefault(x => !x.lowPriority && CanExecutePlannedAction(x.action, x.target, effAnimLock, animLockDelay, ogcdDeadline));
+            if (cpActionHigh.action)
+                return new(cpActionHigh.action, cpActionHigh.target, new(), SupportedActions[cpActionHigh.action].Definition, ActionSource.Planned);
 
             // note: we intentionally don't check that automatic oGCD really does not clip GCD - we provide utilities that allow module checking that, but also allow overriding if needed
             var nextOGCD = AutoAction != AutoActionNone ? CalculateAutomaticOGCD(ogcdDeadline) : new();
-            return nextOGCD.Action ? nextOGCD : nextGCD;
+            if (nextOGCD.Action)
+                return nextOGCD;
+
+            // finally see whether there are any low-priority planned actions
+            var cpActionLow = Autorot.Hints.PlannedActions.FirstOrDefault(x => x.lowPriority && CanExecutePlannedAction(x.action, x.target, effAnimLock, animLockDelay, ogcdDeadline));
+            if (cpActionLow.action)
+                return new(cpActionLow.action, cpActionLow.target, new(), SupportedActions[cpActionLow.action].Definition, ActionSource.Planned);
+
+            return nextGCD;
         }
 
-        public void NotifyActionExecuted(ActionID action, Actor? target)
+        public void NotifyActionExecuted(NextAction action)
         {
-            _mq.Pop(action);
-            OnActionExecuted(action, target);
+            _mq.Pop(action.Action);
+            if (action.Source == ActionSource.Planned)
+                Autorot.Bossmods.ActiveModule?.PlanExecution?.NotifyActionExecuted(Autorot.Bossmods.ActiveModule.StateMachine, action.Action);
+            OnActionExecuted(action.Action, action.Target);
         }
 
         public void NotifyActionSucceeded(ActorCastEvent ev)
@@ -322,8 +325,10 @@ namespace BossMod
         }
 
         // fill common state properties
-        protected unsafe void FillCommonPlayerState(CommonRotation.PlayerState s)
+        protected void FillCommonPlayerState(CommonRotation.PlayerState s)
         {
+            var vuln = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextVulnerable(Autorot.Bossmods.ActiveModule.StateMachine) ?? (false, 10000);
+
             var am = ActionManagerEx.Instance!;
             var pc = Service.ClientState.LocalPlayer;
             s.Level = pc?.Level ?? 0;
@@ -334,7 +339,7 @@ namespace BossMod
             s.ComboTimeLeft = am.ComboTimeLeft;
             s.ComboLastAction = am.ComboLastMove;
 
-            s.RaidBuffsLeft = 0;
+            s.RaidBuffsLeft = vuln.Item1 ? vuln.Item2 : 0;
             foreach (var status in Player.Statuses.Where(s => IsDamageBuff(s.ID)))
             {
                 s.RaidBuffsLeft = MathF.Max(s.RaidBuffsLeft, StatusDuration(status.ExpireAt));
@@ -346,14 +351,18 @@ namespace BossMod
         protected void FillCommonStrategy(CommonRotation.Strategy strategy, ActionID potion)
         {
             var targetEnemy = Autorot.PrimaryTarget != null ? Autorot.Hints.PotentialTargets.Find(e => e.Actor == Autorot.PrimaryTarget) : null;
+            var downtime = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextDowntime(Autorot.Bossmods.ActiveModule.StateMachine) ?? (false, 0);
+            var poslock = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextPositioning(Autorot.Bossmods.ActiveModule.StateMachine) ?? (false, 10000);
+            var vuln = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextVulnerable(Autorot.Bossmods.ActiveModule.StateMachine) ?? (false, 10000);
+
             strategy.Prepull = !Player.InCombat;
             strategy.ForbidDOTs = targetEnemy?.ForbidDOTs ?? false;
             strategy.ForceMovementIn = MaxCastTime;
-            strategy.FightEndIn = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextDowntime(Autorot.Bossmods.ActiveModule?.StateMachine) ?? 0;
-            strategy.RaidBuffsIn = Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextVulnerable(Autorot.Bossmods.ActiveModule?.StateMachine) ?? 10000;
+            strategy.FightEndIn = downtime.Item1 ? 0 : downtime.Item2;
+            strategy.RaidBuffsIn = vuln.Item1 ? 0 : vuln.Item2;
             if (Autorot.Bossmods.ActiveModule?.PlanConfig != null) // assumption: if there is no planning support for encounter (meaning it's something trivial, like outdoor boss), don't expect any cooldowns
                 strategy.RaidBuffsIn = Math.Min(strategy.RaidBuffsIn, Autorot.Bossmods.RaidCooldowns.NextDamageBuffIn(Autorot.WorldState.CurrentTime));
-            strategy.PositionLockIn = Autorot.Config.EnableMovement ? (Autorot.Bossmods.ActiveModule?.PlanExecution?.EstimateTimeToNextPositioning(Autorot.Bossmods.ActiveModule?.StateMachine) ?? 10000) : 0;
+            strategy.PositionLockIn = Autorot.Config.EnableMovement && !poslock.Item1 ? poslock.Item2 : 0;
             strategy.Potion = Autorot.Config.PotionUse;
             if (strategy.Potion != CommonRotation.Strategy.PotionUse.Manual && !HaveItemInInventory(potion.ID)) // don't try to use potions if player doesn't have any
                 strategy.Potion = CommonRotation.Strategy.PotionUse.Manual;
@@ -392,13 +401,15 @@ namespace BossMod
                 Service.Log($"[AR] [{GetType()}] {message}");
         }
 
-        private bool CanExecutePlannedAction(ActionID action, Actor target, ActionDefinition definition, float effAnimLock, float animLockDelay, float deadline)
+        private bool CanExecutePlannedAction(ActionID action, Actor target, float effAnimLock, float animLockDelay, float deadline)
         {
             // TODO: planned GCDs?..
-            return definition.CooldownGroup != CommonDefinitions.GCDGroup
-                && Autorot.Cooldowns[definition.CooldownGroup] - effAnimLock <= definition.CooldownAtFirstCharge
-                && effAnimLock + definition.AnimationLock + animLockDelay <= deadline
-                && SupportedActions[action].Allowed(Player, target);
+            var definition = SupportedActions.GetValueOrDefault(action);
+            return definition != null
+                && definition.Definition.CooldownGroup != CommonDefinitions.GCDGroup
+                && Autorot.Cooldowns[definition.Definition.CooldownGroup] - effAnimLock <= definition.Definition.CooldownAtFirstCharge
+                && effAnimLock + definition.Definition.AnimationLock + animLockDelay <= deadline
+                && definition.Allowed(Player, target);
         }
     }
 }

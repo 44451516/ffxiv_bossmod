@@ -46,7 +46,7 @@
 
     class GravityField : Components.PersistentVoidzoneAtCastTarget
     {
-        public GravityField() : base(6, ActionID.MakeSpell(AID.GravityField), m => m.Enemies(OID.GravityField), 2, true) { }
+        public GravityField() : base(6, ActionID.MakeSpell(AID.GravityField), m => m.Enemies(OID.GravityField), 1) { }
     }
 
     // TODO: chain lightning?..
@@ -73,7 +73,7 @@
         public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             base.CalculateAIHints(slot, actor, assignment, hints);
-            hints.UpdatePotentialTargets(enemy =>
+            foreach (var enemy in hints.PotentialTargets)
             {
                 if (enemy.Actor == PrimaryActor)
                 {
@@ -88,7 +88,7 @@
                     enemy.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.OT;
                     enemy.DesiredRotation = 0.Degrees();
                 }
-            });
+            }
         }
 
         protected override void DrawEnemies(int pcSlot, Actor pc)

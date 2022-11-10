@@ -15,6 +15,7 @@ namespace BossMod
             public float AttackStrength; // target's predicted HP percent is decreased by this amount (0.05 by default)
             public WPos DesiredPosition; // tank AI will try to move enemy to this position
             public Angle DesiredRotation; // tank AI will try to rotate enemy to this angle
+            public float TankDistance; // enemy will start moving if distance between hitboxes is bigger than this
             public bool ShouldBeTanked; // tank AI will try to tank this enemy
             public bool PreferProvoking; // tank AI will provoke enemy if not targeted
             public bool ForbidDOTs; // if true, dots on target are forbidden
@@ -29,6 +30,7 @@ namespace BossMod
                 ShouldBeTanked = shouldBeTanked;
                 DesiredPosition = actor.Position;
                 DesiredRotation = actor.Rotation;
+                TankDistance = 2;
             }
         }
 
@@ -55,6 +57,10 @@ namespace BossMod
         // AI will attempt to shield & mitigate
         public List<(BitMask players, DateTime activation)> PredictedDamage = new();
 
+        // planned actions
+        // autorotation will execute them in window-end order, if possible
+        public List<(ActionID action, Actor target, float windowEnd, bool lowPriority)> PlannedActions = new();
+
         // clear all stored data
         public void Clear()
         {
@@ -63,6 +69,7 @@ namespace BossMod
             ForbiddenZones.Clear();
             ForbiddenDirections.Clear();
             PredictedDamage.Clear();
+            PlannedActions.Clear();
         }
 
         // fill list of potential targets from world state
@@ -72,18 +79,6 @@ namespace BossMod
             {
                 PotentialTargets.Add(new(actor, playerIsDefaultTank));
             }
-        }
-
-        public void UpdatePotentialTargets(Action<Enemy> fn)
-        {
-            foreach (var enemy in PotentialTargets)
-                fn(enemy);
-        }
-
-        public void AssignPotentialTargetPriorities(Func<Actor, int> map)
-        {
-            foreach (var enemy in PotentialTargets)
-                enemy.Priority = map(enemy.Actor);
         }
 
         public void AddForbiddenZone(Func<WPos, float> shapeDistance, DateTime activation = new()) => ForbiddenZones.Add((shapeDistance, activation));
@@ -97,6 +92,7 @@ namespace BossMod
             ForbiddenZones.SortBy(e => e.activation);
             ForbiddenDirections.SortBy(e => e.activation);
             PredictedDamage.SortBy(e => e.activation);
+            PlannedActions.SortBy(e => e.windowEnd);
         }
 
         // query utilities

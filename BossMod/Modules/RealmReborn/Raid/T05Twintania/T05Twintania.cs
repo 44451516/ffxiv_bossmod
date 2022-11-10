@@ -1,22 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-// TODO: arena bounds
-// TODO: enrage (~13 min?)
-// TODO: tank swaps on death sentence (is it true that taunt mid cast makes OT eat debuff? is it true that boss can be single-tanked in p2+?)
-// TODO: is it possible to plan for death sentence in P2+? specifically, how death sentence timings align with phase change / fireball timings?..
-// TODO: boss / neurolink positions
-// TODO: P2 positioning for fireballs and conflags (how long will conflags even live?)
-// TODO: P3 divebombs
-// TODO: P3 hygieia explosion avoidance for people (esp. tank)
-// TODO: P3 hygieia priority (keep 2nd at low hp etc)
-// TODO: P3 intermission positioning (inside neurolinks)
-// TODO: P4 twisters & dreadknights (looks quite simple)
-// TODO: P5 liquid hells
-// TODO: P5 hatch (OT in center, otherwise target should run to neurolink, others should avoid line between hatch and target/neurolink?)
 namespace BossMod.RealmReborn.Raid.T05Twintania
 {
     public enum OID : uint
@@ -28,20 +12,12 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
         Hygieia = 0x7E8, // R1.200, spawn during fight
         Asclepius = 0x7E9, // R1.800, spawn during fight
         Dreadknight = 0x7EA, // R1.700, spawn during fight
-        Oviform = 0x7F3, // R1.000, spawn during fight
+        Oviform = 0x7F3, // R1.000, spawn during fight (hatch orbs)
 
         HelperTwister = 0x8EB, // R0.500, x8
         HelperMarker = 0x8EE, // R0.500, x2
         LiquidHell = 0x1E88FE, // R0.500, EventObj type, spawn during fight
         Twister = 0x1E8910, // R0.500, EventObj type, spawn during fight
-
-        //_Gen_Actor7f1 = 0x7F1, // R1.000, spawn during fight
-        //_Gen_AllaganTerminal = 0x1E890B, // R2.000, x1, EventObj type
-        //_Gen_Actor1e871a = 0x1E871A, // R2.000, x1, EventObj type
-        //_Gen_Actor1e86f7 = 0x1E86F7, // R2.000, x1, EventObj type, and more spawn during fight
-        //_Gen_Actor1e86ef = 0x1E86EF, // R2.000, x1, EventObj type
-        //_Gen_Actor1e88ff = 0x1E88FF, // R0.500, x0, EventObj type, and more spawn during fight
-        //_Gen_Actor1e8ef2 = 0x1E8EF2, // R0.500, x0, EventObj type, and more spawn during fight
     };
 
     public enum AID : uint
@@ -49,10 +25,11 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
         AutoAttackBoss = 1461, // Boss->player, no cast, single-target
         AutoAttackAdds = 870, // ScourgeOfMeracydia/Hygieia/Asclepius->player, no cast, single-target
         Plummet = 1240, // Boss->self, no cast, ??? cleave
-        LiquidHellAdds = 1243, // ScourgeOfMeracydia->location, 3.0s cast, range 6 circle voidzone
         DeathSentence = 1458, // Boss->player, 2.0s cast, single-target, visual (2.4s cast until last phase)
         DeathSentenceP1 = 1241, // Boss->player, no cast, single-target, tankbuster (only during p1)
         DeathSentenceP2 = 1242, // Boss->player, no cast, single-target, tankbuster + decrease healing received debuff
+
+        LiquidHellAdds = 1243, // ScourgeOfMeracydia->location, 3.0s cast, range 6 circle voidzone
 
         FireballMarker = 1452, // HelperMarker->player, no cast, single-target, visual icon for fireball
         FireballAOE = 1246, // Boss->player, no cast, range 4 circle shared aoe
@@ -77,53 +54,111 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
         LiquidHellBoss = 670, // Boss->location, no cast, range 6 circle voidzone
     };
 
-    class Plummet : Components.Cleave
+    public enum SID : uint
     {
-        public Plummet() : base(ActionID.MakeSpell(AID.Plummet), new AOEShapeCone(8, 60.Degrees())) { } // TODO: verify shape...
-    }
+        Fetters = 292, // none->player, extra=0x0
+        Disseminate = 348, // Hygieia->Asclepius/Hygieia/player, extra=0x1/0x2/0x3/0x4
+    };
 
-    class LiquidHellAdds : Components.PersistentVoidzoneAtCastTarget
-    {
-        public LiquidHellAdds() : base(6, ActionID.MakeSpell(AID.LiquidHellAdds), m => m.Enemies(OID.LiquidHell).Where(z => z.EventState != 7), 3, true) { } // note: voidzone appears ~1.2s after cast ends, but we want to try avoiding initial damage too
-    }
-
-    // TODO: death sentence - every ~36s
-    // TODO: p1->p2 when first neurolink appears, p2->p3 when second neurolink appears, p4->p5 when third neurolink appears
-
-    // TODO: what happens here is marker appears -> 5 liquid hells drop at (0.6 + 1.7*N)s; each liquid hell cast does small damage and spawns voidzone 1.2s later
-    //class LiquidHellBoss : Components.PersistentVoidzoneAtCastTarget
-    //{
-    //    public LiquidHellBoss() : base(6, ActionID.MakeSpell(AID.LiquidHellBoss), m => m.Enemies(OID.LiquidHell).Where(z => z.EventState != 7), 3, true) { } // note: voidzone appears ~1.2s after cast ends, but we want to try avoiding initial damage too
-    //}
-
+    // note: this is one of the very early fights that is not represented well by a state machine - it has multiple timers running, can delay casts randomly, can have different overlaps depending on raid dps, etc.
+    // the only thing that is well timed is P3 (divebombs phase)
     class T05TwintaniaStates : StateMachineBuilder
     {
-        public T05TwintaniaStates(BossModule module) : base(module)
+        private T05Twintania _module;
+
+        public T05TwintaniaStates(T05Twintania module) : base(module)
         {
-            TrivialPhase();
-            //.ActivateOnEnter<>()
-            //;
+            _module = module;
+            // note: enrage: if staying in P1 - at 780 we get P2 version of death sentence instead of normal one, then on 791 we start getting profusion raidwides (onr per 5-8s)
+            DeathPhase(0, SinglePhase);
+        }
+
+        private void SinglePhase(uint id)
+        {
+            Condition(id, 100, () => _module.Neurolinks.Count > 0, "P1: adds and tankbusters (until 85%)", 1000)
+                .ActivateOnEnter<Plummet>()
+                .ActivateOnEnter<DeathSentence>()
+                .ActivateOnEnter<P1LiquidHellAdds>()
+                .ActivateOnEnter<P1AI>()
+                .DeactivateOnExit<P1LiquidHellAdds>()
+                .DeactivateOnExit<P1AI>();
+
+            Condition(id + 0x10000, 100, () => _module.Neurolinks.Count > 1, "P2: fireballs/conflags (until 55%)", 1000)
+                .ActivateOnEnter<P2Fireball>()
+                .ActivateOnEnter<P2Conflagrate>()
+                .ActivateOnEnter<P2AI>()
+                .DeactivateOnExit<Plummet>()
+                .DeactivateOnExit<DeathSentence>()
+                .DeactivateOnExit<P2Fireball>()
+                .DeactivateOnExit<P2Conflagrate>()
+                .DeactivateOnExit<P2AI>();
+
+            Phase3(id + 0x20000, 3.1f);
+
+            Condition(id + 0x30000, 100, () => _module.Neurolinks.Count > 2, "P4: twisters/dreadknights (until 30%)", 1000)
+                .ActivateOnEnter<Plummet>()
+                .ActivateOnEnter<DeathSentence>()
+                .ActivateOnEnter<P4Twisters>()
+                .ActivateOnEnter<P4Dreadknights>()
+                .ActivateOnEnter<P4AI>()
+                .DeactivateOnExit<P4Twisters>()
+                .DeactivateOnExit<P4Dreadknights>()
+                .DeactivateOnExit<P4AI>();
+
+            SimpleState(id + 0x40000, 100, "P5: hatch/liquid hell")
+                .ActivateOnEnter<P5LiquidHell>()
+                .ActivateOnEnter<P5Hatch>()
+                .ActivateOnEnter<P5AI>();
+        }
+
+        private void Phase3(uint id, float delay)
+        {
+            Targetable(id, false, delay, "Disappear")
+                .ActivateOnEnter<P3Divebomb>();
+            Divebomb(id + 0x10, 5.2f, "Divebomb 1");
+            Divebomb(id + 0x20, 5.9f, "Divebomb 2");
+            Divebomb(id + 0x30, 6.2f, "Divebomb 3");
+            ComponentCondition<P3Adds>(id + 0x100, 2.2f, comp => comp.Asclepius.Any(a => a.IsTargetable), "Adds")
+                .ActivateOnEnter<P3Adds>()
+                .SetHint(StateMachine.StateHint.DowntimeEnd);
+            Divebomb(id + 0x110, 45.5f, "Divebomb 4");
+            Divebomb(id + 0x120, 5.7f, "Divebomb 5");
+            Divebomb(id + 0x130, 5.7f, "Divebomb 6");
+            Targetable(id + 0x200, true, 62.7f, "Reappear")
+                .DeactivateOnExit<P3Divebomb>();
+            ComponentCondition<P3AethericProfusion>(id + 0x300, 6.7f, comp => comp.NumCasts > 0, "Raidwide")
+                .ActivateOnEnter<P3AethericProfusion>()
+                .DeactivateOnExit<P3AethericProfusion>();
+            // note: we keep adds component, technically they can live until end...
+        }
+
+        private void Divebomb(uint id, float delay, string name)
+        {
+            ComponentCondition<P3Divebomb>(id, delay, comp => comp.Target != null)
+                .SetHint(StateMachine.StateHint.PositioningStart);
+            ComponentCondition<P3Divebomb>(id + 1, 1.7f, comp => comp.Target == null, name)
+                .SetHint(StateMachine.StateHint.PositioningEnd);
         }
     }
 
     public class T05Twintania : BossModule
     {
-        public T05Twintania(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-7, 5), 30)) { } // TODO
+        public const float NeurolinkRadius = 2;
 
-        public override void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+        public List<Actor> ScourgeOfMeracydia;
+        public List<Actor> Neurolinks;
+
+        public T05Twintania(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-3, -6.5f), 31))
         {
-            base.CalculateAIHints(slot, actor, assignment, hints);
+            ScourgeOfMeracydia = Enemies(OID.ScourgeOfMeracydia);
+            Neurolinks = Enemies(OID.Neurolink);
+        }
 
-            hints.UpdatePotentialTargets(e =>
-            {
-                e.Priority = (OID)e.Actor.OID switch
-                {
-                    OID.Boss => 1,
-                    OID.ScourgeOfMeracydia => 2,
-                    OID.Conflagration => 2,
-                    _ => 0
-                };
-            });
+        protected override void DrawEnemies(int pcSlot, Actor pc)
+        {
+            Arena.Actor(PrimaryActor, ArenaColor.Enemy, true);
+            foreach (var a in ScourgeOfMeracydia)
+                Arena.Actor(a, ArenaColor.Enemy);
         }
     }
 }

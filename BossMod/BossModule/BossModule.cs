@@ -29,6 +29,7 @@ namespace BossMod
         public BossModuleConfig WindowConfig { get; init; }
         public MiniArena Arena { get; init; }
         public StateMachine StateMachine { get; private init; }
+        public ModuleRegistry.Info? Info { get; private init; }
         // TODO: this should be moved outside...
         public CooldownPlanningConfigNode? PlanConfig { get; init; }
         public CooldownPlanExecution? PlanExecution = null;
@@ -64,7 +65,7 @@ namespace BossMod
         {
             if (FindComponent<T>() != null)
             {
-                Service.Log($"[BossModule] Activating a component of type {typeof(T)} when another of the same type is already active; old one is deactivated automatically");
+                ReportError(null, $"Activating a component of type {typeof(T)} when another of the same type is already active; old one is deactivated automatically");
                 DeactivateComponent<T>();
             }
             T comp = new();
@@ -90,10 +91,10 @@ namespace BossMod
         {
             int count = _components.RemoveAll(x => x is T);
             if (count == 0)
-                Service.Log($"[BossModule] Could not find a component of type {typeof(T)} to deactivate");
+                ReportError(null, $"Could not find a component of type {typeof(T)} to deactivate");
         }
 
-        public void ClearComponents() => _components.Clear();
+        public void ClearComponents(Predicate<BossComponent> condition) => _components.RemoveAll(condition);
 
         public BossModule(WorldState ws, Actor primary, ArenaBounds bounds)
         {
@@ -102,11 +103,11 @@ namespace BossMod
             WindowConfig = Service.Config.Get<BossModuleConfig>();
             Arena = new(WindowConfig, bounds);
 
-            var info = ModuleRegistry.FindByOID(primary.OID);
-            StateMachine = info?.StatesType != null ? ((StateMachineBuilder)Activator.CreateInstance(info.StatesType, this)!).Build() : new(new());
-            if (info?.CooldownPlanningSupported ?? false)
+            Info = ModuleRegistry.FindByOID(primary.OID);
+            StateMachine = Info?.StatesType != null ? ((StateMachineBuilder)Activator.CreateInstance(Info.StatesType, this)!).Build() : new(new());
+            if (Info?.CooldownPlanningSupported ?? false)
             {
-                PlanConfig = Service.Config.Get<CooldownPlanningConfigNode>(info.ConfigType!);
+                PlanConfig = Service.Config.Get<CooldownPlanningConfigNode>(Info.ConfigType!);
                 PlanConfig.Modified += OnPlanModified;
             }
 
@@ -139,7 +140,7 @@ namespace BossMod
             if (disposing)
             {
                 StateMachine.Reset();
-                ClearComponents();
+                ClearComponents(_ => true);
 
                 if (PlanConfig != null)
                     PlanConfig.Modified -= OnPlanModified;
@@ -254,6 +255,17 @@ namespace BossMod
         public virtual void CalculateAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             hints.Bounds = Bounds;
+            if (PlanExecution != null)
+            {
+                // TODO: support custom conditions in planner
+                foreach (var a in PlanExecution.ActiveActions(StateMachine))
+                {
+                    var target = a.Target.Select(this, slot, actor);
+                    if (target == null)
+                        continue;
+                    hints.PlannedActions.Add((a.Action, target, a.TimeLeft, a.LowPriority));
+                }
+            }
             foreach (var comp in _components)
                 comp.AddAIHints(this, slot, actor, assignment, hints);
         }

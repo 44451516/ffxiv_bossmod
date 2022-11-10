@@ -31,7 +31,10 @@ namespace BossMod.Endwalker.Extreme.Ex3Endsigner
     }
 
     [ConfigDisplay(Order = 0x030, Parent = typeof(EndwalkerConfig))]
-    public class Ex3EndsingerConfig : CooldownPlanningConfigNode { }
+    public class Ex3EndsingerConfig : CooldownPlanningConfigNode
+    {
+        public Ex3EndsingerConfig() : base(90) { }
+    }
 
     
     // public class Ex3EndsingerStates : StateMachineBuilder
