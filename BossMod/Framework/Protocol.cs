@@ -12,26 +12,26 @@ namespace BossMod
             StatusEffectList2 = 0xF31E,
             StatusEffectList3 = 0xF357,
             BossStatusEffectList = 0xF11A,
-            ActionEffect1 = 0x228, // Machina calls it AbilityN, size=124
-            ActionEffect8 = 0xEF, // size=636
-            ActionEffect16 = 0xC3,
-            ActionEffect24 = 0x3BF,
-            ActionEffect32 = 0x2B2,
-            ActorCast = 0x2E5,
+            ActionEffect1 = 0x2AD, // Machina calls it AbilityN, size=124
+            ActionEffect8 = 0x1C6, // size=636
+            ActionEffect16 = 0x195,
+            ActionEffect24 = 0x104,
+            ActionEffect32 = 0x2FD,
+            ActorCast = 0x0166,
             
-            EffectResult = 0x34C,
-            EffectResultBasic = 0x204,
+            EffectResult = 0x0295,
+            EffectResultBasic = 0x010A,
             
             
-            ActorControl = 0x1D4, // look at toggle weapon
-            ActorControlSelf = 0x12C, // look at cooldown
+            ActorControl = 0x00E4, // look at toggle weapon
+            ActorControlSelf = 0x0125, // look at cooldown
             
-            PresetWaymark = 0x010B, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
-            Waymark = 0x02D1, // FFXIVOpcodes calls this PlaceFieldMarker   
+            PresetWaymark = 0xBD, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
+            Waymark = 0x79, // FFXIVOpcodes calls this PlaceFieldMarker   
             
-            EnvironmentControl = 0x3AF, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
+            EnvironmentControl = 0x1BB, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
             
-            ActionRequest = 0x69, // just begin casting return...
+            ActionRequest = 0x2E0, // just begin casting return...
             ActionRequestGroundTargeted = 0x25B, // XIVAlexander
             
             
