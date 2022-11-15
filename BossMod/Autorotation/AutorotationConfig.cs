@@ -4,7 +4,7 @@
     class AutorotationConfig : ConfigNode
     {
         
-        [PropertyDisplay("兼容模式[和自动循环冲突]")]
+        [PropertyDisplay("关闭HOOK[取消需要重启游戏]")]
         public bool ActionManagerExHookEnabled = true;
         
         [PropertyDisplay("启用自动循环")]

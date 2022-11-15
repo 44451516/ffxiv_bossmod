@@ -115,35 +115,48 @@ namespace BossMod
 
             var updateAddress = Service.SigScanner.ScanText("48 8B C4 48 89 58 20 57 48 81 EC 90 00 00 00 48 8B 3D ?? ?? ?? ?? 48 8B D9 48 85 FF 0F 84 ?? ?? ?? ?? 48 89 68 08 48 8B CF 48 89 70 10 4C 89 70 18 0F 29 70 E8 44 0F 29 48 B8 44 0F 29 50 A8");
             PluginLog.Debug($"[AMEx] Update address = 0x{updateAddress:X}");
-            
-            
-            _updateHook = Hook<UpdateDelegate>.FromAddress(updateAddress, UpdateDetour);
-            _updateHook.Enable();
 
-            var useActionLocationAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 3C 01 0F 85 ?? ?? ?? ?? EB 46");
-            PluginLog.Debug($"[AMEx] UseActionLocation address = 0x{useActionLocationAddress:X}");
-            
-            
-            _useActionLocationHook = Hook<UseActionLocationDelegate>.FromAddress(useActionLocationAddress, UseActionLocationDetour);
-            _useActionLocationHook.Enable();
 
-            var processActionEffectPacketAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 4C 24 68 48 33 CC E8 ?? ?? ?? ?? 4C 8D 5C 24 70 49 8B 5B 20 49 8B 73 28 49 8B E3 5F C3");
-            PluginLog.Debug($"[AMEx] ProcessActionEffectPacket address = 0x{processActionEffectPacketAddress:X}");
-            
-            _processActionEffectPacketHook = Hook<ProcessActionEffectPacketDelegate>.FromAddress(processActionEffectPacketAddress, ProcessActionEffectPacketDetour);
-            _processActionEffectPacketHook.Enable();
 
-            _gtQueuePatch = Service.SigScanner.ScanModule("74 24 41 81 FE F5 0D 00 00");
-            PluginLog.Debug($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
+            if (_config.ActionManagerExHookEnabled==false)
+            {
+                _updateHook = Hook<UpdateDelegate>.FromAddress(updateAddress, UpdateDetour);
+                _updateHook.Enable();
+
+                var useActionLocationAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 3C 01 0F 85 ?? ?? ?? ?? EB 46");
+                PluginLog.Debug($"[AMEx] UseActionLocation address = 0x{useActionLocationAddress:X}");
+            
+            
+                _useActionLocationHook = Hook<UseActionLocationDelegate>.FromAddress(useActionLocationAddress, UseActionLocationDetour);
+                _useActionLocationHook.Enable();
+
+                var processActionEffectPacketAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 4C 24 68 48 33 CC E8 ?? ?? ?? ?? 4C 8D 5C 24 70 49 8B 5B 20 49 8B 73 28 49 8B E3 5F C3");
+                PluginLog.Debug($"[AMEx] ProcessActionEffectPacket address = 0x{processActionEffectPacketAddress:X}");
+            
+                _processActionEffectPacketHook = Hook<ProcessActionEffectPacketDelegate>.FromAddress(processActionEffectPacketAddress, ProcessActionEffectPacketDetour);
+                _processActionEffectPacketHook.Enable();
+
+                _gtQueuePatch = Service.SigScanner.ScanModule("74 24 41 81 FE F5 0D 00 00");
+                PluginLog.Debug($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
+            }
+
+      
+            
+            
             AllowGTQueueing = true;
         }
 
         public void Dispose()
         {
             AllowGTQueueing = false;
-            _processActionEffectPacketHook.Dispose();
-            _useActionLocationHook.Dispose();
-            _updateHook.Dispose();
+            
+            if (_config.ActionManagerExHookEnabled==false)
+            {
+                _processActionEffectPacketHook.Dispose();
+                _useActionLocationHook.Dispose();
+                _updateHook.Dispose();
+            }
+            
         }
 
         public unsafe Vector3? GetWorldPosUnderCursor()

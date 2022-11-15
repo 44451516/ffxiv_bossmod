@@ -73,7 +73,15 @@ namespace BossMod
             _autoHints = new(bossmods.WorldState);
             _inputOverride = inputOverride;
 
-            ActionManagerEx.Instance!.PostUpdate += OnActionManagerUpdate;
+
+            if (_config.ActionManagerExHookEnabled == false)
+            {
+                ActionManagerEx.Instance!.PostUpdate += OnActionManagerUpdate;   
+            }
+
+    
+            
+            
             _network.EventActionRequest += OnNetworkActionRequest;
             _network.EventActionRequestGT += OnNetworkActionRequest;
             _network.EventActionEffect += OnNetworkActionEffect;
@@ -93,7 +101,7 @@ namespace BossMod
 
         public void Dispose()
         {
-            ActionManagerEx.Instance!.PostUpdate -= OnActionManagerUpdate;
+  
             _network.EventActionRequest -= OnNetworkActionRequest;
             _network.EventActionRequestGT -= OnNetworkActionRequest;
             _network.EventActionEffect -= OnNetworkActionEffect;
@@ -102,6 +110,7 @@ namespace BossMod
             
             if (_config.ActionManagerExHookEnabled == false)
             {
+                ActionManagerEx.Instance!.PostUpdate -= OnActionManagerUpdate;
                 _useActionHook.Dispose();
             }
             
