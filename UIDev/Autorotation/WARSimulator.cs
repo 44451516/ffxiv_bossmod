@@ -36,7 +36,6 @@ namespace UIDev
         public float BuffWindowOffset = 7.8f;
         public float BuffWindowDuration = 20;
         public float BuffWindowFreq = 120;
-        public CommonRotation.Strategy.PotionUse PotionUse = CommonRotation.Strategy.PotionUse.DelayUntilRaidBuffs;
 
         public void Draw()
         {
@@ -47,13 +46,6 @@ namespace UIDev
             ImGui.SliderFloat("Buff window offset", ref BuffWindowOffset, 0, 60);
             ImGui.SliderFloat("Buff window duration", ref BuffWindowDuration, 1, 30);
             ImGui.SliderFloat("Buff window frequency", ref BuffWindowFreq, 30, 120);
-            if (ImGui.BeginCombo("Potion use strategy", PotionUse.ToString()))
-            {
-                foreach (var opt in Enum.GetValues<CommonRotation.Strategy.PotionUse>())
-                    if (ImGui.Selectable(opt.ToString(), opt.Equals(PotionUse)))
-                        PotionUse = opt;
-                ImGui.EndCombo();
-            }
 
             if (ImGui.CollapsingHeader("Initial state setup"))
             {
@@ -94,9 +86,8 @@ namespace UIDev
 
             var strategy = new Rotation.Strategy();
             strategy.PositionLockIn = 10000;
-            strategy.FirstChargeIn = KeepOnslaughtCharge ? 0.1f : 10000;
-            strategy.SecondChargeIn = 10000;
-            strategy.Potion = PotionUse;
+            strategy.OnslaughtStrategy = KeepOnslaughtCharge ? Rotation.Strategy.OnslaughtUse.Automatic : Rotation.Strategy.OnslaughtUse.NoReserve;
+            //strategy.Potion = PotionUse;
 
             var state = new Rotation.State(new float[0]);
             foreach (var f in state.GetType().GetFields())

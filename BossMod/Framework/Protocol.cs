@@ -7,133 +7,49 @@ namespace BossMod
     {
         public enum Opcode
         {
-            // opcodes from machina
-            StatusEffectList = 0x00FA,
-            StatusEffectList2 = 0xF31E,
-            StatusEffectList3 = 0xF357,
-            BossStatusEffectList = 0xF11A,
-            ActionEffect1 = 0x2AD, // Machina calls it AbilityN, size=124
-            ActionEffect8 = 0x1C6, // size=636
-            ActionEffect16 = 0x195,
-            ActionEffect24 = 0x104,
-            ActionEffect32 = 0x2FD,
-            ActorCast = 0x0166,
+             ActionEffect1 = 0x030F,
+            ActionEffect8 = 0x0199,
+            ActionEffect16 = 0x01E2,
+            ActionEffect24 = 0x03B6,
+            ActionEffect32 = 0x037E,
+            ActorCast = 0x0186,
+            ActorControl = 0x0365,
+            ActorControlSelf = 0x0245,
+            ActorControlTarget = 0x015B,
+            ActorGauge = 0x034B,
+            PresetWaymark = 0x02C3,
+            Waymark = 0x031D,
             
-            EffectResult = 0x0295,
-            EffectResultBasic = 0x010A,
-            
-            
-            ActorControl = 0x00E4, // look at toggle weapon
-            ActorControlSelf = 0x0125, // look at cooldown
-            
-            PresetWaymark = 0xBD, // FFXIVOpcodes calls this PlaceFieldMarkerPreset
-            Waymark = 0x79, // FFXIVOpcodes calls this PlaceFieldMarker   
-            
-            EnvironmentControl = 0x1BB, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
-            
-            ActionRequest = 0x2E0, // just begin casting return...
-            ActionRequestGroundTargeted = 0x25B, // XIVAlexander
-            
-            
-            EffectResult1 = 0x034C,
-            EffectResult4 = 0x034C,
-            EffectResult8 = 0x034C,
-            EffectResult16 = 0x034C,
-            EffectResultBasic1 = 0x0204,
-            EffectResultBasic4 = 0x0204,
-            EffectResultBasic8 = 0x0204,
-            EffectResultBasic16 = 0x0204,
-            EffectResultBasic32 = 0x0204,
-            EffectResultBasic64 = 0x0204,
-            
-      
-            
-            ActorControlTarget = 0x0212, // look at target change
-            UpdateHpMpTp = 0xF102,
-            PlayerSpawn = 0xF334,
-            NpcSpawn = 0xF19B,
-            NpcSpawn2 = 0xF20A,
-            ActorMove = 0xF0B3,
-            ActorSetPos = 0xF1BA,
-            ActorGauge = 0xF2AB,
+            EffectResult1 = 0x0200, // Size 0x60
+            EffectResult4 = 0x01A3, // Size 0x168
+            EffectResult8 = 0x0191, // Size 0x2C8
+            EffectResult16 = 0x02AF, // Size 0x588
 
-            SystemLogMessage = 0xF1DB, // FFXIVOpcodes calls this SomeDirectorUnk4
+            EffectResultBasic1 = 0x01DA, // Size 0x18
+            EffectResultBasic4 = 0x02D7, // Size 0x48
+            EffectResultBasic8 = 0x029A, // Size 0x88
+            EffectResultBasic16 = 0x01A7, // Size 0x108
+            EffectResultBasic32 = 0x0146, // Size 0x208
+            EffectResultBasic64 = 0x03E7, // Size 0x408
 
-            // opcodes from FFXIVOpcodes
-            PlayerSetup = 0xF342,
-            UpdateClassInfo = 0xF0C7,
-            PlayerStats = 0xF26B,
-            Playtime = 0xF122,
-            UpdateSearchInfo = 0xF171,
-            ExamineSearchInfo = 0xF1CF,
-            Examine = 0xF3E0,
-            CurrencyCrystalInfo = 0xF18A,
-            InitZone = 0xF0E1,
-            WeatherChange = 0xF143,
-            HousingWardInfo = 0xF1DA,
-            PrepareZoning = 0xF0A0,
-            ContainerInfo = 0xF2D9,
-            ItemInfo = 0xF2ED,
-            DesynthResult = 0xF2AA,
-            FreeCompanyInfo = 0xF0BF,
-            FreeCompanyDialog = 0xF392,
-            MarketBoardSearchResult = 0xF2A2,
-            MarketBoardItemListingCount = 0xF2A1,
-            MarketBoardItemListingHistory = 0xF194,
-            MarketBoardItemListing = 0xF201,
-            MarketBoardPurchase = 0xF15E,
-            UpdateInventorySlot = 0xF1FB,
-            InventoryActionAck = 0xF2C8,
-            InventoryTransaction = 0xF17D,
-            InventoryTransactionFinish = 0xF0B0,
-            ResultDialog = 0xF2D2,
-            RetainerInformation = 0xF1D9,
-            ItemMarketBoardInfo = 0xF0E8,
-            EventStart = 0xF181,
-            EventFinish = 0xF3BC,
-            CFPreferredRole = 0xF2A0,
-            CFNotify = 0xF18C,
-            ObjectSpawn = 0xF2F7,
-            AirshipTimers = 0xF0EF,
-            SubmarineTimers = 0xF31B,
-            AirshipStatusList = 0xF36B,
-            AirshipStatus = 0xF168,
-            AirshipExplorationResult = 0xF2C3,
-            SubmarineProgressionStatus = 0xF37E,
-            SubmarineStatusList = 0xF30D,
-            SubmarineExplorationResult = 0xF0D1,
-            
-            
-            EventPlay = 0xF2FD,
-            EventPlay4 = 0xF380,
-            EventPlay8 = 0xF107,
-            EventPlay16 = 0xF2A4,
-            EventPlay32 = 0xF0C1,
-            EventPlay64 = 0xF2FB,
-            EventPlay128 = 0xF129,
-            EventPlay255 = 0xF2CD,
-            Logout = 0xF230,
 
-            // Client Zone
-            UpdatePositionHandler = 0xF2C5,
-            ClientTrigger = 0xF1D0,
-            ChatHandler = 0xF28E,
-            SetSearchInfoHandler = 0xF1C1,
-            MarketBoardPurchaseHandler = 0xF164,
-            UpdatePositionInstance = 0xF24B,
+            EnvironmentControl = 0x0309, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
 
-            // below are opcodes i've reversed myself...
+            UpdateRecastTimes = 0x00B6, // payload = 80 floats 'elapsed' + 80 floats 'total'
 
-            UpdateRecastTimes = 0x03BE, // payload = 80 floats 'elapsed' + 80 floats 'total'
-            UpdateHate = 0x0225, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
-            UpdateHater = 0x039B, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
-            Countdown = 0xF34E,
-            CountdownCancel = 0xF17B,
-            
-            RSVData = 0x03D6,
-            
+            UpdateHate = 0x0310, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
 
-            // old - 0x1fd == EventObjSpawn? for stuff like exit points, etc.
+            UpdateHater = 0x0293, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
+
+            Countdown = 0x0337,
+
+            CountdownCancel = 0x0382,
+
+            RSVData = 0x00C5,
+
+            ActionRequest = 0x0363, // just begin casting return...
+
+            ActionRequestGroundTargeted = 0x03E1, // XIVAlexander
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -290,6 +206,7 @@ namespace BossMod
             TetherCancel = 47,
             SetTarget = 50, // from dissector
             Targetable = 54, // dissector calls it ToggleNameHidden
+            SetAnimationState = 62, // example - ASSN beacon activation; param1 = animation set index (0 or 1), param2 = animation index (0-7)
             SetModelState = 63, // example - TEA liquid hand (open/closed); param1=ModelState row index, rest unused
             LimitBreakStart = 71, // from dissector
             LimitBreakPartyStart = 72, // from dissector
@@ -490,15 +407,13 @@ namespace BossMod
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct Server_ActorMove
         {
-            public byte HeadRotation;
-            public byte Rotation;
-            public byte AnimationType;
-            public byte AnimationState;
+            public ushort Rotation;
+            public ushort AnimationFlags;
             public byte AnimationSpeed;
             public byte UnknownRotation;
-            public short X;
-            public short Y;
-            public short Z;
+            public ushort X;
+            public ushort Y;
+            public ushort Z;
             public uint Unknown;
         }
 
@@ -617,40 +532,6 @@ namespace BossMod
             public float LocZ;
             public uint u4;
             public ulong u5;
-        }
-        
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public unsafe struct Server_EffectResult
-        {
-            public byte Count; // always 1?..
-            public byte padding1;
-            public short padding2;
-            public uint RelatedActionSequence;
-            public uint ActorID;
-            public uint CurrentHP;
-            public uint MaxHP;
-            public ushort CurrentMP;
-            public byte RelatedTargetIndex;
-            public byte ClassJob;
-            public byte DamageShield;
-            public byte EffectCount;
-            public ushort padding3;
-            public fixed byte Effects[4 * 4 * 4]; // Server_EffectResultEntry[4]
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public unsafe struct Server_EffectResultBasic
-        {
-            public byte Count; // always 1?..
-            public byte padding1;
-            public short padding2;
-            public uint RelatedActionSequence;
-            public uint ActorID;
-            public uint CurrentHP;
-            public byte RelatedTargetIndex;
-            public byte padding3;
-            public ushort padding4;
-            public uint padding5;
         }
     }
 }

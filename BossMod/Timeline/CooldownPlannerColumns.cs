@@ -13,22 +13,25 @@ namespace BossMod
         private Action _onModified;
         private StateMachineTree _tree;
         private List<int> _phaseBranches;
+        private bool _syncTimings;
         private string _name = "";
         private StateMachineTimings _timings = new();
         private List<ColumnPlannerTrackCooldown> _colCooldowns = new();
+        private List<ColumnPlannerTrackStrategy> _colStrategy = new();
         private Dictionary<ActionID, int> _aidToColCooldown = new();
 
-        private float _trackWidth = 80;
+        private float _trackWidth = 50;
 
         public Class PlanClass => _plan.Class;
 
-        public CooldownPlannerColumns(CooldownPlan plan, Action onModified, Timeline timeline, StateMachineTree tree, List<int> phaseBranches, ModuleRegistry.Info? moduleInfo)
+        public CooldownPlannerColumns(CooldownPlan plan, Action onModified, Timeline timeline, StateMachineTree tree, List<int> phaseBranches, ModuleRegistry.Info? moduleInfo, bool syncTimings)
             : base(timeline)
         {
             _plan = plan;
             _onModified = onModified;
             _tree = tree;
             _phaseBranches = phaseBranches;
+            _syncTimings = syncTimings;
             var classDef = PlanDefinitions.Classes[plan.Class];
             foreach (var track in classDef.CooldownTracks)
             {
@@ -47,6 +50,13 @@ namespace BossMod
                     col.NotifyModified = onModified;
                     _colCooldowns.Add(col);
                 }
+            }
+            foreach (var track in classDef.StrategyTracks)
+            {
+                var col = Add(new ColumnPlannerTrackStrategy(timeline, tree, phaseBranches, track.Name, classDef, track));
+                col.Width = _trackWidth;
+                col.NotifyModified = onModified;
+                _colStrategy.Add(col);
             }
 
             ExtractPlanData(plan);
@@ -87,7 +97,8 @@ namespace BossMod
             if (ImGui.SliderFloat("###phase-duration", ref selPhase.Duration, 0, selPhase.MaxTime, $"{selPhase.Name}: %.1f"))
             {
                 _timings.PhaseDurations[selectedPhase] = selPhase.Duration;
-                _tree.ApplyTimings(_timings);
+                if (_syncTimings)
+                    _tree.ApplyTimings(_timings);
                 _onModified();
             }
 
@@ -115,6 +126,7 @@ namespace BossMod
             _plan.Name = plan.Name;
             _plan.Timings = plan.Timings;
             _plan.Actions = plan.Actions;
+            _plan.StrategyOverrides = plan.StrategyOverrides;
         }
 
         public void ExportToClipboard()
@@ -146,16 +158,16 @@ namespace BossMod
         private void ExtractPlanData(CooldownPlan plan)
         {
             _name = plan.Name;
-            _tree.ApplyTimings(plan.Timings);
 
-            _timings = new();
-            foreach (var p in _tree.Phases)
-                _timings.PhaseDurations.Add(p.Duration);
+            _timings = plan.Timings.Clone();
+            for (int i = _timings.PhaseDurations.Count; i < _tree.Phases.Count; ++i)
+                _timings.PhaseDurations.Add(_tree.Phases[i].Duration);
+            if (_syncTimings)
+                _tree.ApplyTimings(plan.Timings);
 
             foreach (var col in _colCooldowns)
                 while (col.Elements.Count > 0)
                     col.RemoveElement(0);
-
             foreach (var a in plan.Actions)
             {
                 var col = TrackForAction(a.ID);
@@ -165,6 +177,21 @@ namespace BossMod
                     if (state != null)
                     {
                         col.AddElement(state, a.TimeSinceActivation, a.WindowLength, a.ID, a.LowPriority, a.Target.Clone(), a.Comment);
+                    }
+                }
+            }
+
+            foreach (var (col, overrides) in _colStrategy.Zip(plan.StrategyOverrides))
+            {
+                while (col.Elements.Count > 0)
+                    col.RemoveElement(0);
+
+                foreach (var o in overrides)
+                {
+                    var state = _tree.Nodes.GetValueOrDefault(o.StateID);
+                    if (state != null)
+                    {
+                        col.AddElement(state, o.TimeSinceActivation, o.WindowLength, o.Value, o.Comment);
                     }
                 }
             }
@@ -180,6 +207,14 @@ namespace BossMod
                 {
                     var cast = (ColumnPlannerTrackCooldown.ActionElement)e;
                     res.Actions.Add(new(cast.Action, e.Window.AttachNode.State.ID, e.Window.Delay, e.Window.Duration, cast.LowPriority, cast.Target.Clone(), cast.Comment));
+                }
+            }
+            foreach (var (col, overrides) in _colStrategy.Zip(res.StrategyOverrides))
+            {
+                foreach (var e in col.Elements)
+                {
+                    var cast = (ColumnPlannerTrackStrategy.OverrideElement)e;
+                    overrides.Add(new(cast.Value, e.Window.AttachNode.State.ID, e.Window.Delay, e.Window.Duration, cast.Comment));
                 }
             }
             return res;

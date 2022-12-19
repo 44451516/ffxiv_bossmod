@@ -19,11 +19,7 @@ namespace BossMod.WAR
         {
             _config = Service.Config.Get<WARConfig>();
             _state = new(autorot.Cooldowns);
-            _strategy = new()
-            {
-                FirstChargeIn = 0.01f, // by default, always preserve 1 onslaught charge
-                SecondChargeIn = 10000, // ... but don't preserve second
-            };
+            _strategy = new();
 
             // upgrades
             SupportedSpell(AID.InnerBeast).TransformAction = SupportedSpell(AID.FellCleave).TransformAction = SupportedSpell(AID.InnerChaos).TransformAction = () => ActionID.MakeSpell(_state.BestFellCleave);
@@ -34,6 +30,7 @@ namespace BossMod.WAR
             SupportedSpell(AID.Equilibrium).Condition = _ => Player.HP.Cur < Player.HP.Max;
             SupportedSpell(AID.Reprisal).Condition = _ => Autorot.Hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(Player.Position, 5 + e.Actor.HitboxRadius)); // TODO: consider checking only target?..
             SupportedSpell(AID.Interject).Condition = target => target?.CastInfo?.Interruptible ?? false;
+            SupportedSpell(AID.Tomahawk).Condition = _ => !_config.ForbidEarlyTomahawk || _strategy.CombatTimer == float.MinValue || _strategy.CombatTimer >= -0.7f;
             // TODO: SIO - check that raid is in range?..
             // TODO: Provoke - check that not already MT?
             // TODO: Shirk - check that hate is close to MT?..
@@ -62,6 +59,7 @@ namespace BossMod.WAR
             };
             UpdatePlayerState();
             FillCommonStrategy(_strategy, CommonDefinitions.IDPotionStr);
+            _strategy.ApplyStrategyOverrides(Autorot.Bossmods.ActiveModule?.PlanExecution?.ActiveStrategyOverrides(Autorot.Bossmods.ActiveModule.StateMachine) ?? new uint[0]);
         }
 
         protected override void QueueAIActions()
@@ -92,7 +90,7 @@ namespace BossMod.WAR
 
         protected override NextAction CalculateAutomaticOGCD(float deadline)
         {
-            if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
+            if (AutoAction < AutoActionAIFight)
                 return new();
 
             ActionID res = new();

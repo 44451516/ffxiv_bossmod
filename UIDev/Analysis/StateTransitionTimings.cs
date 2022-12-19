@@ -45,6 +45,7 @@ namespace UIDev.Analysis
 
         private SortedDictionary<uint, StateMetrics> _metrics = new();
         private List<(Replay, Replay.EncounterError)> _errors = new();
+        private List<(Replay, Replay.Encounter)> _encounters = new();
 
         public StateTransitionTimings(List<Replay> replays, uint oid)
         {
@@ -52,6 +53,8 @@ namespace UIDev.Analysis
             {
                 foreach (var enc in replay.Encounters.Where(enc => enc.OID == oid))
                 {
+                    _encounters.Add((replay, enc));
+
                     foreach (var s in enc.States)
                     {
                         if (!_metrics.ContainsKey(s.ID))
@@ -61,11 +64,10 @@ namespace UIDev.Analysis
                     }
 
                     var enter = enc.Time.Start;
-                    for (int i = 0; i < enc.States.Count - 1; ++i)
+                    for (int i = 0; i < enc.States.Count; ++i)
                     {
                         var from = enc.States[i];
-                        var to = enc.States[i + 1];
-                        _metrics[from.ID].Transitions.GetOrAdd(to.ID).Instances.Add(new TransitionMetric((from.Exit - enter).TotalSeconds, replay, enter));
+                        _metrics[from.ID].Transitions.GetOrAdd(i < enc.States.Count - 1 ? enc.States[i + 1].ID : uint.MaxValue).Instances.Add(new TransitionMetric((from.Exit - enter).TotalSeconds, replay, enter));
                         enter = from.Exit;
                     }
 
@@ -93,10 +95,17 @@ namespace UIDev.Analysis
                     trans.StdDev = trans.Instances.Count > 0 ? Math.Sqrt((sumSq - sum * sum / trans.Instances.Count) / (trans.Instances.Count - 1)) : 0;
                 }
             }
+
+            _encounters.SortByReverse(e => e.Item2.Time.Duration);
         }
 
         public void Draw(UITree tree)
         {
+            foreach (var n in tree.Node("Encounters", _encounters.Count == 0))
+            {
+                tree.LeafNodes(_encounters, e => $"{e.Item1.Path} @ {e.Item2.Time.Start:O} ({e.Item2.Time.Duration:f3}s)");
+            }
+
             foreach (var n in tree.Node("Errors", _errors.Count == 0))
             {
                 tree.LeafNodes(_errors, error => $"{error.Item1.Path} @ {error.Item2.Timestamp:O} [{error.Item2.CompType}] {error.Item2.Message}");
@@ -106,7 +115,8 @@ namespace UIDev.Analysis
             {
                 Func<KeyValuePair<uint, TransitionMetrics>, UITree.NodeProperties> map = kv =>
                 {
-                    string name = $"{from.Name} -> {_metrics[kv.Key].Name}: avg={kv.Value.AvgTime:f2}-{from.ExpectedTime:f2}={kv.Value.AvgTime - from.ExpectedTime:f2} +- {kv.Value.StdDev:f2}, [{kv.Value.MinTime:f2}, {kv.Value.MaxTime:f2}] range, {kv.Value.Instances.Count} seen";
+                    var destName = kv.Key != uint.MaxValue ? _metrics[kv.Key].Name : "<end>";
+                    string name = $"{from.Name} -> {destName}: avg={kv.Value.AvgTime:f2}-{from.ExpectedTime:f2}={kv.Value.AvgTime - from.ExpectedTime:f2} +- {kv.Value.StdDev:f2}, [{kv.Value.MinTime:f2}, {kv.Value.MaxTime:f2}] range, {kv.Value.Instances.Count} seen";
                     //bool warn = from.ExpectedTime < Math.Round(m.MinTime, 1) || from.ExpectedTime > Math.Round(m.MaxTime, 1);
                     bool warn = Math.Abs(from.ExpectedTime - kv.Value.AvgTime) > Math.Ceiling(kv.Value.StdDev * 10) / 10;
                     return new(name, false, warn ? 0xff00ffff : 0xffffffff);

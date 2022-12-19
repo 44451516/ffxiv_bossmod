@@ -26,40 +26,68 @@ namespace BossMod
             public StateFlag Vulnerable = new() { TransitionIn = float.MaxValue };
         }
 
-        public class ActionData
+        public class ElementData
         {
-            public ActionID ID;
             public float WindowStart;
             public float WindowEnd;
             public int BranchID;
             public int NumBranches;
+
+            public bool IntersectBranchRange(int branchID, int numBranches) => BranchID < branchID + numBranches && branchID < BranchID + NumBranches;
+            public bool IsActive(float t, StateData s) => t >= WindowStart && t <= WindowEnd && IntersectBranchRange(s.BranchID, s.NumBranches);
+
+            public ElementData(float windowStart, float windowEnd, int branchID, int numBranches)
+            {
+                WindowStart = windowStart;
+                WindowEnd = windowEnd;
+                BranchID = branchID;
+                NumBranches = numBranches;
+            }
+        }
+
+        public class ActionData : ElementData
+        {
+            public ActionID ID;
             public bool LowPriority;
             public bool Executed;
             public PlanTarget.ISelector Target;
             // TODO: condition, etc.
 
-            public bool IntersectBranchRange(int branchID, int numBranches) => BranchID < branchID + numBranches && branchID < BranchID + NumBranches;
-
-            public ActionData(ActionID iD, float windowStart, float windowEnd, int branchID, int numBranches, bool lowPriority, PlanTarget.ISelector target)
+            public ActionData(ActionID id, float windowStart, float windowEnd, int branchID, int numBranches, bool lowPriority, PlanTarget.ISelector target)
+                : base(windowStart, windowEnd, branchID, numBranches)
             {
-                ID = iD;
-                WindowStart = windowStart;
-                WindowEnd = windowEnd;
-                BranchID = branchID;
-                NumBranches = numBranches;
+                ID = id;
                 LowPriority = lowPriority;
                 Target = target;
             }
         }
 
+        public class StrategyData : ElementData
+        {
+            public int Index;
+            public uint Value;
+
+            public StrategyData(int index, uint value, float windowStart, float windowEnd, int branchID, int numBranches)
+                : base(windowStart, windowEnd, branchID, numBranches)
+            {
+                Index = index;
+                Value = value;
+            }
+        }
+
         public CooldownPlan? Plan { get; private init; }
-        private StateData Pull = new();
+        private StateData Pull;
         private Dictionary<uint, StateData> States = new();
         private List<ActionData> Actions = new();
+        private List<StrategyData> Strategies = new();
+        private int _numStrategyTracks;
+
+        public IReadOnlyList<StrategyData> Strats => Strategies;
 
         public CooldownPlanExecution(StateMachine sm, CooldownPlan? plan)
         {
             Plan = plan;
+            Pull = new() { EnterTime = -30, Duration = 30, NumBranches = 1 };
 
             var tree = new StateMachineTree(sm);
             tree.ApplyTimings(plan?.Timings);
@@ -78,6 +106,20 @@ namespace BossMod
                     {
                         var windowStart = s.EnterTime + Math.Min(s.Duration, a.TimeSinceActivation);
                         Actions.Add(new(a.ID, windowStart, windowStart + a.WindowLength, s.BranchID, s.NumBranches, a.LowPriority, a.Target));
+                    }
+                }
+
+                _numStrategyTracks = plan.StrategyOverrides.Count;
+                for (int i = 0; i < _numStrategyTracks; ++i)
+                {
+                    foreach (var o in plan.StrategyOverrides[i])
+                    {
+                        var s = States.GetValueOrDefault(o.StateID);
+                        if (s != null)
+                        {
+                            var windowStart = s.EnterTime + Math.Min(s.Duration, o.TimeSinceActivation);
+                            Strategies.Add(new(i, o.Value, windowStart, windowStart + o.WindowLength, s.BranchID, s.NumBranches));
+                        }
                     }
                 }
             }
@@ -108,19 +150,34 @@ namespace BossMod
             return (s.Vulnerable.Active, s.Vulnerable.TransitionIn - Math.Min(sm.TimeSinceTransition, s.Duration));
         }
 
+        public uint[] ActiveStrategyOverrides(StateMachine sm)
+        {
+            var res = new uint[_numStrategyTracks];
+            var max = new float[_numStrategyTracks];
+            Array.Fill(max, float.MinValue);
+            var s = FindStateData(sm.ActiveState);
+            var t = s != Pull ? s.EnterTime + Math.Min(sm.TimeSinceTransition, s.Duration) : -sm.PrepullTimer;
+            foreach (var st in Strategies.Where(st => st.IsActive(t, s) && st.WindowStart >= max[st.Index]))
+            {
+                res[st.Index] = st.Value;
+                max[st.Index] = st.WindowStart;
+            }
+            return res;
+        }
+
         public IEnumerable<(ActionID Action, float TimeLeft, PlanTarget.ISelector Target, bool LowPriority)> ActiveActions(StateMachine sm)
         {
             var s = FindStateData(sm.ActiveState);
-            var t = s.EnterTime + Math.Min(sm.TimeSinceTransition, s.Duration);
-            return Actions.Where(a => !a.Executed && t >= a.WindowStart && t <= a.WindowEnd && a.IntersectBranchRange(s.BranchID, s.NumBranches)).Select(a => (a.ID, a.WindowEnd - t, a.Target, a.LowPriority));
+            var t = s != Pull ? s.EnterTime + Math.Min(sm.TimeSinceTransition, s.Duration) : -sm.PrepullTimer;
+            return Actions.Where(a => !a.Executed && a.IsActive(t, s)).Select(a => (a.ID, a.WindowEnd - t, a.Target, a.LowPriority));
         }
 
         public void NotifyActionExecuted(StateMachine sm, ActionID action)
         {
             // TODO: not sure what to do if we have several overlapping requests for same action, do we really mark all of them as executed?..
             var s = FindStateData(sm.ActiveState);
-            var t = s.EnterTime + Math.Min(sm.TimeSinceTransition, s.Duration);
-            foreach (var a in Actions.Where(a => a.ID == action && t >= a.WindowStart && t <= a.WindowEnd && a.IntersectBranchRange(s.BranchID, s.NumBranches)))
+            var t = s != Pull ? s.EnterTime + Math.Min(sm.TimeSinceTransition, s.Duration) : -sm.PrepullTimer;
+            foreach (var a in Actions.Where(a => a.ID == action && a.IsActive(t, s)))
                 a.Executed = true;
         }
 
@@ -212,17 +269,6 @@ namespace BossMod
                 if (res == null || a.WindowEnd < res.WindowEnd)
                     res = a;
             return res;
-        }
-
-        private ActionData? FindNthActionInTrack(IEnumerable<ActionID> filter, float time, int branchID, int numBranches, int skip)
-        {
-            var next = FindNextActionInTrack(filter, time, branchID, numBranches);
-            while (next != null && skip > 0)
-            {
-                next = FindNextActionInTrack(filter, next.WindowEnd, next.BranchID, next.NumBranches);
-                --skip;
-            }
-            return next;
         }
     }
 }

@@ -130,32 +130,6 @@ namespace BossMod
                     case Protocol.Opcode.ActionEffect32:
                         HandleActionEffect32((Protocol.Server_ActionEffect32*)dataPtr, targetActorId);
                         break;
-                    case Protocol.Opcode.EffectResultBasic:
-                        HandleEffectResultBasic((Protocol.Server_EffectResultBasic*)dataPtr, targetActorId);
-                        break;
-                    case Protocol.Opcode.EffectResult:
-                        HandleEffectResult((Protocol.Server_EffectResult*)dataPtr, targetActorId);
-                        break;
-                    case Protocol.Opcode.ActorCast:
-                        HandleActorCast((Protocol.Server_ActorCast*)dataPtr, targetActorId);
-                        break;
-                    case Protocol.Opcode.ActorControl:
-                        HandleActorControl((Protocol.Server_ActorControl*)dataPtr, targetActorId);
-                        break;
-                    case Protocol.Opcode.ActorControlSelf:
-                        HandleActorControlSelf((Protocol.Server_ActorControlSelf*)dataPtr, targetActorId);
-                        break;
-                    case Protocol.Opcode.EnvironmentControl:
-                        HandleEnvironmentControl((Protocol.Server_EnvironmentControl*)dataPtr, targetActorId);
-                        break;
-                    case Protocol.Opcode.Waymark:
-                        HandleWaymark((Protocol.Server_Waymark*)dataPtr);
-                        break;
-                    case Protocol.Opcode.PresetWaymark:
-                        HandlePresetWaymark((Protocol.Server_PresetWaymark*)dataPtr);
-                        break;
-                    
-                    /*
                     case Protocol.Opcode.EffectResultBasic1:
                         HandleEffectResultBasic(Math.Min((byte)1, *(byte*)dataPtr), (Protocol.Server_EffectResultBasicEntry*)(dataPtr + 4), targetActorId);
                         break;
@@ -177,19 +151,36 @@ namespace BossMod
                     case Protocol.Opcode.EffectResult1:
                         HandleEffectResult(Math.Min((byte)1, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
                         break;
-                     case Protocol.Opcode.EffectResult4:
-                         HandleEffectResult(Math.Min((byte)4, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
-                         break;
-                     case Protocol.Opcode.EffectResult8:
-                         HandleEffectResult(Math.Min((byte)8, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
-                         break;
-                     case Protocol.Opcode.EffectResult16:
-                         HandleEffectResult(Math.Min((byte)16, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
-                         break;
-                     case Protocol.Opcode.RSVData:
-                         HandleRSVData(MemoryHelper.ReadStringNullTerminated(dataPtr + 4), MemoryHelper.ReadString(dataPtr + 0x34, *(int*)dataPtr));
-                         break;
-                    */
+                    case Protocol.Opcode.EffectResult4:
+                        HandleEffectResult(Math.Min((byte)4, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResult8:
+                        HandleEffectResult(Math.Min((byte)8, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.EffectResult16:
+                        HandleEffectResult(Math.Min((byte)16, *(byte*)dataPtr), (Protocol.Server_EffectResultEntry*)(dataPtr + 4), targetActorId);
+                        break;
+                    case Protocol.Opcode.ActorCast:
+                        HandleActorCast((Protocol.Server_ActorCast*)dataPtr, targetActorId);
+                        break;
+                    case Protocol.Opcode.ActorControl:
+                        HandleActorControl((Protocol.Server_ActorControl*)dataPtr, targetActorId);
+                        break;
+                    case Protocol.Opcode.ActorControlSelf:
+                        HandleActorControlSelf((Protocol.Server_ActorControlSelf*)dataPtr, targetActorId);
+                        break;
+                    case Protocol.Opcode.EnvironmentControl:
+                        HandleEnvironmentControl((Protocol.Server_EnvironmentControl*)dataPtr, targetActorId);
+                        break;
+                    case Protocol.Opcode.Waymark:
+                        HandleWaymark((Protocol.Server_Waymark*)dataPtr);
+                        break;
+                    case Protocol.Opcode.PresetWaymark:
+                        HandlePresetWaymark((Protocol.Server_PresetWaymark*)dataPtr);
+                        break;
+                    case Protocol.Opcode.RSVData:
+                        HandleRSVData(MemoryHelper.ReadStringNullTerminated(dataPtr + 4), MemoryHelper.ReadString(dataPtr + 0x34, *(int*)dataPtr));
+                        break;
                 }
             }
             else
@@ -277,36 +268,26 @@ namespace BossMod
             EventActionEffect?.Invoke(this, (casterID, info));
         }
 
-        // private unsafe void HandleEffectResultBasic(int count, Protocol.Server_EffectResultBasicEntry* p, uint actorID)
-        // {
-        //     for (int i = 0; i < count; ++i)
-        //     {
-        //         EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
-        //         ++p;
-        //     }
-        // }
-        
-        private unsafe void HandleEffectResultBasic(Protocol.Server_EffectResultBasic* p, uint actorID)
-        {
-            EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
-        }
-        
 
-        // private unsafe void HandleEffectResult(int count, Protocol.Server_EffectResultEntry* p, uint actorID)
-        // {
-        //     for (int i = 0; i < count; ++i)
-        //     {
-        //         EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
-        //         ++p;
-        //     }
-        // }
-        //
         
-        private unsafe void HandleEffectResult(Protocol.Server_EffectResult* p, uint actorID)
+        private unsafe void HandleEffectResultBasic(int count, Protocol.Server_EffectResultBasicEntry* p, uint actorID)
         {
-            EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
+            for (int i = 0; i < count; ++i)
+            {
+                EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
+                ++p;
+            }
         }
 
+        private unsafe void HandleEffectResult(int count, Protocol.Server_EffectResultEntry* p, uint actorID)
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                EventEffectResult?.Invoke(this, (actorID, p->RelatedActionSequence, p->RelatedTargetIndex));
+                ++p;
+            }
+        }
+        
         
 
         private unsafe void HandleActorCast(Protocol.Server_ActorCast* p, uint actorID)
@@ -418,7 +399,7 @@ namespace BossMod
         {
             /*
             var header = (Protocol.Server_IPCHeader*)(dataPtr - 0x10);
-            Service.Log($"[Network] Server message {(Protocol.Opcode)opCode} -> {Utils.ObjectString(targetActorId)} (seq={header->Epoch}): {*(ulong*)dataPtr:X16}...");
+            Service.Log($"[Network] Server message {(Protocol.Opcode)opCode} -> {Utils.ObjectString(targetActorId)} (seq={header->Epoch}): {((ulong*)dataPtr)[0]:X16} {((ulong*)dataPtr)[1]:X16}...");
             switch ((Protocol.Opcode)opCode)
             {
                 case Protocol.Opcode.ActionEffect1:
@@ -503,7 +484,7 @@ namespace BossMod
                 //case Protocol.Opcode.ActorMove:
                 //    {
                 //        var p = (Protocol.Server_ActorMove*)dataPtr;
-                //        Service.Log($"[Network] - [{p->X}, {p->Y}, {p->Z}], rot={p->Rotation}/{p->HeadRotation}/{p->UnknownRotation}, anim={p->AnimationType}/{p->AnimationState}/{p->AnimationSpeed}, u={p->Unknown:X8}");
+                //        Service.Log($"[Network] - {Utils.Vec3String(IntToFloatCoords(p->X, p->Y, p->Z))}, {IntToFloatAngle(p->Rotation)}, anim={p->AnimationFlags:X4}/{p->AnimationSpeed}, u={p->UnknownRotation:X2} {p->Unknown:X8}");
                 //        break;
                 //    }
                 case Protocol.Opcode.EffectResult1:

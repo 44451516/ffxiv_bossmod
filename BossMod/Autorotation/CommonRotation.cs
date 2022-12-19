@@ -15,6 +15,8 @@ namespace BossMod
             public int Level;
             public int UnlockProgress;
             public uint CurMP; // 10000 max
+            public bool TargetingEnemy;
+            public float RangeToTarget; // minus both hitboxes; <= 0 means inside hitbox, <= 3 means in melee range, maxvalue if there is no target
             public float AnimationLock; // typical actions have 0.6 delay, but some (notably primal rend and potion) are >1
             public float AnimationLockDelay; // average time between action request and confirmation; this is added to effective animation lock for actions
             public float ComboTimeLeft; // 0 if not in combo, max 30
@@ -46,12 +48,12 @@ namespace BossMod
             public enum PotionUse { 手动, 延迟到团队BUFF, 延迟到个人BUFF_空实现, 马上 }
 
             public bool Prepull; // true if neither self nor target are in combat; TODO consider replacing with countdown timer
+            public float CombatTimer; // MinValue if not in combat, negative during countdown, zero or positive during combat
             public bool ForbidDOTs;
             public float ForceMovementIn;
             public float FightEndIn; // how long fight will last (we try to spend all resources before this happens)
             public float RaidBuffsIn; // estimate time when new raidbuff window starts (if it is smaller than FightEndIn, we try to conserve resources)
             public float PositionLockIn; // time left to use moving abilities (Primal Rend and Onslaught) - we won't use them if it is ==0; setting this to 2.5f will make us use PR asap
-            public PotionUse Potion; // strategy for automatic potion use
         }
     }
 }
