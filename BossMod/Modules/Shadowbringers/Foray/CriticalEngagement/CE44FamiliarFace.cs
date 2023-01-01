@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-namespace BossMod.Shadowbringers.Foray.CE44FamiliarFace
+namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE44FamiliarFace
 {
     public enum OID : uint
     {
@@ -26,7 +22,7 @@ namespace BossMod.Shadowbringers.Foray.CE44FamiliarFace
         AncientQuakeAOE = 23829, // Helper->self, no cast, ??? (x2 ~0.8s after visual)
         Sanction = 23817, // Boss->self, no cast, single-target, visual (light raidwide)
         SanctionAOE = 23832, // Helper->self, no cast, ??? (x2 ~0.8s after visual)
-        Roxxor = 23823, // Helper->players, 5.0s cast, range 6 circle spread (?)
+        Roxxor = 23823, // Helper->players, 5.0s cast, range 6 circle spread
 
         ControlTowerAppear = 23830, // Helper->self, 4.0s cast, range 6 circle aoe around appearing towers
         TowerRound = 23831, // Boss->self, 4.0s cast, single-target, visual (spawns 2 towers + light raidwide)
@@ -60,6 +56,11 @@ namespace BossMod.Shadowbringers.Foray.CE44FamiliarFace
     class AncientQuake : Components.RaidwideCast
     {
         public AncientQuake() : base(ActionID.MakeSpell(AID.AncientQuake)) { }
+    }
+
+    class Roxxor : Components.SpreadFromCastTargets
+    {
+        public Roxxor() : base(ActionID.MakeSpell(AID.Roxxor), 6) { }
     }
 
     class ControlTowerAppear : Components.SelfTargetedAOEs
@@ -131,10 +132,14 @@ namespace BossMod.Shadowbringers.Foray.CE44FamiliarFace
                     Lines.RemoveAt(index);
             }
         }
-
     }
 
-    // TODO: roxxor component
+    // TODO: consider prediction - actor-create happens ~4.7s before cast start
+    class Hammerfall : Components.SelfTargetedAOEs
+    {
+        public Hammerfall() : base(ActionID.MakeSpell(AID.Hammerfall), new AOEShapeCircle(37)) { }
+    }
+
     class CE44FamiliarFaceStates : StateMachineBuilder
     {
         public CE44FamiliarFaceStates(BossModule module) : base(module)
@@ -143,10 +148,12 @@ namespace BossMod.Shadowbringers.Foray.CE44FamiliarFace
                 .ActivateOnEnter<TectonicEruption>()
                 .ActivateOnEnter<RockCutter>()
                 .ActivateOnEnter<AncientQuake>()
+                .ActivateOnEnter<Roxxor>()
                 .ActivateOnEnter<ControlTowerAppear>()
                 .ActivateOnEnter<Towerfall>()
                 .ActivateOnEnter<ExtremeEdge>()
-                .ActivateOnEnter<IntractableLand>();
+                .ActivateOnEnter<IntractableLand>()
+                .ActivateOnEnter<Hammerfall>();
         }
     }
 

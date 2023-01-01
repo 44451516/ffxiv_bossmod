@@ -126,6 +126,8 @@ namespace BossMod.Components
     public class LocationTargetedAOEs : GenericAOEs
     {
         public AOEShapeCircle Shape { get; private init; }
+        public uint Color = ArenaColor.AOE; // can be customized if needed
+        public bool Risky = true; // can be customized if needed
         private List<Actor> _casters = new();
         public IReadOnlyList<Actor> Casters => _casters;
 
@@ -137,7 +139,7 @@ namespace BossMod.Components
         public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             foreach (var c in _casters)
-                yield return new(Shape, c.CastInfo!.LocXZ, activation: c.CastInfo.FinishAt);
+                yield return new(Shape, c.CastInfo!.LocXZ, c.CastInfo.Rotation, c.CastInfo.FinishAt, Color, Risky);
         }
 
         public override void OnCastStarted(BossModule module, Actor caster, ActorCastInfo spell)
@@ -156,11 +158,11 @@ namespace BossMod.Components
     // 'charge at location' aoes that happen at the end of the cast
     public class ChargeAOEs : GenericAOEs
     {
-        public int HalfWidth { get; private init; }
+        public float HalfWidth { get; private init; }
         private List<(Actor caster, AOEShape shape, Angle direction)> _casters = new();
         public IReadOnlyList<(Actor caster, AOEShape shape, Angle direction)> Casters => _casters;
 
-        public ChargeAOEs(ActionID aid, int halfWidth) : base(aid)
+        public ChargeAOEs(ActionID aid, float halfWidth) : base(aid)
         {
             HalfWidth = halfWidth;
         }
