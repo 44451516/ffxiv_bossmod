@@ -5,7 +5,6 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Dalamud.Logging;
 
 namespace BossMod
 {
@@ -82,8 +81,6 @@ namespace BossMod
 
         private IntPtr _gtQueuePatch; // instruction inside UseAction: conditional jump that disallows queueing for ground-targeted actions
         private bool _gtQueuePatchEnabled;
-        
-        private AutorotationConfig _config;
         public bool AllowGTQueueing
         {
             get => _gtQueuePatchEnabled;
@@ -97,66 +94,54 @@ namespace BossMod
             }
         }
 
+        private AutorotationConfig _config;
+        
         public unsafe ActionManagerEx()
         {
-            
             _config = Service.Config.Get<AutorotationConfig>();
-            
             _inst = ActionManager.Instance();
-            PluginLog.Debug($"[AMEx] ActionManager singleton address = 0x{(ulong)_inst:X}");
+            Service.Log($"[AMEx] ActionManager singleton address = 0x{(ulong)_inst:X}");
 
             var getGroundTargetPositionAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 44 8B 84 24 80 00 00 00 33 C0");
-            PluginLog.Debug($"[AMEx] GetGroundTargetPosition address = 0x{getGroundTargetPositionAddress:X}");
+            Service.Log($"[AMEx] GetGroundTargetPosition address = 0x{getGroundTargetPositionAddress:X}");
             _getGroundTargetPositionFunc = Marshal.GetDelegateForFunctionPointer<GetGroundTargetPositionDelegate>(getGroundTargetPositionAddress);
 
             var faceTargetAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 81 FE FB 1C 00 00 74 ?? 81 FE 53 5F 00 00 74 ?? 81 FE 6F 73 00 00");
-            PluginLog.Debug($"[AMEx] FaceTarget address = 0x{faceTargetAddress:X}");
+            Service.Log($"[AMEx] FaceTarget address = 0x{faceTargetAddress:X}");
             _faceTargetFunc = Marshal.GetDelegateForFunctionPointer<FaceTargetDelegate>(faceTargetAddress);
 
             var updateAddress = Service.SigScanner.ScanText("48 8B C4 48 89 58 20 57 48 81 EC 90 00 00 00 48 8B 3D ?? ?? ?? ?? 48 8B D9 48 85 FF 0F 84 ?? ?? ?? ?? 48 89 68 08 48 8B CF 48 89 70 10 4C 89 70 18 0F 29 70 E8 44 0F 29 48 B8 44 0F 29 50 A8");
-            PluginLog.Debug($"[AMEx] Update address = 0x{updateAddress:X}");
-
-
-
+            Service.Log($"[AMEx] Update address = 0x{updateAddress:X}");
             if (_config.ActionManagerExHookEnabled==false)
             {
                 _updateHook = Hook<UpdateDelegate>.FromAddress(updateAddress, UpdateDetour);
                 _updateHook.Enable();
 
                 var useActionLocationAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 3C 01 0F 85 ?? ?? ?? ?? EB 46");
-                PluginLog.Debug($"[AMEx] UseActionLocation address = 0x{useActionLocationAddress:X}");
-            
-            
+                Service.Log($"[AMEx] UseActionLocation address = 0x{useActionLocationAddress:X}");
                 _useActionLocationHook = Hook<UseActionLocationDelegate>.FromAddress(useActionLocationAddress, UseActionLocationDetour);
                 _useActionLocationHook.Enable();
 
                 var processActionEffectPacketAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 4C 24 68 48 33 CC E8 ?? ?? ?? ?? 4C 8D 5C 24 70 49 8B 5B 20 49 8B 73 28 49 8B E3 5F C3");
-                PluginLog.Debug($"[AMEx] ProcessActionEffectPacket address = 0x{processActionEffectPacketAddress:X}");
-            
+                Service.Log($"[AMEx] ProcessActionEffectPacket address = 0x{processActionEffectPacketAddress:X}");
                 _processActionEffectPacketHook = Hook<ProcessActionEffectPacketDelegate>.FromAddress(processActionEffectPacketAddress, ProcessActionEffectPacketDetour);
                 _processActionEffectPacketHook.Enable();
 
                 _gtQueuePatch = Service.SigScanner.ScanModule("74 24 41 81 FE F5 0D 00 00");
-                PluginLog.Debug($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
+                Service.Log($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
             }
-
-      
-            
-            
             AllowGTQueueing = true;
         }
 
         public void Dispose()
         {
             AllowGTQueueing = false;
-            
             if (_config.ActionManagerExHookEnabled==false)
             {
                 _processActionEffectPacketHook.Dispose();
                 _useActionLocationHook.Dispose();
                 _updateHook.Dispose();
             }
-            
         }
 
         public unsafe Vector3? GetWorldPosUnderCursor()
@@ -218,7 +203,6 @@ namespace BossMod
 
         private unsafe bool UseActionLocationDetour(ActionManager* self, ActionType actionType, uint actionID, ulong targetID, Vector3* targetPos, uint itemLocation)
         {
-            
             var prevSeq = Utils.ReadField<ushort>(self, 0x110);
             bool ret = _useActionLocationHook.Original(self, actionType, actionID, targetID, targetPos, itemLocation);
             var currSeq = Utils.ReadField<ushort>(self, 0x110);
@@ -226,15 +210,13 @@ namespace BossMod
             {
                 _lastReqInitialAnimLock = AnimationLock;
                 _lastReqSequence = currSeq;
-                PluginLog.Debug($"[AMEx] UAL #{currSeq} ({new ActionID(actionType, actionID)} @ {targetID:X} / {Utils.Vec3String(*targetPos)} {(ret ? "succeeded" : "failed?")}, ALock={_lastReqInitialAnimLock:f3}, CTR={CastTimeRemaining:f3}, GCD={GCD():f3}");
+                Service.Log($"[AMEx] UAL #{currSeq} ({new ActionID(actionType, actionID)} @ {targetID:X} / {Utils.Vec3String(*targetPos)} {(ret ? "succeeded" : "failed?")}, ALock={_lastReqInitialAnimLock:f3}, CTR={CastTimeRemaining:f3}, GCD={GCD():f3}");
             }
             return ret;
         }
 
         private unsafe void ProcessActionEffectPacketDetour(uint casterID, void* casterObj, Vector3* targetPos, Protocol.Server_ActionEffectHeader* header, ulong* effects, ulong* targets)
         {
-
-            
             var prevAnimLock = AnimationLock;
             _processActionEffectPacketHook.Original(casterID, casterObj, targetPos, header, effects, targets);
             var currAnimLock = AnimationLock;
@@ -243,7 +225,7 @@ namespace BossMod
 
             if (_lastReqSequence != header->SourceSequence)
             {
-                PluginLog.Debug($"[AMEx] Animation lock updated by action with unexpected sequence ID: {prevAnimLock:f3} -> {currAnimLock:f3}");
+                Service.Log($"[AMEx] Animation lock updated by action with unexpected sequence ID: {prevAnimLock:f3} -> {currAnimLock:f3}");
                 return;
             }
 
@@ -260,7 +242,7 @@ namespace BossMod
                 }
                 AnimationLockDelayAverage = adjDelay * (1 - AnimationLockDelaySmoothing) + AnimationLockDelayAverage * AnimationLockDelaySmoothing;
             }
-            PluginLog.Debug($"[AMEx] AEP #{header->SourceSequence} {prevAnimLock:f3} -> ALock={currAnimLock:f3} (delayed by {originalDelay:f3}-{reduction:f3}), CTR={CastTimeRemaining:f3}, GCD={GCD():f3}");
+            Service.Log($"[AMEx] AEP #{header->SourceSequence} {prevAnimLock:f3} -> ALock={currAnimLock:f3} (delayed by {originalDelay:f3}-{reduction:f3}), CTR={CastTimeRemaining:f3}, GCD={GCD():f3}");
         }
     }
 }
