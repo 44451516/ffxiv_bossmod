@@ -188,6 +188,7 @@ namespace BossMod
             HpSetStat = 13, // from dissector
             DeathAnimation = 14, // from dissector
             CancelCast = 15, // dissector calls it CastInterrupt (ActorControl), machina calls it CancelAbility
+            RecastDetails = 16, // p1=group id, p2=elapsed, p3=total
             Cooldown = 17, // dissector calls it ActionStart (ActorControlSelf)
             GainEffect = 20,
             LoseEffect = 21,
@@ -351,6 +352,7 @@ namespace BossMod
             SetDutyActionHud = 1513, // from dissector
             SetDutyActionActive = 1514, // from dissector
             SetDutyActionRemaining = 1515, // from dissector
+            IncrementRecast = 1536, // p1=cooldown group, p2=delta time quantized to 100ms; example is brd mage ballad proc
             EurekaStep = 1850, // from dissector
         }
 
