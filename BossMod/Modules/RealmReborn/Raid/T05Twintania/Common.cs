@@ -39,7 +39,7 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
     {
         public DateTime NextCastStart { get; private set; }
         public bool TankedByOT { get; private set; }
-        public PartyRolesConfig.Assignment TankRole => TankedByOT ? PartyRolesConfig.Assignment.OT : PartyRolesConfig.Assignment.MT;
+        public PartyRolesConfig.Assignment TankRole => TankedByOT ? PartyRolesConfig.Assignment.ST : PartyRolesConfig.Assignment.MT;
 
         public DeathSentence() : base(ActionID.MakeSpell(AID.DeathSentence)) { }
 
@@ -79,7 +79,7 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
                 switch (assignment)
                 {
                     case PartyRolesConfig.Assignment.MT:
-                    case PartyRolesConfig.Assignment.OT:
+                    case PartyRolesConfig.Assignment.ST:
                         if (!boss.ShouldBeTanked) // cooldowns should be used by previous tank, who will eat death's sentence
                         {
                             bool useFirstCooldowns = (NumCasts & 2) == 0;
@@ -112,20 +112,20 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
                             }
                         }
                         break;
-                    case PartyRolesConfig.Assignment.M1:
+                    case PartyRolesConfig.Assignment.D1:
                         if (NumCasts % 3 == 0)
                         {
                             hints.PlannedActions.Add((ActionID.MakeSpell(DRG.AID.Feint), module.PrimaryActor, cooldownWindowEnd, false));
                         }
                         break;
-                    case PartyRolesConfig.Assignment.M2:
+                    case PartyRolesConfig.Assignment.D2:
                         if (NumCasts % 3 == 1)
                         {
                             hints.PlannedActions.Add((ActionID.MakeSpell(DRG.AID.Feint), module.PrimaryActor, cooldownWindowEnd, false));
                         }
                         break;
-                    case PartyRolesConfig.Assignment.R1:
-                    case PartyRolesConfig.Assignment.R2:
+                    case PartyRolesConfig.Assignment.D3:
+                    case PartyRolesConfig.Assignment.D4:
                         if (NumCasts % 3 == 2)
                         {
                             hints.PlannedActions.Add((ActionID.MakeSpell(BLM.AID.Addle), module.PrimaryActor, cooldownWindowEnd, false));

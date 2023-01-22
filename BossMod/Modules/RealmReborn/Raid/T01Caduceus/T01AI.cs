@@ -41,7 +41,7 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
             }
             else if (activePlatforms.Any())
             {
-                bool actorIsSpawner = !cloneSpawned && assignment == (activePlatforms[0] ? PartyRolesConfig.Assignment.R2 : PartyRolesConfig.Assignment.R1);
+                bool actorIsSpawner = !cloneSpawned && assignment == (activePlatforms[0] ? PartyRolesConfig.Assignment.D4 : PartyRolesConfig.Assignment.D3);
                 Func<WPos, float> nonAllowedPlatforms = actorIsSpawner
                     ? p => -activePlatforms.SetBits().Min(platform => Platforms.PlatformShapes[platform](p)) - 1 // inverse union of active, slightly reduced to avoid standing on borders
                     : p => activePlatforms.SetBits().Min(platform => Platforms.PlatformShapes[platform](p)); // union of active
@@ -65,7 +65,7 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
                         //case PartyRolesConfig.Assignment.MT:
                         //    SetPreferredPlatform(hints, 2);
                         //    break;
-                        case PartyRolesConfig.Assignment.OT:
+                        case PartyRolesConfig.Assignment.ST:
                             // when clone is about to spawn, have OT move closer to tank position
                             if (cloneSpawningSoon)
                                 hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Platforms.HexaPlatformCenters[6], 20), DateTime.MaxValue);
@@ -76,11 +76,11 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
                         case PartyRolesConfig.Assignment.H2:
                             SetPreferredPlatform(hints, 5);
                             break;
-                        case PartyRolesConfig.Assignment.R1:
+                        case PartyRolesConfig.Assignment.D3:
                             if (!cloneSpawned)
                                 SetPreferredPlatform(hints, 8);
                             break;
-                        case PartyRolesConfig.Assignment.R2:
+                        case PartyRolesConfig.Assignment.D4:
                             // TODO: there's a LOS problem if standing on starting platform - maybe just ignore these platforms?..
                             if (!cloneSpawned && actor.PosRot.Y > Platforms.PlatformHeights[0] - 0.1f)
                                 SetPreferredPlatform(hints, 0);
@@ -108,13 +108,13 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
                         e.Priority = assignment switch
                         {
                             PartyRolesConfig.Assignment.MT => 0,
-                            PartyRolesConfig.Assignment.OT => 2,
+                            PartyRolesConfig.Assignment.ST => 2,
                             _ => (module.WorldState.CurrentTime - _clone!.CloneSpawnTime).TotalSeconds < 3 || hpDiff < -5 ? 0
                                 : hpDiff > 5 ? 2
                                 : Math.Min(e.Actor.HP.Cur, module.PrimaryActor.HP.Cur) <= 0.3f * e.Actor.HP.Max ? 1
-                                : assignment is PartyRolesConfig.Assignment.H2 or PartyRolesConfig.Assignment.M2 or PartyRolesConfig.Assignment.R2 ? 2 : 0
+                                : assignment is PartyRolesConfig.Assignment.H2 or PartyRolesConfig.Assignment.D2 or PartyRolesConfig.Assignment.D4 ? 2 : 0
                         };
-                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.OT;
+                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.ST;
                         e.PreferProvoking = true;
                         if ((e.Actor.Position - module.PrimaryActor.Position).LengthSq() < 625)
                             e.DesiredPosition = Platforms.HexaPlatformCenters[6];

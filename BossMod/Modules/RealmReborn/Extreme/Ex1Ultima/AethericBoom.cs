@@ -126,8 +126,8 @@ namespace BossMod.RealmReborn.Extreme.Ex1Ultima
 
         private void PrepositionForOrbs(AIHints hints, PartyRolesConfig.Assignment assignment, int orbsCount)
         {
-            float x = assignment is PartyRolesConfig.Assignment.MT or PartyRolesConfig.Assignment.H1 or PartyRolesConfig.Assignment.M1 or PartyRolesConfig.Assignment.R1 ? 1 : -1;
-            if (orbsCount == 3 && assignment is PartyRolesConfig.Assignment.M1 or PartyRolesConfig.Assignment.M2)
+            float x = assignment is PartyRolesConfig.Assignment.MT or PartyRolesConfig.Assignment.H1 or PartyRolesConfig.Assignment.D1 or PartyRolesConfig.Assignment.D3 ? 1 : -1;
+            if (orbsCount == 3 && assignment is PartyRolesConfig.Assignment.D1 or PartyRolesConfig.Assignment.D2)
             {
                 // sacrifice melees on side orbs, this sucks but whatever
                 hints.AddForbiddenZone(ShapeDistance.InvertedCircle(new(10 * x, -2), 1.5f));

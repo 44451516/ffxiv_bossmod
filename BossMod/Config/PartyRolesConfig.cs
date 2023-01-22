@@ -8,7 +8,7 @@ namespace BossMod
     [ConfigDisplay(Name = "小队职责分配", Order = 2)]
     public class PartyRolesConfig : ConfigNode
     {
-        public enum Assignment { MT, OT, H1, H2, M1, M2, R1, R2, Unassigned }
+        public enum Assignment { MT, ST, H1, H2, D1, D2, D3, D4, Unassigned }
 
         public Dictionary<ulong, Assignment> Assignments = new();
 
@@ -57,10 +57,10 @@ namespace BossMod
             {
                 res[i] = this[party.ContentIDs[i]] switch
                 {
-                    Assignment.MT or Assignment.OT => Role.Tank,
+                    Assignment.MT or Assignment.ST => Role.Tank,
                     Assignment.H1 or Assignment.H2 => Role.Healer,
-                    Assignment.M1 or Assignment.M2 => Role.Melee,
-                    Assignment.R1 or Assignment.R2 => Role.Ranged,
+                    Assignment.D1 or Assignment.D2 => Role.Melee,
+                    Assignment.D3 or Assignment.D4 => Role.Ranged,
                     _ => party[i]?.Role ?? Role.None
                 };
             }

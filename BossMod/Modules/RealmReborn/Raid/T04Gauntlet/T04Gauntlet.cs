@@ -112,7 +112,7 @@ namespace BossMod.RealmReborn.Raid.T04Gauntlet
                 e.ShouldBeTanked = assignment switch
                 {
                     PartyRolesConfig.Assignment.MT => (OID)e.Actor.OID != OID.ClockworkBug,
-                    PartyRolesConfig.Assignment.OT => (OID)e.Actor.OID == OID.ClockworkBug,
+                    PartyRolesConfig.Assignment.ST => (OID)e.Actor.OID == OID.ClockworkBug,
                     _ => false
                 };
             }

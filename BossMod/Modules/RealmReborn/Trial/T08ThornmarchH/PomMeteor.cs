@@ -33,8 +33,8 @@ namespace BossMod.RealmReborn.Trial.T08ThornmarchH
                 {
                     PartyRolesConfig.Assignment.H1 => 0,
                     PartyRolesConfig.Assignment.H2 => 1,
-                    PartyRolesConfig.Assignment.R1 => 2,
-                    PartyRolesConfig.Assignment.R2 => 3,
+                    PartyRolesConfig.Assignment.D3 => 2,
+                    PartyRolesConfig.Assignment.D4 => 3,
                     _ => -1,
                 };
                 if (soakedTower >= 0)

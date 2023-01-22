@@ -3,10 +3,10 @@
     [ConfigDisplay(Order = 0x182, Parent = typeof(EndwalkerConfig))]
     public class P8S2Config : CooldownPlanningConfigNode
     {
-        [PropertyDisplay("Limitless desolation: tanks/healers use right side")]
+        [PropertyDisplay("万象灰烬: T/N在右")]
         public bool LimitlessDesolationTHRight = false;
 
-        [PropertyDisplay("High concept 1: long debuffs take S towers")]
+        [PropertyDisplay("概念支配 1: long debuffs take S towers")]
         public bool HC1LongGoS = true;
 
         public P8S2Config() : base(90) { }

@@ -41,7 +41,7 @@ namespace BossMod.RealmReborn.Extreme.Ex2Garuda
                     case OID.Suparna:
                         e.Priority = assignment != PartyRolesConfig.Assignment.MT ? 3 : 0;
                         e.AttackStrength = 0.15f;
-                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.OT;
+                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.ST;
                         e.DesiredRotation = (_aerialBlast?.NumCasts > 0 ? -45 : 0).Degrees();
                         e.DesiredPosition = module.Bounds.Center + 18 * e.DesiredRotation.ToDirection();
                         break;

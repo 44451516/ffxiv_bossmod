@@ -29,7 +29,7 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
                     case OID.ScourgeOfMeracydia:
                         stillHaveAdds = true;
                         e.Priority = 2;
-                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.OT;
+                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.ST;
                         break;
                 }
             }

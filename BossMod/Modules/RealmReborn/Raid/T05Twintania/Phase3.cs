@@ -69,7 +69,7 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
                             : killHygieia && e.Actor == nextHygieia ? 2
                             : predictedHP < 0.3f * e.Actor.HP.Max ? -1
                             : 1;
-                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.OT;
+                        e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.ST;
                         bool gtfo = predictedHP <= (e.ShouldBeTanked ? 1 : 0.1f * e.Actor.HP.Max);
                         if (gtfo)
                             hints.AddForbiddenZone(ShapeDistance.Circle(e.Actor.Position, 9));

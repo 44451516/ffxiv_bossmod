@@ -105,7 +105,7 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
                         hints.AddForbiddenZone(p => -forbidden.Min(f => f(p)));
                     }
                 }
-                else if (assignment == ((_deathSentence?.TankedByOT ?? false) ? PartyRolesConfig.Assignment.MT : PartyRolesConfig.Assignment.OT) && neurolinkUnderBoss != null && actor != _liquidHell?.Target)
+                else if (assignment == ((_deathSentence?.TankedByOT ?? false) ? PartyRolesConfig.Assignment.MT : PartyRolesConfig.Assignment.ST) && neurolinkUnderBoss != null && actor != _liquidHell?.Target)
                 {
                     // current offtank should try to intercept orb by standing in a neurolink under boss, unless it is covered by liquid hells or tank is baiting liquid hells away
                     bool neurolinkUnsafe = _liquidHell != null && _liquidHell.Sources(module).Any(z => neurolinkUnderBoss.Position.InCircle(z.Position, _liquidHell.Shape.Radius));
