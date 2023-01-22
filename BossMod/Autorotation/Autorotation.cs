@@ -214,7 +214,7 @@ namespace BossMod
         }
 
         // returns whether input should be blocked
-        private bool ActionManagerUpdateImpl()
+        private unsafe bool ActionManagerUpdateImpl()
         {
             AboutToStartCast = false;
             if (_classActions == null)
