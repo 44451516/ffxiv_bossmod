@@ -3,27 +3,27 @@
     [ConfigDisplay(Order = 0x201, Parent = typeof(EndwalkerConfig))]
     public class DSW2Config : CooldownPlanningConfigNode
     {
-        [PropertyDisplay("P2 Sanctity of the Ward (charges): group assignments")]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(charges): group assignments")]
         [GroupDetails(new string[] { "West/Across", "East/Behind" })]
         public GroupAssignmentLightParties P2SanctityGroups = GroupAssignmentLightParties.DefaultLightParties();
 
-        [PropertyDisplay("P2 Sanctity of the Ward (charges): groups relative to DRK (across/behind) rather than absolute (west/east)")]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(charges): groups relative to DRK (across/behind) rather than absolute (west/east)")]
         public bool P2SanctityRelative = false;
 
-        [PropertyDisplay("P2 Sanctity of the Ward (charges): role responsible for balancing groups (if not set, swap with role partner instead)")]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(charges)[国服打法]: role responsible for balancing groups (if not set, swap with role partner instead)")]
         public Role P2SanctitySwapRole;
 
-        [PropertyDisplay("P2 Sanctity of the Ward (meteors): pair assignments")]
-        [GroupDetails(new string[] { "North", "West", "South", "East" })]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors): pair assignments")]
+        [GroupDetails(new string[] { "North[北]", "West[西]", "South[南]", "East[东]" })]
         public GroupAssignmentDDSupportPairs P2Sanctity2Pairs = GroupAssignmentDDSupportPairs.DefaultOneMeleePerPair();
 
-        [PropertyDisplay("P2 Sanctity of the Ward (meteors): prefer E/W for prey rather than N/S")]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors): prefer E/W for prey rather than N/S")]
         public bool P2Sanctity2PreferEWPrey = false;
 
-        [PropertyDisplay("P2 Sanctity of the Ward (meteors): swap N/E and S/W (rather than N/W and S/E) when both soakers are on wrong cardinals")]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors): swap N/E and S/W (rather than N/W and S/E) when both soakers are on wrong cardinals")]
         public bool P2Sanctity2SwapBothNE = false;
 
-        [PropertyDisplay("P2 Sanctity of the Ward (meteors): take CW (rather than CCW) intercardinal as non-prey role for second towers")]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors): take CW (rather than CCW) intercardinal as non-prey role for second towers")]
         public bool P2Sanctity2NonPreyTowerCW = false;
 
         [PropertyDisplay("P3 four towers with counters: assignments")]
