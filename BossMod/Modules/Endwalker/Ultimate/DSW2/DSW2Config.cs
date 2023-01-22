@@ -27,7 +27,7 @@
         public bool P2Sanctity2NonPreyTowerCW = false;
 
         [PropertyDisplay("P3 four towers with counters: assignments")]
-        [GroupDetails(new string[] { "NW Flex", "NE Flex", "SE Flex", "SW Flex", "NW Stay", "NE Stay", "SE Stay", "SW Stay" })]
+        [GroupDetails(new string[] { "西北固定 Flex", "东北固定 Flex", "东南固定 Flex", "西南固定 Flex", "西北动态 Stay", "东北动态 Stay", "东南动态 Stay", "西南动态 Stay" })]
         public GroupAssignmentUnique P3DarkdragonDiveCounterGroups = GroupAssignmentUnique.Default();
 
         [PropertyDisplay("P3 four towers with counters: prefer flexing to CCW tower (rather than to CW)")]
