@@ -10,7 +10,8 @@
         [PropertyDisplay("P2 二运 苍穹之阵：圣杖(charges): groups relative to DRK (across/behind) rather than absolute (west/east)")]
         public bool P2SanctityRelative = false;
 
-        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(charges)[国服打法]: role responsible for balancing groups (if not set, swap with role partner instead)")]
+        // [PropertyDisplay("P2 二运 苍穹之阵：圣杖(charges)[国服选Melee]: role responsible for balancing groups (if not set, swap with role partner instead)")]
+        [PropertyDisplay("P2 二运 苍穹之阵：圣杖(charges): role responsible for balancing groups (if not set, swap with role partner instead)")]
         public Role P2SanctitySwapRole;
 
         [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors): pair assignments")]
@@ -23,6 +24,7 @@
         [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors): swap N/E and S/W (rather than N/W and S/E) when both soakers are on wrong cardinals")]
         public bool P2Sanctity2SwapBothNE = false;
 
+        // [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors)[国服选这个]: take CW (rather than CCW) intercardinal as non-prey role for second towers")]
         [PropertyDisplay("P2 二运 苍穹之阵：圣杖(meteors): take CW (rather than CCW) intercardinal as non-prey role for second towers")]
         public bool P2Sanctity2NonPreyTowerCW = false;
 

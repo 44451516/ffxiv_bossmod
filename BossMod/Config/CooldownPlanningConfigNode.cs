@@ -112,11 +112,16 @@ namespace BossMod
                         }
                         ImGui.SameLine();
                         bool selected = plans.SelectedIndex == i;
-                        if (ImGui.Checkbox($"{c} '{plans.Available[i].Name}'", ref selected))
+                        if (plans.Available.Count > 1)
                         {
-                            plans.SelectedIndex = selected ? i : -1;
-                            NotifyModified();
+                            if (ImGui.Checkbox($"{c} '{plans.Available[i].Name}'", ref selected))
+                            {
+                                plans.SelectedIndex = selected ? i : -1;
+                                NotifyModified();
+                            }
                         }
+
+                      
                         ImGui.PopID();
                     }
                 }
