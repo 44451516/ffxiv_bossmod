@@ -56,16 +56,13 @@ namespace BossMod
 
             // this is lifted from dalamud - for some reason they stopped dispatching client messages :(
             Service.GameNetwork.NetworkMessage += HandleMessage;
-            
-            /*
-            var processZonePacketDownAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 56 48 83 EC 50 8B F2");
-            _processZonePacketDownHook = Hook<ProcessZonePacketDownDelegate>.FromAddress(processZonePacketDownAddress, ProcessZonePacketDownDetour);
-            _processZonePacketDownHook.Enable();
-
-            var processZonePacketUpAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 41 56 41 57 48 83 EC 70 8B 81 ?? ?? ?? ??");
-            _processZonePacketUpHook = Hook<ProcessZonePacketUpDelegate>.FromAddress(processZonePacketUpAddress, ProcessZonePacketUpDetour);
-            _processZonePacketUpHook.Enable();
-            */
+            // var processZonePacketDownAddress = Service.SigScanner.ScanText("40 55 56 57 48 8D 6C 24 B9 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 37 8B FA");
+            // _processZonePacketDownHook = Hook<ProcessZonePacketDownDelegate>.FromAddress(processZonePacketDownAddress, ProcessZonePacketDownDetour);
+            // _processZonePacketDownHook.Enable();
+            //
+            // var processZonePacketUpAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 41 56 41 57 48 83 EC 70 8B 81 ?? ?? ?? ??");
+            // _processZonePacketUpHook = Hook<ProcessZonePacketUpDelegate>.FromAddress(processZonePacketUpAddress, ProcessZonePacketUpDetour);
+            // _processZonePacketUpHook.Enable();
         }
 
         public void Dispose()
@@ -176,7 +173,7 @@ namespace BossMod
                         HandleWaymark((Protocol.Server_Waymark*)dataPtr);
                         break;
                     case Protocol.Opcode.PresetWaymark:
-                        HandlePresetWaymark((Protocol.Server_PresetWaymark*)dataPtr);
+                        HandleWaymarkPreset((Protocol.Server_WaymarkPreset*)dataPtr);
                         break;
                     case Protocol.Opcode.RSVData:
                         HandleRSVData(MemoryHelper.ReadStringNullTerminated(dataPtr + 4), MemoryHelper.ReadString(dataPtr + 0x34, *(int*)dataPtr));
@@ -254,15 +251,11 @@ namespace BossMod
             var targets = Math.Min(header->NumTargets, maxTargets);
             for (int i = 0; i < targets; ++i)
             {
-                ulong targetID = targetIDs[i];
-                if (targetID != 0)
-                {
-                    var target = new ActorCastEvent.Target();
-                    target.ID = targetID;
-                    for (int j = 0; j < 8; ++j)
-                        target.Effects[j] = *(ulong*)(effects + (i * 8) + j);
-                    info.Targets.Add(target);
-                }
+                var target = new ActorCastEvent.Target();
+                target.ID = targetIDs[i];
+                for (int j = 0; j < 8; ++j)
+                    target.Effects[j] = *(ulong*)(effects + (i * 8) + j);
+                info.Targets.Add(target);
             }
 
             EventActionEffect?.Invoke(this, (casterID, info));
@@ -311,16 +304,16 @@ namespace BossMod
                 case Protocol.Server_ActorControlCategory.TetherCancel:
                     EventActorControlTetherCancel?.Invoke(this, actorID);
                     break;
-                // case Protocol.Server_ActorControlCategory.EObjSetState:
-                //     // p2 is unused (seems to be director id?), p3==1 means housing (?) item instead of event obj, p4 is housing item id
-                //     EventActorControlEObjSetState?.Invoke(this, (actorID, (ushort)p->param1));
-                //     break;
-                // case Protocol.Server_ActorControlCategory.EObjAnimation:
-                //     EventActorControlEObjAnimation?.Invoke(this, (actorID, (ushort)p->param1, (ushort)p->param2));
-                //     break;
-                // case Protocol.Server_ActorControlCategory.PlayActionTimeline:
-                //     EventActorControlPlayActionTimeline?.Invoke(this, (actorID, (ushort)p->param1));
-                //     break;
+                case Protocol.Server_ActorControlCategory.EObjSetState:
+                    // p2 is unused (seems to be director id?), p3==1 means housing (?) item instead of event obj, p4 is housing item id
+                    EventActorControlEObjSetState?.Invoke(this, (actorID, (ushort)p->param1));
+                    break;
+                case Protocol.Server_ActorControlCategory.EObjAnimation:
+                    EventActorControlEObjAnimation?.Invoke(this, (actorID, (ushort)p->param1, (ushort)p->param2));
+                    break;
+                case Protocol.Server_ActorControlCategory.PlayActionTimeline:
+                    EventActorControlPlayActionTimeline?.Invoke(this, (actorID, (ushort)p->param1));
+                    break;
             }
         }
 
@@ -348,7 +341,7 @@ namespace BossMod
                 EventWaymark?.Invoke(this, (p->Waymark, p->Active != 0 ? new Vector3(p->PosX / 1000.0f, p->PosY / 1000.0f, p->PosZ / 1000.0f) : null));
         }
 
-        private unsafe void HandlePresetWaymark(Protocol.Server_PresetWaymark* p)
+        private unsafe void HandleWaymarkPreset(Protocol.Server_WaymarkPreset* p)
         {
             byte mask = 1;
             for (var i = Waymark.A; i < Waymark.Count; ++i)
