@@ -7,33 +7,35 @@ namespace BossMod
     {
         public enum Opcode
         {
-             ActionEffect1 = 0x030F,
-            ActionEffect8 = 0x0199,
-            ActionEffect16 = 0x01E2,
-            ActionEffect24 = 0x03B6,
-            ActionEffect32 = 0x037E,
-            ActorCast = 0x0186,
-            ActorControl = 0x0365,
-            ActorControlSelf = 0x0245,
-            ActorControlTarget = 0x015B,
-            ActorGauge = 0x034B,
-            PresetWaymark = 0x02C3,
-            Waymark = 0x031D,
+            ActionEffect1 = 0x02E7,
+            ActionEffect8 = 0x00EF,
+            ActionEffect16 = 0x036F,
+            ActionEffect24 = 0x03C4,
+            ActionEffect32 = 0x02E6,
             
-            EffectResult1 = 0x0200, // Size 0x60
-            EffectResult4 = 0x01A3, // Size 0x168
-            EffectResult8 = 0x0191, // Size 0x2C8
-            EffectResult16 = 0x02AF, // Size 0x588
+            ActorCast = 0x033B,
+            ActorControl = 0x0249,
+            ActorControlSelf = 0x0397,
+            ActorControlTarget = 0x01FF,
+            ActorGauge = 0x022E,
+            
+            PresetWaymark = 0x00E5,
+            Waymark = 0x017B,
+            
+            EffectResult1 = 0x030E, // Size 0x60
+            EffectResult4 = 0x02D9, // Size 0x168
+            EffectResult8 = 0x01FC, // Size 0x2C8
+            EffectResult16 = 0x018D, // Size 0x588
 
-            EffectResultBasic1 = 0x01DA, // Size 0x18
-            EffectResultBasic4 = 0x02D7, // Size 0x48
-            EffectResultBasic8 = 0x029A, // Size 0x88
-            EffectResultBasic16 = 0x01A7, // Size 0x108
-            EffectResultBasic32 = 0x0146, // Size 0x208
-            EffectResultBasic64 = 0x03E7, // Size 0x408
+            EffectResultBasic1 = 0x0116,
+            EffectResultBasic4 = 0x0070,
+            EffectResultBasic8 = 0x01D0,
+            EffectResultBasic16 = 0x0375,
+            EffectResultBasic32 = 0x026A,
+            EffectResultBasic64 = 0x0186,
 
 
-            EnvironmentControl = 0x0309, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
+            EnvironmentControl = 0x024B, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
 
             UpdateRecastTimes = 0x00B6, // payload = 80 floats 'elapsed' + 80 floats 'total'
 
@@ -45,11 +47,11 @@ namespace BossMod
 
             CountdownCancel = 0x0382,
 
-            RSVData = 0x00C5,
+            RSVData = 0x0085,
 
-            ActionRequest = 0x0363, // just begin casting return...
+            ActionRequest = 0x0212, // just begin casting return...
 
-            ActionRequestGroundTargeted = 0x03E1, // XIVAlexander
+            ActionRequestGroundTargeted = 0x0353, // XIVAlexander
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
