@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Dalamud.Game.ClientState.JobGauge.Enums;
+using System;
+using static BossMod.WAR.Rotation.Strategy;
 
 namespace BossMod.BRD
 {
@@ -51,6 +53,28 @@ namespace BossMod.BRD
         // strategy configuration
         public class Strategy : CommonRotation.Strategy
         {
+            public enum SongUse : uint
+            {
+                Automatic = 0, // allow early MB->AP and AP->WM switches
+
+                [PropertyDisplay("Extend active song", 0x8000ff00)]
+                Extend = 1, // extend currently active song until window end or until last tick
+            }
+
+            public enum PotionUse : uint
+            {
+                Manual = 0, // potion won't be used automatically
+
+                [PropertyDisplay("Use right before burst", 0x8000ff00)]
+                Burst = 1,
+
+                [PropertyDisplay("Use ASAP", 0x800000ff)]
+                Force = 2,
+            }
+
+            public SongUse SongStrategy; // how are we supposed to switch songs
+            public PotionUse PotionStrategy; // how are we supposed to use potions
+            public OffensiveAbilityUse RagingStrikesUse; // how are we supposed to use RS
             public int NumLadonsbiteTargets; // range 12 90-degree cone
             public int NumRainOfDeathTargets; // range 8 circle around target
 
@@ -58,10 +82,55 @@ namespace BossMod.BRD
             {
                 return $"AOE={NumRainOfDeathTargets}/{NumLadonsbiteTargets}, no-dots={ForbidDOTs}";
             }
+
+            // TODO: these bindings should be done by the framework...
+            public void ApplyStrategyOverrides(uint[] overrides)
+            {
+                if (overrides.Length >= 2)
+                {
+                    SongStrategy = (SongUse)overrides[0];
+                    PotionStrategy = (PotionUse)overrides[1];
+                    RagingStrikesUse = (OffensiveAbilityUse)overrides[2];
+                }
+                else
+                {
+                    SongStrategy = SongUse.Automatic;
+                    PotionStrategy = PotionUse.Manual;
+                    RagingStrikesUse = OffensiveAbilityUse.Automatic;
+                }
+            }
         }
+
+        public static float SwitchAtRemainingSongTimer(State state, Strategy strategy) => strategy.SongStrategy == Strategy.SongUse.Automatic ? state.ActiveSong switch
+        {
+            Song.WanderersMinuet => 3, // WM->MB transition when no more repertoire ticks left
+            Song.MagesBallad => 12, // MB->AP transition asap as long as we won't end up songless (active song condition 15 == 45 - (120 - 2*45); get extra MB tick at 12s to avoid being songless for a moment)
+            Song.ArmysPaeon => state.Repertoire == 4 ? 15 : 3, // AP->WM transition asap as long as we'll have MB ready when WM ends, if we either have full repertoire or AP is about to run out anyway
+            _ => 3
+        } : 3;
+
+        public static bool ShouldUsePotion(State state, Strategy strategy) => strategy.PotionStrategy switch
+        {
+            Strategy.PotionUse.Manual => false,
+            Strategy.PotionUse.Burst => strategy.CombatTimer < 0 ? strategy.CombatTimer > -1.8f : state.TargetingEnemy && state.CD(CDGroup.RagingStrikes) < state.GCD + 3.5f, // pre-pull or RS ready in 2 gcds (assume pot -> late-weaved WM -> RS)
+            Strategy.PotionUse.Force => true,
+            _ => false
+        };
+
+        // by default, we use RS asap as soon as WM is up
+        public static bool ShouldUseRagingStrikes(State state, Strategy strategy) => strategy.RagingStrikesUse switch
+        {
+            Strategy.OffensiveAbilityUse.Delay => false,
+            Strategy.OffensiveAbilityUse.Force => true,
+            _ => state.TargetingEnemy && (state.ActiveSong == Song.WanderersMinuet || !state.Unlocked(AID.WanderersMinuet))
+        };
 
         public static AID GetNextBestGCD(State state, Strategy strategy)
         {
+            // prepull
+            if (strategy.CombatTimer > -100 && strategy.CombatTimer < -0.7f)
+                return AID.None;
+
             if (strategy.NumLadonsbiteTargets >= 2 && state.Unlocked(AID.QuickNock))
             {
                 // TODO: AA/BA targeting/condition (it might hit fewer targets)
@@ -157,44 +226,51 @@ namespace BossMod.BRD
 
         public static ActionID GetNextBestOGCD(State state, Strategy strategy, float deadline)
         {
+            // potion
+            if (ShouldUsePotion(state, strategy) && state.CanWeave(state.PotionCD, 1.1f, deadline))
+                return CommonDefinitions.IDPotionDex;
+
             // maintain songs
-            if (state.ActiveSong == Song.None)
+            if (state.TargetingEnemy && strategy.CombatTimer >= 0)
             {
-                // if no song is up, use best available one
-                if (state.Unlocked(AID.WanderersMinuet) && state.CanWeave(CDGroup.WanderersMinuet, 0.6f, deadline))
-                    return ActionID.MakeSpell(AID.WanderersMinuet);
-                if (state.Unlocked(AID.MagesBallad) && state.CanWeave(CDGroup.MagesBallad, 0.6f, deadline))
-                    return ActionID.MakeSpell(AID.MagesBallad);
-                if (state.Unlocked(AID.ArmysPaeon) && state.CanWeave(CDGroup.ArmysPaeon, 0.6f, deadline))
-                    return ActionID.MakeSpell(AID.ArmysPaeon);
-            }
-            else if (state.Unlocked(AID.WanderersMinuet))
-            {
-                // once we have WM, we can have a proper song cycle
-                if (state.ActiveSong == Song.WanderersMinuet && state.ActiveSongLeft < 3)
+                if (state.ActiveSong == Song.None)
                 {
-                    if (state.Repertoire > 0 && state.CanWeave(CDGroup.PitchPerfect, 0.6f, deadline))
-                        return ActionID.MakeSpell(AID.PitchPerfect); // spend remaining repertoire before leaving WM
-                    if (state.CanWeave(CDGroup.MagesBallad, 0.6f, deadline))
-                        return ActionID.MakeSpell(AID.MagesBallad); // WM->MB transition when no more repertoire ticks left
+                    // if no song is up, use best available one
+                    if (state.Unlocked(AID.WanderersMinuet) && state.CanWeave(CDGroup.WanderersMinuet, 0.6f, deadline))
+                        return ActionID.MakeSpell(AID.WanderersMinuet);
+                    if (state.Unlocked(AID.MagesBallad) && state.CanWeave(CDGroup.MagesBallad, 0.6f, deadline))
+                        return ActionID.MakeSpell(AID.MagesBallad);
+                    if (state.Unlocked(AID.ArmysPaeon) && state.CanWeave(CDGroup.ArmysPaeon, 0.6f, deadline))
+                        return ActionID.MakeSpell(AID.ArmysPaeon);
                 }
-                if (state.ActiveSong == Song.MagesBallad && state.ActiveSongLeft < 12 && state.CD(CDGroup.WanderersMinuet) < 45 && state.CanWeave(CDGroup.ArmysPaeon, 0.6f, deadline))
-                    return ActionID.MakeSpell(AID.ArmysPaeon); // MB->AP transition asap as long as we won't end up songless (active song condition 15 == 45 - (120 - 2*45); get extra MB tick at 12s to avoid being songless for a moment)
-                if (state.ActiveSong == Song.ArmysPaeon && state.ActiveSongLeft < 15 && state.CD(CDGroup.MagesBallad) < 45 && state.CanWeave(CDGroup.WanderersMinuet, 0.6f, deadline) && (state.Repertoire == 4 || state.ActiveSongLeft < 3) && state.GCD < 0.9f)
-                    return ActionID.MakeSpell(AID.WanderersMinuet); // late-weaved AP->WM transition asap as long as we'll have MB ready when WM ends, if we either have full repertoire or AP is about to run out anyway
+                else if (state.Unlocked(AID.WanderersMinuet) && state.ActiveSongLeft < SwitchAtRemainingSongTimer(state, strategy) - 0.1f) // TODO: rethink this extra leeway, we want to make sure we use up last tick's repertoire e.g. in WM
+                {
+                    // once we have WM, we can have a proper song cycle
+                    if (state.ActiveSong == Song.WanderersMinuet)
+                    {
+                        if (state.Repertoire > 0 && state.CanWeave(CDGroup.PitchPerfect, 0.6f, deadline))
+                            return ActionID.MakeSpell(AID.PitchPerfect); // spend remaining repertoire before leaving WM
+                        if (state.CanWeave(CDGroup.MagesBallad, 0.6f, deadline))
+                            return ActionID.MakeSpell(AID.MagesBallad);
+                    }
+                    if (state.ActiveSong == Song.MagesBallad && state.CD(CDGroup.WanderersMinuet) < 45 && state.CanWeave(CDGroup.ArmysPaeon, 0.6f, deadline))
+                        return ActionID.MakeSpell(AID.ArmysPaeon);
+                    if (state.ActiveSong == Song.ArmysPaeon && state.CD(CDGroup.MagesBallad) < 45 && state.CanWeave(CDGroup.WanderersMinuet, 0.6f, deadline) && state.GCD < 0.9f)
+                        return ActionID.MakeSpell(AID.WanderersMinuet); // late-weave
+                }
             }
 
             // apply major buffs
             // RS as soon as we enter WM (or just on CD, if we don't have it yet)
             // in opener, it end up being late-weaved after WM (TODO: can we weave it extra-late to ensure 9th gcd is buffed?)
             // in 2-minute bursts, it ends up being early-weaved after first WM gcd (TODO: can we weave it later to ensure 10th gcd is buffed?)
-            if (state.Unlocked(AID.RagingStrikes) && state.CanWeave(CDGroup.RagingStrikes, 0.6f, deadline) && (state.ActiveSong == Song.WanderersMinuet || !state.Unlocked(AID.WanderersMinuet)))
+            if (state.Unlocked(AID.RagingStrikes) && ShouldUseRagingStrikes(state, strategy) && state.CanWeave(CDGroup.RagingStrikes, 0.6f, deadline))
                 return ActionID.MakeSpell(AID.RagingStrikes);
 
             // BV+RF 2 gcds after RS (RF first with 1 coda, ? with 2 coda, BV first with 3 coda)
             // opener: gcd is slightly smaller than 2.5, RS should've happened in second ogcd slot at 1.2, we should apply buff at >= 2*2.5-0.6 = 4.4 => RS will have <= 1.2+20-4.4 == 16.8 (+ER-delay) left
             // burst: gcd is slightly smaller than 2.1 (assuming 4-stack AP), RS should've happened in first ogcd slot at 0.6, apply buff at >= 2*2.1-0.6 = 3.6 => RS will have <= 0.6+20-3.6 == 17 (+ER-delay) left
-            if (state.RagingStrikesLeft > state.AnimationLock && state.RagingStrikesLeft < 16.8f)
+            if (state.TargetingEnemy && state.RagingStrikesLeft > state.AnimationLock && state.RagingStrikesLeft < 16.8f)
             {
                 if (state.NumCoda == 1 && state.CanWeave(CDGroup.RadiantFinale, 0.6f, deadline))
                     return ActionID.MakeSpell(AID.RadiantFinale);
@@ -209,12 +285,12 @@ namespace BossMod.BRD
             // EA - important not to drift (TODO: is it actually better to delay it if we're capped on PP/BL?)
             // we should not be at risk of capping BL (since we spend charges asap in WM/MB anyway)
             // we might risk capping PP, but we should've dealt with that on previous slots by using PP2
-            if (state.Unlocked(AID.EmpyrealArrow) && state.CanWeave(CDGroup.EmpyrealArrow, 0.6f, deadline))
+            if (state.TargetingEnemy && strategy.CombatTimer >= 0 && state.Unlocked(AID.EmpyrealArrow) && state.CanWeave(CDGroup.EmpyrealArrow, 0.6f, deadline))
                 return ActionID.MakeSpell(AID.EmpyrealArrow);
 
             // PP here should not conflict with anything priority-wise
             // note that we already handle PPx after last repertoire tick before switching to WM (see song cycle code above)
-            if (state.ActiveSong == Song.WanderersMinuet && state.Repertoire > 0 && state.CanWeave(CDGroup.PitchPerfect, 0.6f, deadline))
+            if (state.TargetingEnemy && state.ActiveSong == Song.WanderersMinuet && state.Repertoire > 0 && state.CanWeave(CDGroup.PitchPerfect, 0.6f, deadline))
             {
                 if (state.Repertoire == 3)
                     return ActionID.MakeSpell(AID.PitchPerfect); // PP3 is a no-brainer
@@ -246,15 +322,15 @@ namespace BossMod.BRD
             // barrage, under buffs and if there is no proc already
             // TODO: consider barrage usage during aoe
             // TODO: consider moving up to avoid drifting? seems risky...
-            if (strategy.NumLadonsbiteTargets < 2 && state.StraightShotLeft <= state.GCD && state.Unlocked(AID.Barrage) && (state.Unlocked(AID.BattleVoice) ? state.BattleVoiceLeft : state.RagingStrikesLeft) > 0 && state.CanWeave(CDGroup.Barrage, 0.6f, deadline))
+            if (state.TargetingEnemy && strategy.CombatTimer >= 0 && strategy.NumLadonsbiteTargets < 2 && state.StraightShotLeft <= state.GCD && state.Unlocked(AID.Barrage) && (state.Unlocked(AID.BattleVoice) ? state.BattleVoiceLeft : state.RagingStrikesLeft) > 0 && state.CanWeave(CDGroup.Barrage, 0.6f, deadline))
                 return ActionID.MakeSpell(AID.Barrage);
 
             // sidewinder, unless we're delaying it until buffs (TODO: consider exact delay condition)
-            if (state.Unlocked(AID.Sidewinder) && state.CanWeave(CDGroup.Sidewinder, 0.6f, deadline) && state.CD(CDGroup.BattleVoice) > 45)
+            if (state.TargetingEnemy && strategy.CombatTimer >= 0 && state.Unlocked(AID.Sidewinder) && state.CanWeave(CDGroup.Sidewinder, 0.6f, deadline) && state.CD(CDGroup.BattleVoice) > 45)
                 return ActionID.MakeSpell(AID.Sidewinder);
 
             // bloodletter, unless we're pooling them for burst
-            if (state.Unlocked(AID.Bloodletter) && state.CanWeave(state.CD(CDGroup.Bloodletter) - 30, 0.6f, deadline))
+            if (state.TargetingEnemy && strategy.CombatTimer >= 0 && state.Unlocked(AID.Bloodletter) && state.CanWeave(state.CD(CDGroup.Bloodletter) - 30, 0.6f, deadline))
             {
                 bool poolBL = false;
                 if (state.Unlocked(AID.WanderersMinuet) && state.ActiveSong != Song.MagesBallad && state.BattleVoiceLeft <= state.AnimationLock)

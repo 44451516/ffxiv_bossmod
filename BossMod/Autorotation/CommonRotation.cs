@@ -48,6 +48,17 @@ namespace BossMod
             public enum PotionUse { 手动, 延迟到团队BUFF, 延迟到个人BUFF_空实现, 马上 }
 
             public bool Prepull; // true if neither self nor target are in combat; TODO consider replacing with countdown timer
+            public enum OffensiveAbilityUse : uint
+            {
+                Automatic = 0, // use standard logic for ability
+
+                [PropertyDisplay("Delay", 0x800000ff)]
+                Delay = 1, // delay until window end
+
+                [PropertyDisplay("Force", 0x8000ff00)]
+                Force = 2, // force use ASAP
+            }
+
             public float CombatTimer; // MinValue if not in combat, negative during countdown, zero or positive during combat
             public bool ForbidDOTs;
             public float ForceMovementIn;

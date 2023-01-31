@@ -5,6 +5,7 @@
   "Punchline": "Don't fail at raid mechanics anymore",
   "Description": "CN6.20",
   "ApplicableVersion": "any",
+  "AssemblyVersion": "0.0.0.768",
   "RepoUrl": "https://github.com/awgil/ffxiv_bossmod",
   "IconUrl": "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/f4efcb5dc279d21ee16185d5a9f2d09a3a2bc58b/Data/icon.png",
   "DalamudApiLevel": 7,
