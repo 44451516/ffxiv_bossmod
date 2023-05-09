@@ -7,63 +7,121 @@ namespace BossMod
     {
         public enum Opcode
         {
-            ActionEffect1 = 0x01F4,
-            ActionEffect8 = 0x015A,
-            ActionEffect16 = 0x032D,
-            ActionEffect24 = 0x01A1,
-            ActionEffect32 = 0x02CF,
-            
-            ActorCast = 0x014C,
-            ActorControl = 0x03D0,
-            ActorControlSelf = 0x00F1,
-            ActorControlTarget = 0x0111,
-            ActorGauge = 0x00E2,
-            
-            PresetWaymark = 0x0188,
-            Waymark = 0x032C,
-            
-            EffectResult1 = 0x00AA, // Size 0x60
-            EffectResult4 = 0x00DE, // Size 0x168
-            EffectResult8 = 0x0185, // Size 0x2C8
-            EffectResult16 = 0x024B, // Size 0x588
+            Logout = 0x0146,
+            CFNotify = 0x038A,
+            Playtime = 0x00A3,
+            RSVData = 0x00EF,
+            ExamineSearchInfo = 0x0213,
+            UpdateSearchInfo = 0x03DC,
+            Countdown = 0x03B0,
+            CountdownCancel = 0x0194,
+            MarketBoardItemListingCount = 0x0174,
+            MarketBoardItemListing = 0x0379,
+            MarketBoardPurchase = 0x0370,
+            MarketBoardItemListingHistory = 0x03CD,
+            MarketBoardSearchResult = 0x00EA,
+            FreeCompanyInfo = 0x0199,
+            FreeCompanyDialog = 0x01D6,
+            StatusEffectList = 0x0317,
+            StatusEffectListEureka = 0x023B,
+            StatusEffectListBozja = 0x030D, // machina: StatusEffectList2
+            StatusEffectListDouble = 0x00C8, // machina: BossStatusEffectList
+            EffectResult1 = 0x03B5,
+            EffectResult4 = 0x023E,
+            EffectResult8 = 0x02DC,
+            EffectResult16 = 0x036C,
+            EffectResultBasic1 = 0x02C4,
+            EffectResultBasic4 = 0x03CF,
+            EffectResultBasic8 = 0x02B2,
+            EffectResultBasic16 = 0x0201,
+            EffectResultBasic32 = 0x018F,
+            EffectResultBasic64 = 0x011F,
+            ActorControl = 0x02C2, // example: toggle weapon
+            ActorControlSelf = 0x0256, // example: cooldown
+            ActorControlTarget = 0x01B8, // example: target change
+            UpdateHpMpTp = 0x0268,
+            ActionEffect1 = 0x00FB, // machina: AbilityN
+            ActionEffect8 = 0x02EF,
+            ActionEffect16 = 0x03C6,
+            ActionEffect24 = 0x0097,
+            ActionEffect32 = 0x024B,
+            StatusEffectListPlayer = 0x012B, // machina: StatusEffectList3
+            UpdateRecastTimes = 0x00D2,
+            UpdateAllianceNormal = 0x0374,
+            UpdateAllianceSmall = 0x024C,
+            UpdatePartyMemberPositions = 0x02CC,
+            UpdateAllianceNormalMemberPositions = 0x0144,
+            UpdateAllianceSmallMemberPositions = 0x0162,
+            SpawnPlayer = 0x0094,
+            SpawnNPC = 0x0269,
+            SpawnBoss = 0x0196,
+            DespawnCharacter = 0x03A2,
+            ActorMove = 0x025B,
+            ActorSetPos = 0x02F0,
+            ActorCast = 0x015F,
+            InitZone = 0x01FE,
+            ApplyIDScramble = 0x020F,
+            UpdateHate = 0x00E5,
+            UpdateHater = 0x0099,
+            SpawnObject = 0x02D1, // FFXIVOpcodes: ObjectSpawn
+            UpdateClassInfo = 0x02F7,
+            UpdateClassInfoEureka = 0x020E,
+            UpdateClassInfoBozja = 0x02F5,
+            PlayerSetup = 0x02BF,
+            PlayerStats = 0x02D8,
+            Examine = 0x022F,
+            RetainerInformation = 0x0260,
+            ItemMarketBoardInfo = 0x0209,
+            ItemInfo = 0x034D,
+            ContainerInfo = 0x02E4,
+            InventoryTransactionFinish = 0x02FC,
+            InventoryTransaction = 0x031B,
+            CurrencyCrystalInfo = 0x039A,
+            InventoryActionAck = 0x02CF,
+            UpdateInventorySlot = 0x0335,
+            EventPlay = 0x0284,
+            EventPlay4 = 0x00E2,
+            EventPlay8 = 0x02C1,
+            EventPlay16 = 0x007F,
+            EventPlay32 = 0x00D3,
+            EventPlay64 = 0x00C1,
+            EventPlay128 = 0x029D,
+            EventPlay255 = 0x0326,
+            EventStart = 0x008B,
+            EventFinish = 0x0362,
+            ResultDialog = 0x0113,
+            DesynthResult = 0x0308,
+            EnvControl = 0x0118,
+            SystemLogMessage1 = 0x01A6, // FFXIVOpcodes: SomeDirectorUnk4
+            SystemLogMessage2 = 0x0070,
+            SystemLogMessage4 = 0x017B,
+            SystemLogMessage8 = 0x026A,
+            SystemLogMessage16 = 0x0289,
+            WeatherChange = 0x017A,
+            AirshipTimers = 0x03D0,
+            WaymarkPreset = 0x0286, // FFXIVOpcodes: PlaceFieldMarkerPreset, machina: PresetWaymark
+            Waymark = 0x0354, // FFXIVOpcodes: PlaceFieldMarker
+            AirshipStatusList = 0x0257,
+            AirshipStatus = 0x0314,
+            AirshipExplorationResult = 0x0288,
+            SubmarineStatusList = 0x01A4,
+            SubmarineProgressionStatus = 0x031A,
+            SubmarineExplorationResult = 0x0147,
+            SubmarineTimers = 0x016D,
+            PrepareZoning = 0x0267,
+            ActorGauge = 0x0136,
+            IslandWorkshopSupplyDemand = 0x0168,
 
-            EffectResultBasic1 = 0x008B, // Size 0x18
-            EffectResultBasic4 = 0x00D6, // Size 0x48
-            EffectResultBasic8 = 0x01B3, // Size 0x88
-            EffectResultBasic16 = 0x039A, // Size 0x108
-            EffectResultBasic32 = 0x016A, // Size 0x208
-            EffectResultBasic64 = 0x033D, // Size 0x408
+            // opcodes from FFXIVOpcodes
+            //HousingWardInfo = 0x?1DA,
+            //CFPreferredRole = 0x?2A0,
+            // old - 0x1fd == EventObjSpawn? for stuff like exit points, etc.
 
-
-            EnvironmentControl = 0x0133, // updated - size=16, look for a bunch of messages starting with 0x8003759F after P1N intemperance cast...
-
-            UpdateRecastTimes = 0x02B9, // payload = 80 floats 'elapsed' + 80 floats 'total'
-
-            UpdateHate = 0x00A9, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
-
-            UpdateHater = 0x0331, // payload = byte length + 3 bytes padding + { uint objID, byte enmity, byte padding[3] }[len]
-
-            Countdown = 0x02E4,
-
-            CountdownCancel = 0x02BD,
-
-            RSVData = 0x0321,
-
-            ActionRequest = 0x01DB, // just begin casting return...
-
-            ActionRequestGroundTargeted = 0x0124, // XIVAlexander
+            // client->server; TODO move to a different enum
+            //ActionRequest = 0x029E,
+            //ActionRequestGroundTargeted = 0x0205,
         }
 
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct ReplayPacketHeader
-        {
-            public ushort MessageType;
-            public ushort Size;
-            public uint Timestamp;
-            public uint TargetId;
-        }
-
-        
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct Server_IPCHeader
         {
@@ -202,7 +260,7 @@ namespace BossMod
             CancelCast = 15, // dissector calls it CastInterrupt (ActorControl), machina calls it CancelAbility
             RecastDetails = 16, // p1=group id, p2=elapsed, p3=total
             Cooldown = 17, // dissector calls it ActionStart (ActorControlSelf)
-            GainEffect = 20,
+            GainEffect = 20, // note: this packet only causes log message and hit vfx to appear, it does not actually update statuses
             LoseEffect = 21,
             UpdateEffect = 22,
             HoT_DoT = 23, // dissector calls it HPFloatingText
@@ -352,6 +410,7 @@ namespace BossMod
             TripleTriadUnknown = 1205, // from dissector
             FateNpc = 2351, // from dissector
             FateInit = 2353, // from dissector
+            FateAssignID = 2356, // p1 = fate id, assigned to main obj
             FateStart = 2357, // from dissector
             FateEnd = 2358, // from dissector
             FateProgress = 2366, // from dissector
@@ -495,7 +554,7 @@ namespace BossMod
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public unsafe struct Server_EnvironmentControl
+        public unsafe struct Server_EnvControl
         {
             public uint FeatureID; // seen 0x80xxxxxx, seems to be unique identifier of controlled feature
             public uint State; // typically hiword and loword both have one bit set; in disassembly this is actually 2 words

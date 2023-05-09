@@ -30,11 +30,19 @@ namespace UIDev
         {
             private Lazy<Analysis.UnknownActionEffects> _unkEffects;
             private Lazy<Analysis.AbilityInfo> _abilityInfo;
+            private Lazy<Analysis.ClientActions> _clientActions;
+            private Lazy<Analysis.EffectResultMispredict> _effectResultMissing;
+            private Lazy<Analysis.EffectResultMispredict> _effectResultUnexpected;
+            private Lazy<Analysis.EffectResultReorder> _effectResultReorder;
 
             public Global(List<Replay> replays)
             {
                 _unkEffects = new(() => new(replays));
                 _abilityInfo = new(() => new(replays));
+                _clientActions = new(() => new(replays));
+                _effectResultMissing = new(() => new(replays, true));
+                _effectResultUnexpected = new(() => new(replays, false));
+                _effectResultReorder = new(() => new(replays));
             }
 
             public void Draw(UITree tree)
@@ -44,6 +52,18 @@ namespace UIDev
 
                 foreach (var n in tree.Node("Ability info", false, 0xffffffff, () => _abilityInfo.Get().DrawContextMenu()))
                     _abilityInfo.Get().Draw(tree);
+
+                foreach (var n in tree.Node("Client action weirdness"))
+                    _clientActions.Get().Draw(tree);
+
+                foreach (var n in tree.Node("Effect results: missing confirmations"))
+                    _effectResultMissing.Get().Draw(tree);
+
+                foreach (var n in tree.Node("Effect results: unexpected confirmations"))
+                    _effectResultUnexpected.Get().Draw(tree);
+
+                foreach (var n in tree.Node("Effect results: reorders"))
+                    _effectResultReorder.Get().Draw(tree);
             }
         }
 
@@ -56,7 +76,7 @@ namespace UIDev
             private Lazy<Analysis.IconInfo> _iconInfo;
             private Lazy<Analysis.TetherInfo> _tetherInfo;
             private Lazy<Analysis.ArenaBounds> _arenaBounds;
-            private Lazy<Analysis.TEAHandOfPartingPrayerRange>? _teaHandOfPartingPrayer;
+            private Lazy<Analysis.TEASpecific>? _teaSpecific;
 
             public PerEncounter(List<Replay> replays, uint oid)
             {
@@ -68,7 +88,7 @@ namespace UIDev
                 _tetherInfo = new(() => new(replays, oid));
                 _arenaBounds = new(() => new(replays, oid));
                 if (oid == (uint)BossMod.Shadowbringers.Ultimate.TEA.OID.BossP1)
-                    _teaHandOfPartingPrayer = new(() => new(replays, oid));
+                    _teaSpecific = new(() => new(replays, oid));
             }
 
             public void Draw(UITree tree)
@@ -94,9 +114,9 @@ namespace UIDev
                 foreach (var n in tree.Node("Arena bounds"))
                     _arenaBounds.Get().Draw(tree);
 
-                if (_teaHandOfPartingPrayer != null)
-                    foreach (var n in tree.Node("TEA: hand of prayer/parting analysis"))
-                        _teaHandOfPartingPrayer.Get().Draw(tree);
+                if (_teaSpecific != null)
+                    foreach (var n in tree.Node("TEA-specific analysis"))
+                        _teaSpecific.Get().Draw(tree);
             }
         }
 

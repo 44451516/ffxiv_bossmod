@@ -54,6 +54,8 @@ namespace BossMod
             return $"[{posRot.X:f2}, {posRot.Y:f2}, {posRot.Z:f2}, {posRot.W.Radians()}]";
         }
 
+        public static bool CharacterIsOmnidirectional(uint oid) => Service.LuminaRow<Lumina.Excel.GeneratedSheets.BNpcBase>(oid)?.Unknown10 ?? false;
+
         public static string StatusString(uint statusID)
         {
             var statusData = Service.LuminaRow<Lumina.Excel.GeneratedSheets.Status>(statusID);
@@ -182,6 +184,19 @@ namespace BossMod
             }
             return value;
         }
+
+        // add value to the list, if it is not null
+        public static bool AddIfNonNull<T>(this List<T> list, T? value)
+        {
+            if (value == null)
+                return false;
+            list.Add(value);
+            return true;
+        }
+
+        // get reference to the list element (a bit of a hack, but oh well...)
+        public static ref T Ref<T>(this List<T> list, int index) => ref CollectionsMarshal.AsSpan(list)[index];
+        public static Span<T> AsSpan<T>(this List<T> list) => CollectionsMarshal.AsSpan(list);
 
         // lower bound: given sorted list, find index of first element with key >= than test value
         public static int LowerBound<TKey, TValue>(this SortedList<TKey, TValue> list, TKey test) where TKey : notnull, IComparable

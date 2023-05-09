@@ -1,100 +1,90 @@
-﻿using System;
-using System.Linq;
+﻿using System.Collections.Generic;
 
 namespace BossMod.Endwalker.Ultimate.DSW2
 {
-    // first part of the mechanic - charges + spread + rings
-    class P2StrengthOfTheWard1 : BossComponent
+    // spreads
+    class P2StrengthOfTheWard1LightningStorm : Components.UniformStackSpread
     {
-        public int NumImpactHits { get; private set; }
-        private bool _lightningStormsDone;
-        private bool _chargesDone;
+        public P2StrengthOfTheWard1LightningStorm() : base(0, 5) { }
 
+        public override void Init(BossModule module)
+        {
+            AddSpreads(module.Raid.WithoutSlot(true));
+        }
+
+        public override void OnEventCast(BossModule module, Actor caster, ActorCastEvent spell)
+        {
+            if ((AID)spell.Action.ID == AID.LightningStormAOE)
+                Spreads.Clear();
+        }
+    }
+
+    // charges
+    class P2StrengthOfTheWard1SpiralThrust : Components.GenericAOEs
+    {
+        private List<Actor> _knights = new();
+
+        private static AOEShapeRect _shape = new(52, 8);
+
+        public P2StrengthOfTheWard1SpiralThrust() : base(ActionID.MakeSpell(AID.SpiralThrust), "GTFO from charge aoe!") { }
+
+        public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor)
+        {
+            foreach (var k in _knights)
+                yield return new(_shape, k.Position, k.Rotation); // TODO: activation
+        }
+
+        public override void OnActorPlayActionTimelineEvent(BossModule module, Actor actor, ushort id)
+        {
+            if (id == 0x1E43 && (OID)actor.OID is OID.SerVellguine or OID.SerPaulecrain or OID.SerIgnasse)
+                _knights.Add(actor);
+        }
+
+        public override void OnEventCast(BossModule module, Actor caster, ActorCastEvent spell)
+        {
+            if (spell.Action == WatchedAction)
+            {
+                _knights.Remove(caster);
+                ++NumCasts;
+            }
+        }
+    }
+
+    // rings
+    class P2StrengthOfTheWard1HeavyImpact : Components.GenericAOEs
+    {
         private static float _impactRadiusIncrement = 6;
-        private static float _lightningStormRadius = 5;
-        private static AOEShapeRect _spiralThrustAOE = new(52, 8);
 
-        public override void AddHints(BossModule module, int slot, Actor actor, TextHints hints, MovementHints? movementHints)
+        private AOEInstance? _aoe;
+
+        public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
-            if (!_lightningStormsDone && module.Raid.WithoutSlot().InRadiusExcluding(actor, _lightningStormRadius).Any())
-                hints.Add("Spread!");
-
-            if (!_chargesDone && (InChargeAOE(module, actor, OID.SerVellguine) || InChargeAOE(module, actor, OID.SerPaulecrain) || InChargeAOE(module, actor, OID.SerIgnasse)))
-                hints.Add("GTFO from charge aoe!");
-
-            if (NumImpactHits < 5)
-            {
-                var source = module.Enemies(OID.SerGuerrique).FirstOrDefault();
-                if (source != null && actor.Position.InDonut(source.Position, NumImpactHits * _impactRadiusIncrement, (NumImpactHits + 1) * _impactRadiusIncrement))
-                    hints.Add("GTFO from aoe!");
-            }
+            if (_aoe != null)
+                yield return _aoe.Value;
         }
 
-        public override void DrawArenaBackground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
+        public override void OnActorPlayActionTimelineEvent(BossModule module, Actor actor, ushort id)
         {
-            if (!_chargesDone)
+            if (id == 0x1E43 && (OID)actor.OID == OID.SerGuerrique)
             {
-                DrawCharge(module, OID.SerVellguine);
-                DrawCharge(module, OID.SerPaulecrain);
-                DrawCharge(module, OID.SerIgnasse);
-            }
-
-            if (NumImpactHits < 5)
-            {
-                var source = module.Enemies(OID.SerGuerrique).FirstOrDefault();
-                if (source != null)
-                {
-                    arena.ZoneDonut(source.Position, NumImpactHits * _impactRadiusIncrement, (NumImpactHits + 1) * _impactRadiusIncrement, ArenaColor.AOE);
-                }
-            }
-        }
-
-        public override void DrawArenaForeground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
-        {
-            if (!_lightningStormsDone)
-            {
-                arena.AddCircle(pc.Position, _lightningStormRadius, ArenaColor.Danger);
-                foreach (var actor in module.Raid.WithoutSlot().Exclude(pc))
-                    arena.Actor(actor, actor.Position.InCircle(pc.Position, _lightningStormRadius) ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric);
+                _aoe = new(new AOEShapeCircle(_impactRadiusIncrement), actor.Position, default, module.WorldState.CurrentTime.AddSeconds(8.2f));
             }
         }
 
         public override void OnEventCast(BossModule module, Actor caster, ActorCastEvent spell)
         {
-            switch ((AID)spell.Action.ID)
+            if ((AID)spell.Action.ID is AID.HeavyImpactHit1 or AID.HeavyImpactHit2 or AID.HeavyImpactHit3 or AID.HeavyImpactHit4 or AID.HeavyImpactHit5)
             {
-                case AID.LightningStormAOE:
-                    _lightningStormsDone = true;
-                    break;
-                case AID.SpiralThrust:
-                    _chargesDone = true;
-                    break;
-                case AID.HeavyImpactHit1:
-                case AID.HeavyImpactHit2:
-                case AID.HeavyImpactHit3:
-                case AID.HeavyImpactHit4:
-                case AID.HeavyImpactHit5:
-                    ++NumImpactHits;
-                    break;
+                if (++NumCasts < 5)
+                {
+                    var inner = _impactRadiusIncrement * NumCasts;
+                    _aoe = new(new AOEShapeDonut(inner, inner + _impactRadiusIncrement), caster.Position, default, module.WorldState.CurrentTime.AddSeconds(1.9f));
+                }
+                else
+                {
+                    _aoe = null;
+                }
             }
-        }
-
-        private bool IsKnightInChargePosition(BossModule module, Actor? knight)
-        {
-            return knight != null && MathF.Abs((knight.Position - module.Bounds.Center).LengthSq() - 23 * 23) < 5;
-        }
-
-        private bool InChargeAOE(BossModule module, Actor player, OID knightID)
-        {
-            var knight = module.Enemies(knightID).FirstOrDefault();
-            return IsKnightInChargePosition(module, knight) && _spiralThrustAOE.Check(player.Position, knight);
-        }
-
-        private void DrawCharge(BossModule module, OID knightID)
-        {
-            var knight = module.Enemies(knightID).FirstOrDefault();
-            if (IsKnightInChargePosition(module, knight))
-                _spiralThrustAOE.Draw(module.Arena, knight);
         }
     }
 }

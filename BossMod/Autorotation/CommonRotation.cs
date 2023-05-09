@@ -16,6 +16,7 @@ namespace BossMod
             public int UnlockProgress;
             public uint CurMP; // 10000 max
             public bool TargetingEnemy;
+            public bool HaveTankStance;
             public float RangeToTarget; // minus both hitboxes; <= 0 means inside hitbox, <= 3 means in melee range, maxvalue if there is no target
             public float AnimationLock; // typical actions have 0.6 delay, but some (notably primal rend and potion) are >1
             public float AnimationLockDelay; // average time between action request and confirmation; this is added to effective animation lock for actions
@@ -65,6 +66,9 @@ namespace BossMod
             public float FightEndIn; // how long fight will last (we try to spend all resources before this happens)
             public float RaidBuffsIn; // estimate time when new raidbuff window starts (if it is smaller than FightEndIn, we try to conserve resources)
             public float PositionLockIn; // time left to use moving abilities (Primal Rend and Onslaught) - we won't use them if it is ==0; setting this to 2.5f will make us use PR asap
+            public Positional NextPositional;
+            public bool NextPositionalImminent; // true if next positional will happen on next gcd
+            public bool NextPositionalCorrect; // true if correctly positioned for next positional
         }
     }
 }

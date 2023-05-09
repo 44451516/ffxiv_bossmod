@@ -66,6 +66,7 @@ namespace UIDev
         private Dictionary<ulong, Replay.Participant> _participants = new();
         private Dictionary<(ulong, int), Replay.Status> _statuses = new();
         private Dictionary<ulong, Replay.Tether> _tethers = new();
+        private List<Replay.ClientAction> _pendingClientActions = new();
 
         protected ReplayParser()
         {
@@ -85,8 +86,11 @@ namespace UIDev
             _ws.Actors.StatusLose += StatusLose;
             _ws.Actors.IconAppeared += EventIcon;
             _ws.Actors.CastEvent += EventCast;
+            _ws.Actors.EffectResult += EventConfirm;
             _ws.DirectorUpdate += EventDirectorUpdate;
             _ws.EnvControl += EventEnvControl;
+            _ws.Client.ActionRequested += ClientActionRequested;
+            _ws.Client.ActionRejected += ClientActionRejected;
         }
 
         protected void AddOp(WorldState.Operation op)
@@ -238,12 +242,21 @@ namespace UIDev
         {
             var c = actor.CastInfo!;
             var target = _participants.GetValueOrDefault(c.TargetID);
-            _participants[actor.InstanceID].Casts.Add(new() { ID = c.Action, ExpectedCastTime = c.TotalTime, Time = new(_ws.CurrentTime), Target = target, Location = c.TargetID == 0 ? c.Location : (_ws.Actors.Find(c.TargetID)?.PosRot.XYZ() ?? new()), Rotation = c.Rotation, Interruptible = c.Interruptible });
+            var cast = new Replay.Cast() { ID = c.Action, ExpectedCastTime = c.TotalTime, Time = new(_ws.CurrentTime), Target = target, Location = c.TargetID == 0 ? c.Location : (_ws.Actors.Find(c.TargetID)?.PosRot.XYZ() ?? new()), Rotation = c.Rotation, Interruptible = c.Interruptible };
+            _participants[actor.InstanceID].Casts.Add(cast);
+            if (actor == _ws.Party.Player() && _pendingClientActions.Count > 0 && _pendingClientActions.Last().ID == c.Action)
+            {
+                cast.ClientAction = _pendingClientActions.Last();
+                _pendingClientActions.Last().Cast = cast;
+            }
         }
 
         private void CastFinish(object? sender, Actor actor)
         {
-            _participants[actor.InstanceID].Casts.Last().Time.End = _ws.CurrentTime;
+            var cast = _participants[actor.InstanceID].Casts.Last();
+            cast.Time.End = _ws.CurrentTime;
+            if (actor == _ws.Party.Player() && _pendingClientActions.FindIndex(a => a.Cast == cast) is var index && index >= 0)
+                _pendingClientActions.RemoveAt(index);
         }
 
         private void TetherAdd(object? sender, Actor actor)
@@ -310,10 +323,55 @@ namespace UIDev
                 var target = _participants.GetValueOrDefault(t.ID);
                 if (target != null)
                     target.IsTargetOfAnyActions = true;
-                a.Targets.Add(new() { Target = target, Effects = t.Effects });
+                a.Targets.Add(new() { Target = target, TargetID = t.ID, Effects = t.Effects });
             }
             p.HasAnyActions = true;
             _res.Actions.Add(a);
+
+            if (args.cast.SourceSequence != 0 && args.actor == _ws.Party.Player() && _pendingClientActions.FindIndex(a => a.SourceSequence == args.cast.SourceSequence) is var index && index >= 0)
+            {
+                a.ClientAction = _pendingClientActions[index];
+                _pendingClientActions[index].Action = a;
+                _pendingClientActions.RemoveAt(index);
+            }
+        }
+
+        private void EventConfirm(object? sender, (Actor Source, uint Seq, int TargetIndex) args)
+        {
+            var a = _res.Actions.Find(a => a.GlobalSequence == args.Seq);
+            if (a == null)
+            {
+                Service.Log($"Skipping confirmation #{args.Seq}/{args.TargetIndex} for {args.Source.InstanceID:X} for missing action");
+                return;
+            }
+
+            if (args.TargetIndex >= a.Targets.Count)
+            {
+                Service.Log($"Skipping confirmation #{args.Seq}/{args.TargetIndex} for {args.Source.InstanceID:X} for out-of-range target index (action has {a.Targets.Count} targets)");
+                return;
+            }
+
+            var t = a.Targets[args.TargetIndex];
+            var forSource = a.Source?.InstanceID == args.Source.InstanceID;
+            var forTarget = t.TargetID == args.Source.InstanceID;
+            if (forSource)
+            {
+                if (t.ConfirmationSource == default)
+                    t.ConfirmationSource = _ws.CurrentTime;
+                else
+                    Service.Log($"Double confirmation ${args.Seq}/{args.TargetIndex} for {args.Source.InstanceID:X} (source)");
+            }
+            if (forTarget)
+            {
+                if (t.ConfirmationTarget == default)
+                    t.ConfirmationTarget = _ws.CurrentTime;
+                else
+                    Service.Log($"Double confirmation ${args.Seq}/{args.TargetIndex} for {args.Source.InstanceID:X} (target)");
+            }
+            if (!forSource && !forTarget)
+            {
+                Service.Log($"Skipping confirmation #{args.Seq}/{args.TargetIndex} for {args.Source.InstanceID:X} for unexpected target (src={a.Source?.InstanceID:X}, tgt={t.TargetID:X})");
+            }
         }
 
         private void EventDirectorUpdate(object? sender, WorldState.OpDirectorUpdate op)
@@ -324,6 +382,26 @@ namespace UIDev
         private void EventEnvControl(object? sender, WorldState.OpEnvControl op)
         {
             _res.EnvControls.Add(new() { DirectorID = op.DirectorID, Index = op.Index, State = op.State, Timestamp = _ws.CurrentTime });
+        }
+
+        private void ClientActionRequested(object? sender, ClientState.OpActionRequest op)
+        {
+            var past = op.Request.InitialCastTimeTotal > 0 ? op.Request.InitialCastTimeElapsed : op.Request.InitialAnimationLock is < 0.5f and >= 0.4f ? 0.5f - op.Request.InitialAnimationLock : 0; // TODO: consider logging explicitly
+            var a = new Replay.ClientAction() { ID = op.Request.Action, SourceSequence = op.Request.SourceSequence, Target = _participants.GetValueOrDefault(op.Request.TargetID), TargetPos = op.Request.TargetPos, Requested = _ws.CurrentTime.AddSeconds(-past) };
+            _res.ClientActions.Add(a);
+            _pendingClientActions.Add(a);
+        }
+
+        private void ClientActionRejected(object? sender, ClientState.OpActionReject op)
+        {
+            int index = op.Value.SourceSequence != 0
+                ? _pendingClientActions.FindIndex(a => a.SourceSequence == op.Value.SourceSequence)
+                : _pendingClientActions.FindIndex(a => a.ID == op.Value.Action);
+            if (index >= 0)
+            {
+                _pendingClientActions[index].Rejected = _ws.CurrentTime;
+                _pendingClientActions.RemoveAt(index);
+            }
         }
     }
 }

@@ -1,53 +1,60 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace BossMod.Shadowbringers.Ultimate.TEA
 {
-    // TODO: show various knockbacks hint
-    class P2Intermission : BossComponent
+    class P2IntermissionLimitCut : LimitCut
     {
-        public int NumCasts { get; private set; } = 0;
+        public P2IntermissionLimitCut() : base(3.2f) { }
+    }
+
+    class P2IntermissionHawkBlaster : Components.GenericAOEs
+    {
         private Angle _blasterStartingDirection;
-        private int[] _playerOrder = new int[PartyState.MaxPartySize];
 
         private static float _blasterOffset = 14;
         private static AOEShapeCircle _blasterShape = new(10);
 
-        public override void AddHints(BossModule module, int slot, Actor actor, TextHints hints, MovementHints? movementHints)
-        {
-            if (_playerOrder[slot] > 0)
-                hints.Add($"Order: {_playerOrder[slot]}", false);
-            if (ImminentBlasterCenters(module).Any(c => _blasterShape.Check(actor.Position, c)))
-                hints.Add("GTFO from aoe!");
-        }
+        public P2IntermissionHawkBlaster() : base(ActionID.MakeSpell(AID.HawkBlasterIntermission)) { }
 
-        public override void DrawArenaBackground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
+        public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             foreach (var c in FutureBlasterCenters(module))
-                _blasterShape.Draw(arena, c, default);
+                yield return new(_blasterShape, c, risky: false);
             foreach (var c in ImminentBlasterCenters(module))
-                _blasterShape.Draw(arena, c, default, ArenaColor.Danger);
+                yield return new(_blasterShape, c, color: ArenaColor.Danger);
+        }
+
+        // TODO: reconsider
+        public override void AddHints(BossModule module, int slot, Actor actor, TextHints hints, MovementHints? movementHints)
+        {
+            base.AddHints(module, slot, actor, hints, movementHints);
+            if (movementHints != null && SafeSpotHint(module, slot) is var safespot && safespot != null)
+                movementHints.Add(actor.Position, safespot.Value, ArenaColor.Safe);
+        }
+
+        // TODO: reconsider
+        public override void DrawArenaForeground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
+        {
+            if (SafeSpotHint(module, pcSlot) is var safespot && safespot != null)
+                arena.AddCircle(safespot.Value, 1, ArenaColor.Safe);
         }
 
         public override void OnEventCast(BossModule module, Actor caster, ActorCastEvent spell)
         {
-            switch ((AID)spell.Action.ID)
+            if (spell.Action == WatchedAction)
             {
-                case AID.HawkBlasterIntermission:
-                    if (NumCasts == 0)
-                        _blasterStartingDirection = Angle.FromDirection(spell.TargetXZ - module.Bounds.Center);
-                    ++NumCasts;
-                    break;
-            }
-        }
-
-        public override void OnEventIcon(BossModule module, Actor actor, uint iconID)
-        {
-            if (iconID >= 79 && iconID <= 86)
-            {
-                int slot = module.Raid.FindSlot(actor.InstanceID);
-                if (slot >= 0)
-                    _playerOrder[slot] = (int)iconID - 78;
+                if (NumCasts == 0)
+                {
+                    var offset = spell.TargetXZ - module.Bounds.Center;
+                    // a bit of a hack: most strats (lpdu etc) select a half between W and NE inclusive to the 'first' group; ensure 'starting' direction is one of these
+                    bool invert = Math.Abs(offset.Z) < 2 ? offset.X > 0 : offset.Z > 0;
+                    if (invert)
+                        offset = -offset;
+                    _blasterStartingDirection = Angle.FromDirection(offset);
+                }
+                ++NumCasts;
             }
         }
 
@@ -93,5 +100,27 @@ namespace BossMod.Shadowbringers.Ultimate.TEA
 
         private IEnumerable<WPos> ImminentBlasterCenters(BossModule module) => NumCasts > 0 ? BlasterCenters(module, NextBlasterIndex) : Enumerable.Empty<WPos>();
         private IEnumerable<WPos> FutureBlasterCenters(BossModule module) => NumCasts > 0 ? BlasterCenters(module, NextBlasterIndex + 1) : Enumerable.Empty<WPos>();
+
+        // TODO: reconsider
+        private WPos? SafeSpotHint(BossModule module, int slot)
+        {
+            //var safespots = NextBlasterIndex switch
+            //{
+            //    1 or 2 or 3 or 4 => BlasterCenters(module, NextBlasterIndex - 1),
+            //    5 => BlasterCenters(module, 3),
+            //    6 or 7 or 8 => BlasterCenters(module, NextBlasterIndex - 1),
+            //    _ => Enumerable.Empty<WPos>()
+            //};
+            if (NextBlasterIndex != 1)
+                return null;
+
+            var strategy = Service.Config.Get<TEAConfig>().P2IntermissionHints;
+            if (strategy == TEAConfig.P2Intermission.None)
+                return null;
+
+            bool invert = strategy == TEAConfig.P2Intermission.FirstForOddPairs && (module.FindComponent<LimitCut>()?.PlayerOrder[slot] is 3 or 4 or 7 or 8);
+            var offset = _blasterOffset * _blasterStartingDirection.ToDirection();
+            return module.Bounds.Center + (invert ? -offset : offset);
+        }
     }
 }

@@ -9,13 +9,6 @@ namespace BossMod
 {
     class Network : IDisposable
     {
-        public struct PendingAction
-        {
-            public ActionID Action;
-            public ulong TargetID;
-            public uint Sequence;
-        }
-
         public event EventHandler<(ulong actorID, ActorCastEvent cast)>? EventActionEffect;
         public event EventHandler<(ulong actorID, uint seq, int targetIndex)>? EventEffectResult;
         public event EventHandler<(ulong actorID, ActionID action, float castTime, ulong targetID)>? EventActorCast;
@@ -26,13 +19,11 @@ namespace BossMod
         public event EventHandler<(ulong actorID, ushort state)>? EventActorControlEObjSetState;
         public event EventHandler<(ulong actorID, ushort p1, ushort p2)>? EventActorControlEObjAnimation;
         public event EventHandler<(ulong actorID, ushort actionTimelineID)>? EventActorControlPlayActionTimeline;
-        public event EventHandler<(ulong actorID, uint actionID, uint sourceSequence)>? EventActorControlSelfActionRejected;
+        public event EventHandler<ClientActionReject>? EventActorControlSelfActionRejected;
         public event EventHandler<(uint directorID, uint updateID, uint p1, uint p2, uint p3, uint p4)>? EventActorControlSelfDirectorUpdate;
         public event EventHandler<(uint directorID, byte index, uint state)>? EventEnvControl;
         public event EventHandler<(Waymark waymark, Vector3? pos)>? EventWaymark;
         public event EventHandler<(string key, string value)>? EventRSVData;
-        public event EventHandler<PendingAction>? EventActionRequest;
-        public event EventHandler<PendingAction>? EventActionRequestGT;
 
         private GeneralConfig _config;
         //private Logger _logger;
@@ -43,9 +34,6 @@ namespace BossMod
         private unsafe delegate byte ProcessZonePacketUpDelegate(void* a1, void* dataPtr, void* a3, byte a4);
         private Hook<ProcessZonePacketUpDelegate> _processZonePacketUpHook;
 
-        private unsafe delegate byte ProcessReplayPacketDelegate(IntPtr replayModule, Protocol.ReplayPacketHeader* header, IntPtr dataPtr);
-        private Hook<ProcessReplayPacketDelegate> _processReplayPacketHook;
-        
         // this is a mega weird thing - apparently some IDs sent over network have some extra delta added to them (e.g. action ids, icon ids, etc.)
         // they change on relogs or zone changes or something...
         // we have one simple way of detecting them - by looking at casts, since they contain both offset id and real ('animation') id
@@ -58,21 +46,14 @@ namespace BossMod
             //_logger = new("Network", logDir);
 
             // this is lifted from dalamud - for some reason they stopped dispatching client messages :(
-            Service.GameNetwork.NetworkMessage += HandleMessage;
-            
-            
-            
-            var processReplayPacketAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 0F 84 ?? ?? ?? ?? 48 8B 4B 38 48 89 4B 40");
-            _processReplayPacketHook = Hook<ProcessReplayPacketDelegate>.FromAddress(processReplayPacketAddress, ProcessReplayPacketDetour);
-            _processReplayPacketHook.Enable();
-            
-            // var processZonePacketDownAddress = Service.SigScanner.ScanText("40 55 56 57 48 8D 6C 24 B9 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 37 8B FA");
-            // _processZonePacketDownHook = Hook<ProcessZonePacketDownDelegate>.FromAddress(processZonePacketDownAddress, ProcessZonePacketDownDetour);
-            // _processZonePacketDownHook.Enable();
-            //
-            // var processZonePacketUpAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 41 56 41 57 48 83 EC 70 8B 81 ?? ?? ?? ??");
-            // _processZonePacketUpHook = Hook<ProcessZonePacketUpDelegate>.FromAddress(processZonePacketUpAddress, ProcessZonePacketUpDetour);
-            // _processZonePacketUpHook.Enable();
+            //Service.GameNetwork.NetworkMessage += HandleMessage;
+            var processZonePacketDownAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 56 48 83 EC 50 8B F2");
+            _processZonePacketDownHook = Hook<ProcessZonePacketDownDelegate>.FromAddress(processZonePacketDownAddress, ProcessZonePacketDownDetour);
+            _processZonePacketDownHook.Enable();
+
+            var processZonePacketUpAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 41 56 41 57 48 83 EC 70 8B 81 ?? ?? ?? ??");
+            _processZonePacketUpHook = Hook<ProcessZonePacketUpDelegate>.FromAddress(processZonePacketUpAddress, ProcessZonePacketUpDetour);
+            _processZonePacketUpHook.Enable();
         }
 
         public void Dispose()
@@ -80,13 +61,9 @@ namespace BossMod
             _config.Modified -= ApplyConfig;
             //_logger.Deactivate();
 
-            Service.GameNetwork.NetworkMessage -= HandleMessage;
-            
-            _processReplayPacketHook.Dispose();
-
-            
-            // _processZonePacketDownHook.Dispose();
-            // _processZonePacketUpHook.Dispose();
+            //Service.GameNetwork.NetworkMessage -= HandleMessage;
+            _processZonePacketDownHook.Dispose();
+            _processZonePacketUpHook.Dispose();
         }
 
         private void ApplyConfig(object? sender, EventArgs args)
@@ -113,15 +90,6 @@ namespace BossMod
             HandleMessage((IntPtr)dataPtr + 0x20, Utils.ReadField<ushort>(dataPtr, 0), 0, 0, NetworkMessageDirection.ZoneUp);
             return _processZonePacketUpHook.Original(self, dataPtr, a3, a4);
         }
-        
-        
-        private unsafe byte ProcessReplayPacketDetour(IntPtr replayModule, Protocol.ReplayPacketHeader* header, IntPtr dataPtr)
-        {
-            HandleMessage(dataPtr, header->MessageType, 0, header->TargetId, NetworkMessageDirection.ZoneDown);
-            return _processReplayPacketHook.Original(replayModule, header, dataPtr);
-        }
-
-        
 
         private unsafe void HandleMessage(IntPtr dataPtr, ushort opCode, uint sourceActorId, uint targetActorId, NetworkMessageDirection direction)
         {
@@ -189,13 +157,13 @@ namespace BossMod
                     case Protocol.Opcode.ActorControlSelf:
                         HandleActorControlSelf((Protocol.Server_ActorControlSelf*)dataPtr, targetActorId);
                         break;
-                    case Protocol.Opcode.EnvironmentControl:
-                        HandleEnvironmentControl((Protocol.Server_EnvironmentControl*)dataPtr, targetActorId);
+                    case Protocol.Opcode.EnvControl:
+                        HandleEnvControl((Protocol.Server_EnvControl*)dataPtr, targetActorId);
                         break;
                     case Protocol.Opcode.Waymark:
                         HandleWaymark((Protocol.Server_Waymark*)dataPtr);
                         break;
-                    case Protocol.Opcode.PresetWaymark:
+                    case Protocol.Opcode.WaymarkPreset:
                         HandleWaymarkPreset((Protocol.Server_WaymarkPreset*)dataPtr);
                         break;
                     case Protocol.Opcode.RSVData:
@@ -209,16 +177,6 @@ namespace BossMod
                 if (_config.DumpClientPackets)
                 {
                     DumpClientMessage(dataPtr, opCode);
-                }
-
-                switch ((Protocol.Opcode)opCode)
-                {
-                    case Protocol.Opcode.ActionRequest:
-                        HandleActionRequest((Protocol.Client_ActionRequest*)dataPtr);
-                        break;
-                    case Protocol.Opcode.ActionRequestGroundTargeted:
-                        HandleActionRequestGT((Protocol.Client_ActionRequestGroundTargeted*)dataPtr);
-                        break;
                 }
             }
         }
@@ -284,8 +242,6 @@ namespace BossMod
             EventActionEffect?.Invoke(this, (casterID, info));
         }
 
-
-        
         private unsafe void HandleEffectResultBasic(int count, Protocol.Server_EffectResultBasicEntry* p, uint actorID)
         {
             for (int i = 0; i < count; ++i)
@@ -303,8 +259,6 @@ namespace BossMod
                 ++p;
             }
         }
-        
-        
 
         private unsafe void HandleActorCast(Protocol.Server_ActorCast* p, uint actorID)
         {
@@ -345,7 +299,7 @@ namespace BossMod
             switch (p->category)
             {
                 case Protocol.Server_ActorControlCategory.ActionRejected:
-                    EventActorControlSelfActionRejected?.Invoke(this, (actorID, p->param3, p->param6));
+                    EventActorControlSelfActionRejected?.Invoke(this, new ClientActionReject() { Action = new((ActionType)p->param2, p->param3), SourceSequence = p->param6, RecastElapsed = p->param4 * 0.01f, RecastTotal = p->param5 * 0.01f, LogMessageID = p->param1 });
                     break;
                 case Protocol.Server_ActorControlCategory.DirectorUpdate:
                     EventActorControlSelfDirectorUpdate?.Invoke(this, (p->param1, p->param2, p->param3, p->param4, p->param5, p->param6));
@@ -353,7 +307,7 @@ namespace BossMod
             }
         }
 
-        private unsafe void HandleEnvironmentControl(Protocol.Server_EnvironmentControl* p, uint actorID)
+        private unsafe void HandleEnvControl(Protocol.Server_EnvControl* p, uint actorID)
         {
             EventEnvControl?.Invoke(this, (p->FeatureID, p->Index, p->State));
         }
@@ -379,41 +333,28 @@ namespace BossMod
             EventRSVData?.Invoke(this, (key, value));
         }
 
-        private unsafe void HandleActionRequest(Protocol.Client_ActionRequest* p)
-        {
-            EventActionRequest?.Invoke(this, new() { Action = new(p->Type, p->ActionID), TargetID = p->TargetID, Sequence = p->Sequence });
-        }
-
-        private unsafe void HandleActionRequestGT(Protocol.Client_ActionRequestGroundTargeted* p)
-        {
-            EventActionRequestGT?.Invoke(this, new() { Action = new(p->Type, p->ActionID), TargetID = 0, Sequence = p->Sequence });
-        }
-
         private unsafe void DumpClientMessage(IntPtr dataPtr, ushort opCode)
         {
-            /*
-            Service.Log($"[Network] Client message {(Protocol.Opcode)opCode}");
-            switch ((Protocol.Opcode)opCode)
-            {
-                case Protocol.Opcode.ActionRequest:
-                    {
-                        var p = (Protocol.Client_ActionRequest*)dataPtr;
-                        Service.Log($"[Network] - AID={new ActionID(p->Type, p->ActionID)}, proc={p->ActionProcState}, target={Utils.ObjectString(p->TargetID)}, seq={p->Sequence}, itemsrc={p->ItemSourceContainer}:{p->ItemSourceSlot}, casterrot={(p->IntCasterRot * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, dirtotarget={(p->IntDirToTarget * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, u={p->u1:X4} {p->u3:X4} {p->u4:X8} {p->u5:X16}");
-                        break;
-                    }
-                case Protocol.Opcode.ActionRequestGroundTargeted:
-                    {
-                        var p = (Protocol.Client_ActionRequestGroundTargeted*)dataPtr;
-                        Service.Log($"[Network] - AID={new ActionID(p->Type, p->ActionID)}, proc={p->ActionProcState}, target={Utils.Vec3String(new(p->LocX, p->LocY, p->LocZ))}, seq={p->Sequence}, casterrot={(p->IntCasterRot * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, dirtotarget={(p->IntDirToTarget * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, u={p->u1:X4} {p->u3:X4} {p->u4:X8} {p->u5:X16}");
-                        break;
-                    }
-            }
-            */
+            //Service.Log($"[Network] Client message {(Protocol.Opcode)opCode}");
+            //switch ((Protocol.Opcode)opCode)
+            //{
+            //    case Protocol.Opcode.ActionRequest:
+            //        {
+            //            var p = (Protocol.Client_ActionRequest*)dataPtr;
+            //            Service.Log($"[Network] - AID={new ActionID(p->Type, p->ActionID)}, proc={p->ActionProcState}, target={Utils.ObjectString(p->TargetID)}, seq={p->Sequence}, itemsrc={p->ItemSourceContainer}:{p->ItemSourceSlot}, casterrot={(p->IntCasterRot * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, dirtotarget={(p->IntDirToTarget * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, u={p->u1:X4} {p->u3:X4} {p->u4:X8} {p->u5:X16}");
+            //            break;
+            //        }
+            //    case Protocol.Opcode.ActionRequestGroundTargeted:
+            //        {
+            //            var p = (Protocol.Client_ActionRequestGroundTargeted*)dataPtr;
+            //            Service.Log($"[Network] - AID={new ActionID(p->Type, p->ActionID)}, proc={p->ActionProcState}, target={Utils.Vec3String(new(p->LocX, p->LocY, p->LocZ))}, seq={p->Sequence}, casterrot={(p->IntCasterRot * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, dirtotarget={(p->IntDirToTarget * 2 * MathF.PI / 65535 - MathF.PI).Radians()}, u={p->u1:X4} {p->u3:X4} {p->u4:X8} {p->u5:X16}");
+            //            break;
+            //        }
+            //}
         }
 
         private unsafe void DumpServerMessage(IntPtr dataPtr, ushort opCode, uint targetActorId)
         {
-            /*
             var header = (Protocol.Server_IPCHeader*)(dataPtr - 0x10);
             Service.Log($"[Network] Server message {(Protocol.Opcode)opCode} -> {Utils.ObjectString(targetActorId)} (seq={header->Epoch}): {((ulong*)dataPtr)[0]:X16} {((ulong*)dataPtr)[1]:X16}...");
             switch ((Protocol.Opcode)opCode)
@@ -545,18 +486,18 @@ namespace BossMod
                         Service.Log($"[Network] - {p->Waymark}: {p->Active} at {p->PosX / 1000.0f:f3} {p->PosY / 1000.0f:f3} {p->PosZ / 1000.0f:f3}");
                         break;
                     }
-                case Protocol.Opcode.PresetWaymark:
+                case Protocol.Opcode.WaymarkPreset:
                     {
-                        var p = (Protocol.Server_PresetWaymark*)dataPtr;
+                        var p = (Protocol.Server_WaymarkPreset*)dataPtr;
                         for (int i = 0; i < 8; ++i)
                         {
                             Service.Log($"[Network] - {(Waymark)i}: {(p->WaymarkMask & (1 << i)) != 0} at {p->PosX[i] / 1000.0f:f3} {p->PosY[i] / 1000.0f:f3} {p->PosZ[i] / 1000.0f:f3}");
                         }
                         break;
                     }
-                case Protocol.Opcode.EnvironmentControl:
+                case Protocol.Opcode.EnvControl:
                     {
-                        var p = (Protocol.Server_EnvironmentControl*)dataPtr;
+                        var p = (Protocol.Server_EnvControl*)dataPtr;
                         Service.Log($"[Network] - {p->FeatureID:X8}.{p->Index:X2}: {p->State:X8}, u={p->u0:X2} {p->u1:X4} {p->u2:X8}");
                         break;
                     }
@@ -599,12 +540,10 @@ namespace BossMod
                         break;
                     }
             }
-            */
         }
 
         private unsafe void DumpActionEffect(Protocol.Server_ActionEffectHeader* data, ActionEffect* effects, ulong* targetIDs, uint maxTargets, Vector3 targetPos)
         {
-            /*
             // rotation: 0 -> -180, 65535 -> +180
             var rot = IntToFloatAngle(data->rotation);
             uint aid = (uint)(data->actionId - _unkDelta);
@@ -626,7 +565,6 @@ namespace BossMod
                     Service.Log($"[Network] --- effect {j} == {eff->Type}, params={eff->Param0:X2} {eff->Param1:X2} {eff->Param2:X2} {eff->Param3:X2} {eff->Param4:X2} {eff->Value:X4}");
                 }
             }
-            */
         }
 
         private unsafe void DumpEffectResult(int count, Protocol.Server_EffectResultEntry* entries)

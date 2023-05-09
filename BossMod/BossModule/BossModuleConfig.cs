@@ -1,58 +1,64 @@
 ﻿namespace BossMod
 {
-    [ConfigDisplay(Name = "Boss 模块窗口设置", Order = 1)]
+    [ConfigDisplay(Name = "Boss module window settings", Order = 1)]
     public class BossModuleConfig : ConfigNode
     {
-        [PropertyDisplay("地图缩放")]
+        [PropertyDisplay("Arena scale factor")]
         [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
         public float ArenaScale = 1;
 
-        [PropertyDisplay("启用Boss模块")]
+        [PropertyDisplay("Enable boss modules")]
         public bool Enable = true;
 
-        [PropertyDisplay("锁定移动和鼠标交互")]
+        [PropertyDisplay("Lock movement and mouse interaction")]
         public bool Lock = false;
 
-        [PropertyDisplay("旋转地图与视角一致")]
+        [PropertyDisplay("Rotate map to match camera orientation")]
         public bool RotateArena = true;
 
-        [PropertyDisplay("显示边框")]
+        [PropertyDisplay("Expand space reserved for map to allow arbitrary rotations")]
+        public bool AddSlackForRotations = true;
+
+        [PropertyDisplay("Show arena border")]
         public bool ShowBorder = true;
 
-        [PropertyDisplay("如果玩家处于危险时更改边框颜色")]
+        [PropertyDisplay("Change arena border color if player is at risk")]
         public bool ShowBorderRisk = true;
 
-        [PropertyDisplay("显示方向")]
+        [PropertyDisplay("Show cardinal direction names")]
         public bool ShowCardinals = false;
 
-        [PropertyDisplay("在雷达上显示标点")]
+        [PropertyDisplay("Show waymarks on radar")]
         public bool ShowWaymarks = false;
 
-        [PropertyDisplay("显示机制序列和计时器")]
+        [PropertyDisplay("Show mechanics sequence and timers")]
         public bool ShowMechanicTimers = true;
 
-        [PropertyDisplay("显示全屏AOE提示")]
+        [PropertyDisplay("Show raidwide hints")]
         public bool ShowGlobalHints = true;
 
-        [PropertyDisplay("显示警告和提示")]
+        [PropertyDisplay("Show warnings and hints for player")]
         public bool ShowPlayerHints = true;
 
-        [PropertyDisplay("透明模式: 仅雷达, 不显示窗体")]
+        [PropertyDisplay("Show text hints in separate window")]
+        public bool HintsInSeparateWindow = false;
+
+        [PropertyDisplay("Trisha mode: show radar without window")]
         public bool TrishaMode = false;
 
-        [PropertyDisplay("给地图增加不透明背景")]
+        [PropertyDisplay("Add opaque background to the arena")]
         public bool OpaqueArenaBackground = false;
 
-        [PropertyDisplay("在世界内显示移动指示")]
+        [PropertyDisplay("Show movement hints in world")]
         public bool ShowWorldArrows = false;
 
-        [PropertyDisplay("在副本外显示Boss模块窗口 (可用于配置窗口)")]
+        [PropertyDisplay("Show boss module demo out of instances (useful for configuring windows)")]
         public bool ShowDemo = false;
 
-        [PropertyDisplay("显示带有冷却计划计时器的窗口")]
+        [PropertyDisplay("Show window with cooldown plan timers")]
         public bool EnableTimerWindow = false;
 
-        [PropertyDisplay("总是显示所有活着的队伍成员")]
+        [PropertyDisplay("Always show all alive party members")]
         public bool ShowIrrelevantPlayers = false;
     }
 }

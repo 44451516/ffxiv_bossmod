@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BossMod
 {
@@ -10,7 +8,6 @@ namespace BossMod
     abstract class TankActions : CommonActions
     {
         protected bool IsOfftank { get; private set; }
-        protected bool HaveStance { get; private set; }
         protected DateTime LastStanceSwap { get; private set; }
 
         protected TankActions(Autorotation autorot, Actor player, uint[] unlockData, Dictionary<ActionID, ActionDefinition> supportedActions)
@@ -44,17 +41,16 @@ namespace BossMod
         protected override void UpdateInternalState(int autoAction)
         {
             var assignments = Service.Config.Get<PartyRolesConfig>();
-            IsOfftank = assignments[Autorot.WorldState.Party.ContentIDs[PartyState.PlayerSlot]] == PartyRolesConfig.Assignment.ST && Autorot.WorldState.Party.WithoutSlot().Any(a => a != Player && a.Role == Role.Tank);
-            HaveStance = CommonDefinitions.HasTankStance(Player);
+            IsOfftank = assignments[Autorot.WorldState.Party.ContentIDs[PartyState.PlayerSlot]] == PartyRolesConfig.Assignment.OT && Autorot.WorldState.Party.WithoutSlot().Any(a => a != Player && a.Role == Role.Tank);
         }
 
-        protected override void OnActionExecuted(ActionID action, Actor? target)
+        protected override void OnActionExecuted(ClientActionRequest request)
         {
-            if (action.Type == ActionType.Spell && action.ID is (uint)WAR.AID.Defiance or (uint)PLD.AID.IronWill)
+            if (request.Action.Type == ActionType.Spell && request.Action.ID is (uint)WAR.AID.Defiance or (uint)PLD.AID.IronWill)
                 LastStanceSwap = Autorot.WorldState.CurrentTime;
         }
 
         protected bool WantStance() => !IsOfftank || Autorot.Hints.PotentialTargets.Any(e => e.ShouldBeTanked);
-        protected bool ShouldSwapStance() => (Autorot.WorldState.CurrentTime - LastStanceSwap).TotalSeconds > 0.5 && HaveStance != WantStance();
+        protected bool ShouldSwapStance() => (Autorot.WorldState.CurrentTime - LastStanceSwap).TotalSeconds > 0.5 && GetState().HaveTankStance != WantStance();
     }
 }

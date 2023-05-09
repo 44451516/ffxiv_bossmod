@@ -19,15 +19,13 @@ namespace BossMod
             public ActionID Action;
             public Actor? Target;
             public Vector3 TargetPos;
-            public ActionDefinition Definition;
             public ActionSource Source;
 
-            public NextAction(ActionID action, Actor? target, Vector3 targetPos, ActionDefinition definition, ActionSource source)
+            public NextAction(ActionID action, Actor? target, Vector3 targetPos, ActionSource source)
             {
                 Action = action;
                 Target = target;
                 TargetPos = targetPos;
-                Definition = definition;
                 Source = source;
             }
         }
@@ -103,7 +101,7 @@ namespace BossMod
         }
 
         // this is called after worldstate update
-        public void UpdateMainTick()
+        public void Update()
         {
             bool wasInCombat = _playerCombatStart != default;
             if (Player.InCombat && !wasInCombat)
@@ -122,18 +120,10 @@ namespace BossMod
                 Log($"Auto action {AutoAction} expired");
                 AutoAction = AutoActionNone;
             }
-            OnTick();
-        }
 
-        // this is called from actionmanager's post-update callback
-        public void UpdateAMTick()
-        {
-            if (AutoAction != AutoActionNone)
-            {
-                UpdateInternalState(AutoAction);
-                if (AutoAction < AutoActionFirstCustom)
-                    QueueAIActions();
-            }
+            UpdateInternalState(AutoAction);
+            if (AutoAction is > AutoActionNone and < AutoActionFirstCustom)
+                QueueAIActions();
         }
 
         public unsafe bool HaveItemInInventory(uint id)
@@ -209,7 +199,7 @@ namespace BossMod
             if (supportedAction == null)
                 return false;
 
-            UpdateInternalState(AutoAction);
+            //UpdateInternalState(AutoAction);
             if (supportedAction.TransformAction != null)
             {
                 var adjAction = supportedAction.TransformAction();
@@ -236,10 +226,10 @@ namespace BossMod
                     return true;
                 }
 
-                if (Autorot.Config.GTMode == AutorotationConfig.GroundTargetingMode.Manual)
+                if (ActionManagerEx.Instance!.Config.GTMode == ActionManagerConfig.GroundTargetingMode.Manual)
                     return false;
 
-                if (Autorot.Config.GTMode == AutorotationConfig.GroundTargetingMode.AtCursor)
+                if (ActionManagerEx.Instance!.Config.GTMode == ActionManagerConfig.GroundTargetingMode.AtCursor)
                 {
                     var pos = ActionManagerEx.Instance!.GetWorldPosUnderCursor();
                     if (pos == null)
@@ -257,32 +247,31 @@ namespace BossMod
             return true;
         }
 
-        // effective animation lock is 0 if we're getting an action to use, otherwise it can be larger (e.g. if we're showing next-action hint during animation lock)
         public NextAction CalculateNextAction()
         {
             // check emergency mode
             var mqEmergency = _mq.PeekEmergency();
             if (mqEmergency != null)
-                return new(mqEmergency.Action, mqEmergency.Target, mqEmergency.TargetPos, mqEmergency.Definition, ActionSource.Emergency);
+                return new(mqEmergency.Action, mqEmergency.Target, mqEmergency.TargetPos, ActionSource.Emergency);
 
             var effAnimLock = Autorot.EffAnimLock;
             var animLockDelay = Autorot.AnimLockDelay;
 
             // see if we have any GCD (queued or automatic)
             var mqGCD = _mq.PeekGCD();
-            var nextGCD = mqGCD != null ? new NextAction(mqGCD.Action, mqGCD.Target, mqGCD.TargetPos, mqGCD.Definition, ActionSource.Manual) : AutoAction != AutoActionNone ? CalculateAutomaticGCD() : new();
+            var nextGCD = mqGCD != null ? new NextAction(mqGCD.Action, mqGCD.Target, mqGCD.TargetPos, ActionSource.Manual) : AutoAction != AutoActionNone ? CalculateAutomaticGCD() : new();
             float ogcdDeadline = nextGCD.Action ? Autorot.Cooldowns[CommonDefinitions.GCDGroup] : float.MaxValue;
             //Log($"{nextGCD.Action} = {ogcdDeadline}");
 
             // search for any oGCDs that we can execute without delaying GCD
             var mqOGCD = _mq.PeekOGCD(effAnimLock, animLockDelay, ogcdDeadline);
             if (mqOGCD != null)
-                return new(mqOGCD.Action, mqOGCD.Target, mqOGCD.TargetPos, mqOGCD.Definition, ActionSource.Manual);
+                return new(mqOGCD.Action, mqOGCD.Target, mqOGCD.TargetPos, ActionSource.Manual);
 
             // see if there is anything high-priority from cooldown plan to be executed
             var cpActionHigh = Autorot.Hints.PlannedActions.FirstOrDefault(x => !x.lowPriority && CanExecutePlannedAction(x.action, x.target, effAnimLock, animLockDelay, ogcdDeadline));
             if (cpActionHigh.action)
-                return new(cpActionHigh.action, cpActionHigh.target, new(), SupportedActions[cpActionHigh.action].Definition, ActionSource.Planned);
+                return new(cpActionHigh.action, cpActionHigh.target, new(), ActionSource.Planned);
 
             // note: we intentionally don't check that automatic oGCD really does not clip GCD - we provide utilities that allow module checking that, but also allow overriding if needed
             var nextOGCD = AutoAction != AutoActionNone ? CalculateAutomaticOGCD(ogcdDeadline) : new();
@@ -292,21 +281,22 @@ namespace BossMod
             // finally see whether there are any low-priority planned actions
             var cpActionLow = Autorot.Hints.PlannedActions.FirstOrDefault(x => x.lowPriority && CanExecutePlannedAction(x.action, x.target, effAnimLock, animLockDelay, ogcdDeadline));
             if (cpActionLow.action)
-                return new(cpActionLow.action, cpActionLow.target, new(), SupportedActions[cpActionLow.action].Definition, ActionSource.Planned);
+                return new(cpActionLow.action, cpActionLow.target, new(), ActionSource.Planned);
 
             return nextGCD;
         }
 
-        public void NotifyActionExecuted(NextAction action)
+        public void NotifyActionExecuted(ClientActionRequest request)
         {
-            _mq.Pop(action.Action);
-            if (action.Source == ActionSource.Planned)
-                Autorot.Bossmods.ActiveModule?.PlanExecution?.NotifyActionExecuted(Autorot.Bossmods.ActiveModule.StateMachine, action.Action);
-            OnActionExecuted(action.Action, action.Target);
+            Log($"Exec #{request.SourceSequence} {request.Action} @ {request.TargetID:X} [{GetState()}]");
+            _mq.Pop(request.Action);
+            Autorot.Bossmods.ActiveModule?.PlanExecution?.NotifyActionExecuted(Autorot.Bossmods.ActiveModule.StateMachine, request.Action);
+            OnActionExecuted(request);
         }
 
         public void NotifyActionSucceeded(ActorCastEvent ev)
         {
+            Log($"Cast #{ev.SourceSequence} {ev.Action} @ {ev.MainTargetID:X} [{GetState()}]");
             OnActionSucceeded(ev);
         }
 
@@ -314,13 +304,12 @@ namespace BossMod
         public abstract CommonRotation.PlayerState GetState();
         public abstract CommonRotation.Strategy GetStrategy();
         public virtual Targeting SelectBetterTarget(AIHints.Enemy initial) => new(initial);
-        protected virtual void OnTick() { }
         protected abstract void UpdateInternalState(int autoAction);
         protected abstract void QueueAIActions();
         protected abstract NextAction CalculateAutomaticGCD();
         protected abstract NextAction CalculateAutomaticOGCD(float deadline);
-        protected abstract void OnActionExecuted(ActionID action, Actor? target);
-        protected abstract void OnActionSucceeded(ActorCastEvent ev);
+        protected virtual void OnActionExecuted(ClientActionRequest request) { }
+        protected virtual void OnActionSucceeded(ActorCastEvent ev) { }
 
         protected NextAction MakeResult(ActionID action, Actor? target)
         {
@@ -329,7 +318,7 @@ namespace BossMod
                 return new();
             if (data.Definition.Range == 0)
                 target = Player; // override range-0 actions to always target player
-            return target != null && data.Allowed(Player, target) ? new(action, target, new(), data.Definition, ActionSource.Automatic) : new();
+            return target != null && data.Allowed(Player, target) ? new(action, target, new(), ActionSource.Automatic) : new();
         }
         protected NextAction MakeResult<AID>(AID aid, Actor? target) where AID : Enum => MakeResult(ActionID.MakeSpell(aid), target);
 
@@ -387,6 +376,22 @@ namespace BossMod
             if (Autorot.Bossmods.ActiveModule?.PlanConfig != null) // assumption: if there is no planning support for encounter (meaning it's something trivial, like outdoor boss), don't expect any cooldowns
                 strategy.RaidBuffsIn = Math.Min(strategy.RaidBuffsIn, Autorot.Bossmods.RaidCooldowns.NextDamageBuffIn(Autorot.WorldState.CurrentTime));
             strategy.PositionLockIn = Autorot.Config.EnableMovement && !poslock.Item1 ? poslock.Item2 : 0;
+            strategy.NextPositional = Positional.Any;
+            strategy.NextPositionalImminent = false;
+            strategy.NextPositionalCorrect = true;
+        }
+
+        protected void FillStrategyPositionals(CommonRotation.Strategy strategy, (Positional pos, bool imm) positional, bool trueNorth)
+        {
+            var ignore = trueNorth || (Autorot.PrimaryTarget?.Omnidirectional ?? true);
+            strategy.NextPositional = positional.pos;
+            strategy.NextPositionalImminent = !ignore && positional.imm;
+            strategy.NextPositionalCorrect = ignore || Autorot.PrimaryTarget == null || positional.pos switch
+            {
+                Positional.Flank => MathF.Abs(Autorot.PrimaryTarget.Rotation.ToDirection().Dot((Player.Position - Autorot.PrimaryTarget.Position).Normalized())) < 0.7071067f,
+                Positional.Rear => Autorot.PrimaryTarget.Rotation.ToDirection().Dot((Player.Position - Autorot.PrimaryTarget.Position).Normalized()) < -0.7071068f,
+                _ => true
+            };
         }
 
         // smart targeting utility: return target (if friendly) or mouseover (if friendly) or null (otherwise)
