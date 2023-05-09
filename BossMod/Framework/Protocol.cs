@@ -48,6 +48,17 @@ namespace BossMod
 
             
         }
+        
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct ReplayPacketHeader
+        {
+            public ushort MessageType;
+            public ushort Size;
+            public uint Timestamp;
+            public uint TargetId;
+        }
+
+        
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct Server_IPCHeader
