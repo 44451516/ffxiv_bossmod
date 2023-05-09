@@ -41,7 +41,7 @@ namespace BossMod
         protected override void UpdateInternalState(int autoAction)
         {
             var assignments = Service.Config.Get<PartyRolesConfig>();
-            IsOfftank = assignments[Autorot.WorldState.Party.ContentIDs[PartyState.PlayerSlot]] == PartyRolesConfig.Assignment.OT && Autorot.WorldState.Party.WithoutSlot().Any(a => a != Player && a.Role == Role.Tank);
+            IsOfftank = assignments[Autorot.WorldState.Party.ContentIDs[PartyState.PlayerSlot]] == PartyRolesConfig.Assignment.ST && Autorot.WorldState.Party.WithoutSlot().Any(a => a != Player && a.Role == Role.Tank);
         }
 
         protected override void OnActionExecuted(ClientActionRequest request)

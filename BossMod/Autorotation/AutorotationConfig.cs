@@ -1,21 +1,25 @@
 ﻿namespace BossMod
 {
-    [ConfigDisplay(Name = "Autorotation settings (experimental!)", Order = 5)]
+    [ConfigDisplay(Name = "自动循环设置 (实验性!)", Order = 5)]
     class AutorotationConfig : ConfigNode
     {
-        [PropertyDisplay("Enable autorotation")]
+        
+        [PropertyDisplay("关闭HOOK[取消需要重启游戏]")]
+        public bool ActionManagerExHookEnabled = true;
+        
+        [PropertyDisplay("启用自动循环")]
         public bool Enabled = false;
 
-        [PropertyDisplay("Log messages")]
+        [PropertyDisplay("记录信息")]
         public bool Logging = false;
 
-        [PropertyDisplay("Show in-game UI")]
+        [PropertyDisplay("显示游戏内GUI")]
         public bool ShowUI = false;
 
-        [PropertyDisplay("Show positional hints in world")]
+        [PropertyDisplay("在世界内显示移动指示")]
         public bool ShowPositionals = false;
 
-        [PropertyDisplay("Enable actions that affect position (e.g. Onslaught, Primal Rend)")]
+        [PropertyDisplay("启用能影响玩家位置的技能 (例如 猛攻, 蛮荒崩裂)")]
         public bool EnableMovement = true;
 
         [PropertyDisplay("Sticky auto actions")]

@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.0.769</Version>
+    <Version>0.0.0.921</Version>
     <Description>Boss mod.</Description>
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net7.0-windows</TargetFramework>
     <Platforms>x64</Platforms>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -31,12 +31,12 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <DalamudLibPath>E:\Games\FFVIX\Dalamud\7.3.1.0\</DalamudLibPath>
-<!--    <DalamudLibPath>E:\Games\FFVIX\Dalamud\dev</DalamudLibPath>-->
+<!--    <DalamudLibPath>E:\Games\FFVIX\Dalamud\7.3.1.0\</DalamudLibPath>-->
+    <DalamudLibPath>E:\Games\FFVIX\Dalamud\dev\</DalamudLibPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DalamudPackager" Version="2.1.8" />
+    <PackageReference Include="DalamudPackager" Version="2.1.10" />
     <PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
     <Reference Include="FFXIVClientStructs">
       <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>

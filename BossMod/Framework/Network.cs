@@ -163,7 +163,7 @@ namespace BossMod
                     case Protocol.Opcode.Waymark:
                         HandleWaymark((Protocol.Server_Waymark*)dataPtr);
                         break;
-                    case Protocol.Opcode.WaymarkPreset:
+                    case Protocol.Opcode.PresetWaymark:
                         HandleWaymarkPreset((Protocol.Server_WaymarkPreset*)dataPtr);
                         break;
                     case Protocol.Opcode.RSVData:
@@ -486,7 +486,7 @@ namespace BossMod
                         Service.Log($"[Network] - {p->Waymark}: {p->Active} at {p->PosX / 1000.0f:f3} {p->PosY / 1000.0f:f3} {p->PosZ / 1000.0f:f3}");
                         break;
                     }
-                case Protocol.Opcode.WaymarkPreset:
+                case Protocol.Opcode.PresetWaymark:
                     {
                         var p = (Protocol.Server_WaymarkPreset*)dataPtr;
                         for (int i = 0; i < 8; ++i)
