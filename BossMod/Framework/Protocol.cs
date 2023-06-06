@@ -7,44 +7,44 @@ namespace BossMod
     {
         public enum Opcode
         {
-            ActionEffect1 = 0x0318,
-            ActionEffect8 = 0x0175,
-            ActionEffect16 = 0x0348,
-            ActionEffect24 = 0x0200,
-            ActionEffect32 = 0x00A1,
-            ActorCast = 0x0301,
-            ActorControl = 0x020B,
-            ActorControlSelf = 0x0139,
-            ActorControlTarget = 0x01EC,
-            ActorGauge = 0x00A9,
-            PresetWaymark = 0x0315,
-            Waymark = 0x0158,
+            ActionEffect1 = 0x0227,
+            ActionEffect8 = 0x0147,
+            ActionEffect16 = 0x032E,
+            ActionEffect24 = 0x01E2,
+            ActionEffect32 = 0x00EB,
+            ActorCast = 0x0097,
+            ActorControl = 0x0342,
+            ActorControlSelf = 0x03D5,
+            ActorControlTarget = 0x0359,
+            ActorGauge = 0x02C2,
+            PresetWaymark = 0x243,
+            Waymark = 0x346,
 
-            EffectResult1 = 0x0358, 
-            EffectResult4 = 0x0389, 
-            EffectResult8 = 0x0183, 
-            EffectResult16 = 0x0302,
+            EffectResult1 = 0x017C, 
+            EffectResult4 = 0x02DB, 
+            EffectResult8 = 0x0130, 
+            EffectResult16 = 0x016D,
 
-            EffectResultBasic1 = 0x0340, 
-            EffectResultBasic4 = 0x0213, 
-            EffectResultBasic8 = 0x0265, 
-            EffectResultBasic16 = 0x016B,
-            EffectResultBasic32 = 0x0102,
-            EffectResultBasic64 = 0x01AC,
+            EffectResultBasic1 = 0x0213, 
+            EffectResultBasic4 = 0x0181, 
+            EffectResultBasic8 = 0x02EE, 
+            EffectResultBasic16 = 0x00BD,
+            EffectResultBasic32 = 0x0370,
+            EffectResultBasic64 = 0x022D,
 
 
-            EnvControl = 0x0245, 
-            UpdateRecastTimes = 0x0170, 
+            EnvControl = 0x021B, 
+            UpdateRecastTimes = 0x01D8, 
 
-            UpdateHate = 0x00D4,
+            UpdateHate = 0x011E,
 
-            UpdateHater = 0x0124, 
+            UpdateHater = 0x017F, 
 
-            Countdown = 0x0343,
+            Countdown = 0x0293,
 
-            CountdownCancel = 0x037F,
+            CountdownCancel = 0x0283,
 
-            RSVData = 0x0282,
+            RSVData = 0x028B,
 
             
         }
