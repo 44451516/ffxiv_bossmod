@@ -3,63 +3,60 @@
 namespace BossMod
 {
     // taken from Machina, FFXIVPacketDissector, XIVAlexander, FFXIVOpcodes and custom research
+    // alternative names:
+    // StatusEffectListBozja: machina = StatusEffectList2
+    // StatusEffectListPlayer: machina = StatusEffectList3
+    // StatusEffectListDouble: machina = BossStatusEffectList
+    // ActionEffectN: machina = AbilityN
+    // SpawnObject: FFXIVOpcodes = ObjectSpawn
+    // SystemLogMessage1: FFXIVOpcodes = SomeDirectorUnk4
+    // WaymarkPreset: FFXIVOpcodes = PlaceFieldMarkerPreset, machina = PresetWaymark
+    // Waymark: FFXIVOpcodes = PlaceFieldMarker
+    // actor control examples: normal = toggle weapon, self = cooldown, target = target change
     class Protocol
     {
         public enum Opcode
         {
-            ActionEffect1 = 0x0165,
-            ActionEffect8 = 0x007F,
-            ActionEffect16 = 0x01C5,
-            ActionEffect24 = 0x0171,
-            ActionEffect32 = 0x03B3,
+             ActionEffect1 = 0x0385,
+            ActionEffect8 = 0x00F4,
+            ActionEffect16 = 0x03C1,
+            ActionEffect24 = 0x0138,
+            ActionEffect32 = 0x014C,
+            ActorCast = 0x0358,
+            ActorControl = 0x007A,
+            ActorControlSelf = 0x0139,
+            ActorControlTarget = 0x0103,
+            ActorGauge = 0x01AA,
+            WaymarkPreset = 0x00FB,
+            Waymark = 0x02AE,
             
-            ActorCast = 0x00ED,
-            ActorControl = 0x0365,
-            ActorControlTarget = 0x0230,
-            ActorControlSelf = 0x0223,
-            ActorGauge = 0x02C0,
-            PresetWaymark = 0x3D7,
-            Waymark = 0x11F,
+            EffectResult1 = 0x01FB, 
+            EffectResult4 = 0x02B0, 
+            EffectResult8 = 0x03E7, 
+            EffectResult16 = 0x01BE, 
 
-            EffectResult1 = 0x03A7,
-            EffectResult4 = 0x0329,
-            EffectResult8 = 0x03AC,
-            EffectResult16 = 0x02E4,
-
-            EffectResultBasic1 = 0x0083,
-            EffectResultBasic4 = 0x0225,
-            EffectResultBasic8 = 0x02E2,
-            EffectResultBasic16 = 0x035C,
-            EffectResultBasic32 = 0x00AE,
-            EffectResultBasic64 = 0x0196,
+            EffectResultBasic1 = 0x026A, 
+            EffectResultBasic4 = 0x022E, 
+            EffectResultBasic8 = 0x0196, 
+            EffectResultBasic16 = 0x01E5, 
+            EffectResultBasic32 = 0x0293,
+            EffectResultBasic64 = 0x01ED,
 
 
-            
-            EnvControl = 0x00CD, 
-            UpdateRecastTimes = 0x01D4, 
+            EnvControl = 0x011E,
 
-            UpdateHate = 0x0276,
-            UpdateHater = 0x01D3,
+            UpdateRecastTimes = 0x02B8, 
 
-            Countdown = 0x025E,
+            UpdateHate = 0x018F, 
 
-            CountdownCancel = 0x0298,
+            UpdateHater = 0x03C0, 
 
-            RSVData = 0x01C8,
+            Countdown = 0x01C4,
 
-            
+            CountdownCancel = 0x034A,
+
+            RSVData = 0x016C
         }
-        
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct ReplayPacketHeader
-        {
-            public ushort MessageType;
-            public ushort Size;
-            public uint Timestamp;
-            public uint TargetId;
-        }
-
-        
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct Server_IPCHeader
@@ -364,6 +361,16 @@ namespace BossMod
             SetDutyActionRemaining = 1515, // from dissector
             IncrementRecast = 1536, // p1=cooldown group, p2=delta time quantized to 100ms; example is brd mage ballad proc
             EurekaStep = 1850, // from dissector
+        }
+        
+        
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct ReplayPacketHeader
+        {
+            public ushort MessageType;
+            public ushort Size;
+            public uint Timestamp;
+            public uint TargetId;
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Numerics;
-using System.Text;
 
 namespace BossMod
 {
@@ -24,13 +23,6 @@ namespace BossMod
 
             protected abstract void ExecActor(WorldState ws, Actor actor);
             protected override void Exec(WorldState ws) => ExecActor(ws, ws.Actors._actors[InstanceID]);
-
-            protected static string StrActor(WorldState? ws, ulong instanceID)
-            {
-                var actor = ws?.Actors.Find(instanceID);
-                return actor != null ? $"{actor.InstanceID:X8}/{actor.OID:X}/{actor.Name}/{actor.Type}/{StrVec3(actor.PosRot.XYZ())}/{actor.Rotation}" : $"{instanceID:X8}";
-            }
-            protected static string StrHPMP(ActorHP hp, uint curMP) => $"{hp.Cur}/{hp.Max}/{hp.Shield}/{curMP}";
         }
 
         public IEnumerable<Operation> CompareToInitial()
@@ -80,7 +72,23 @@ namespace BossMod
                 ws.Actors.Added?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"ACT+|{StrActor(ws, InstanceID)}|{Class}|{IsTargetable}|{HitboxRadius:f3}|{StrActor(ws, OwnerID)}|{StrHPMP(HP, CurMP)}|{IsAlly}|{SpawnIndex}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ACT+")
+                .Emit(InstanceID, "X8")
+                .Emit(OID, "X")
+                .Emit(SpawnIndex)
+                .Emit(Name)
+                .Emit((ushort)Type, "X4")
+                .Emit(Class)
+                .Emit(PosRot.XYZ())
+                .Emit(PosRot.W.Radians())
+                .Emit(HitboxRadius, "f3")
+                .Emit(HP.Cur)
+                .Emit(HP.Max)
+                .Emit(HP.Shield)
+                .Emit(CurMP)
+                .Emit(IsTargetable)
+                .Emit(IsAlly)
+                .EmitActor(OwnerID);
         }
 
         public event EventHandler<Actor>? Removed;
@@ -116,7 +124,7 @@ namespace BossMod
                 ws.Actors._actors.Remove(InstanceID);
             }
 
-            public override string Str(WorldState? ws) => $"ACT-|{InstanceID:X8}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ACT-").Emit(InstanceID, "X8");
         }
 
         public event EventHandler<Actor>? Renamed;
@@ -130,7 +138,7 @@ namespace BossMod
                 ws.Actors.Renamed?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"NAME|{StrActor(ws, InstanceID)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "NAME").Emit(InstanceID, "X8").Emit(Name);
         }
 
         public event EventHandler<Actor>? ClassChanged;
@@ -144,7 +152,7 @@ namespace BossMod
                 ws.Actors.ClassChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"CLSR|{StrActor(ws, InstanceID)}|?|{Class}"; // TODO: remove legacy entry here...
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "CLSR").EmitActor(InstanceID).Emit().Emit(Class);
         }
 
         public event EventHandler<Actor>? Moved;
@@ -158,7 +166,7 @@ namespace BossMod
                 ws.Actors.Moved?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"MOVE|{StrActor(ws, InstanceID)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "MOVE").Emit(InstanceID, "X8").Emit(PosRot.XYZ()).Emit(PosRot.W.Radians());
         }
 
         public event EventHandler<Actor>? SizeChanged;
@@ -172,7 +180,7 @@ namespace BossMod
                 ws.Actors.SizeChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"ACSZ|{StrActor(ws, InstanceID)}|{HitboxRadius:f3}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ACSZ").EmitActor(InstanceID).Emit(HitboxRadius, "f3");
         }
 
         public event EventHandler<Actor>? HPMPChanged;
@@ -188,7 +196,7 @@ namespace BossMod
                 ws.Actors.HPMPChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"HP  |{StrActor(ws, InstanceID)}|{StrHPMP(HP, CurMP)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "HP  ").EmitActor(InstanceID).Emit(HP.Cur).Emit(HP.Max).Emit(HP.Shield).Emit(CurMP);
         }
 
         public event EventHandler<Actor>? IsTargetableChanged;
@@ -202,7 +210,7 @@ namespace BossMod
                 ws.Actors.IsTargetableChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"{(Value ? "ATG+" : "ATG-")}|{StrActor(ws, InstanceID)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, Value ? "ATG+" : "ATG-").EmitActor(InstanceID);
         }
 
         public event EventHandler<Actor>? IsAllyChanged;
@@ -216,7 +224,7 @@ namespace BossMod
                 ws.Actors.IsAllyChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"ALLY|{StrActor(ws, InstanceID)}|{Value}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ALLY").EmitActor(InstanceID).Emit(Value);
         }
 
         public event EventHandler<Actor>? IsDeadChanged;
@@ -230,7 +238,7 @@ namespace BossMod
                 ws.Actors.IsDeadChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"{(Value ? "DIE+" : "DIE-")}|{StrActor(ws, InstanceID)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, Value ? "DIE+" : "DIE-").EmitActor(InstanceID);
         }
 
         public event EventHandler<Actor>? InCombatChanged;
@@ -244,7 +252,7 @@ namespace BossMod
                 ws.Actors.InCombatChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"{(Value ? "COM+" : "COM-")}|{StrActor(ws, InstanceID)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, Value ? "COM+" : "COM-").EmitActor(InstanceID);
         }
 
         public event EventHandler<Actor>? ModelStateChanged;
@@ -258,7 +266,7 @@ namespace BossMod
                 ws.Actors.ModelStateChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"MDLS|{StrActor(ws, InstanceID)}|{Value.ModelState}|{Value.AnimState1}|{Value.AnimState2}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "MDLS").EmitActor(InstanceID).Emit(Value.ModelState).Emit(Value.AnimState1).Emit(Value.AnimState2);
         }
 
         public event EventHandler<Actor>? EventStateChanged;
@@ -272,7 +280,7 @@ namespace BossMod
                 ws.Actors.EventStateChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"EVTS|{StrActor(ws, InstanceID)}|{Value}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "EVTS").EmitActor(InstanceID).Emit(Value);
         }
 
         public event EventHandler<Actor>? TargetChanged;
@@ -286,7 +294,7 @@ namespace BossMod
                 ws.Actors.TargetChanged?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"TARG|{StrActor(ws, InstanceID)}|{StrActor(ws, Value)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "TARG").EmitActor(InstanceID).EmitActor(Value);
         }
 
         // note: this is currently based on network events rather than per-frame state inspection
@@ -305,7 +313,7 @@ namespace BossMod
                     ws.Actors.Tethered?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => $"TETH|{StrActor(ws, InstanceID)}|{Value.ID}|{StrActor(ws, Value.Target)}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "TETH").EmitActor(InstanceID).Emit(Value.ID).EmitActor(Value.Target);
         }
 
         public event EventHandler<Actor>? CastStarted;
@@ -323,9 +331,13 @@ namespace BossMod
                     ws.Actors.CastStarted?.Invoke(ws, actor);
             }
 
-            public override string Str(WorldState? ws) => Value != null
-                ? $"CST+|{StrActor(ws, InstanceID)}|{Value.Action}|{StrActor(ws, Value.TargetID)}|{StrVec3(Value.Location)}|{Utils.CastTimeString(Value, ws?.CurrentTime ?? new())}|{Value.Interruptible}|{Value.Rotation}"
-                : $"CST-|{StrActor(ws, InstanceID)}";
+            public override void Write(ReplayRecorder.Output output)
+            {
+                if (Value != null)
+                    WriteTag(output, "CST+").EmitActor(InstanceID).Emit(Value.Action).EmitActor(Value.TargetID).Emit(Value.Location).EmitTimePair(Value.FinishAt, Value.TotalTime).Emit(Value.Interruptible).Emit(Value.Rotation);
+                else
+                    WriteTag(output, "CST-").EmitActor(InstanceID);
+            }
         }
 
         // note: this is inherently an event, it can't be accessed from actor fields
@@ -341,18 +353,16 @@ namespace BossMod
                 ws.Actors.CastEvent?.Invoke(ws, (actor, Value));
             }
 
-            public override string Str(WorldState? ws)
-            {
-                var sb = new StringBuilder($"CST!|{StrActor(ws, InstanceID)}|{Value.Action}|{StrActor(ws, Value.MainTargetID)}|{Value.AnimationLockTime:f2}|{Value.MaxTargets}|{StrVec3(Value.TargetPos)}|{Value.GlobalSequence}|{Value.SourceSequence}");
-                foreach (var t in Value.Targets)
-                {
-                    sb.Append($"|{StrActor(ws, t.ID)}");
-                    for (int i = 0; i < 8; ++i)
-                        if (t.Effects[i] != 0)
-                            sb.Append($"!{t.Effects[i]:X16}");
-                }
-                return sb.ToString();
-            }
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "CST!")
+                .EmitActor(InstanceID)
+                .Emit(Value.Action)
+                .EmitActor(Value.MainTargetID)
+                .Emit(Value.AnimationLockTime, "f2")
+                .Emit(Value.MaxTargets)
+                .Emit(Value.TargetPos)
+                .Emit(Value.GlobalSequence)
+                .Emit(Value.SourceSequence)
+                .Emit(Value.Targets);
         }
 
         // note: this is inherently an event, it can't be accessed from actor fields
@@ -367,7 +377,7 @@ namespace BossMod
                 ws.Actors.EffectResult?.Invoke(ws, (actor, Seq, TargetIndex));
             }
 
-            public override string Str(WorldState? ws) => $"ER  |{StrActor(ws, InstanceID)}|{Seq}|{TargetIndex}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ER  ").EmitActor(InstanceID).Emit(Seq).Emit(TargetIndex);
         }
 
         public event EventHandler<(Actor, int)>? StatusGain; // called when status appears -or- when extra or expiration time is changed
@@ -388,9 +398,13 @@ namespace BossMod
                     ws.Actors.StatusGain?.Invoke(ws, (actor, Index));
             }
 
-            public override string Str(WorldState? ws) => Value.ID != 0
-                ? $"STA+|{StrActor(ws, InstanceID)}|{Index}|{Utils.StatusString(Value.ID)}|{Value.Extra:X4}|{Utils.StatusTimeString(Value.ExpireAt, ws?.CurrentTime ?? new())}|{StrActor(ws, Value.SourceID)}"
-                : $"STA-|{StrActor(ws, InstanceID)}|{Index}";
+            public override void Write(ReplayRecorder.Output output)
+            {
+                if (Value.ID != 0)
+                    WriteTag(output, "STA+").EmitActor(InstanceID).Emit(Index).Emit(Value);
+                else
+                    WriteTag(output, "STA-").EmitActor(InstanceID).Emit(Index);
+            }
         }
 
         // TODO: this should really be an actor field, but I have no idea what triggers icon clear...
@@ -404,7 +418,7 @@ namespace BossMod
                 ws.Actors.IconAppeared?.Invoke(ws, (actor, IconID));
             }
 
-            public override string Str(WorldState? ws) => $"ICON|{StrActor(ws, InstanceID)}|{IconID}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ICON").EmitActor(InstanceID).Emit(IconID);
         }
 
         // TODO: this should be an actor field (?)
@@ -418,7 +432,7 @@ namespace BossMod
                 ws.Actors.EventObjectStateChange?.Invoke(ws, (actor, State));
             }
 
-            public override string Str(WorldState? ws) => $"ESTA|{StrActor(ws, InstanceID)}|{State:X4}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ESTA").EmitActor(InstanceID).Emit(State, "X4");
         }
 
         // TODO: this should be an actor field (?)
@@ -433,7 +447,7 @@ namespace BossMod
                 ws.Actors.EventObjectAnimation?.Invoke(ws, (actor, Param1, Param2));
             }
 
-            public override string Str(WorldState? ws) => $"EANM|{StrActor(ws, InstanceID)}|{Param1:X4}|{Param2:X4}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "EANM").EmitActor(InstanceID).Emit(Param1, "X4").Emit(Param2, "X4");
         }
 
         // TODO: this needs more reversing...
@@ -447,7 +461,7 @@ namespace BossMod
                 ws.Actors.PlayActionTimelineEvent?.Invoke(ws, (actor, ActionTimelineID));
             }
 
-            public override string Str(WorldState? ws) => $"PATE|{StrActor(ws, InstanceID)}|{ActionTimelineID:X4}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "PATE").EmitActor(InstanceID).Emit(ActionTimelineID, "X4");
         }
     }
 }

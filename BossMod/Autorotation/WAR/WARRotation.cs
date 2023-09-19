@@ -52,6 +52,15 @@ namespace BossMod.WAR
 
                 [PropertyDisplay("Force extend ST buff, potentially overcapping gauge and/or ST", 0x80ff00ff)]
                 ForceExtendST = 4, // force combo to extend buff (useful before downtime of medium length)
+
+                [PropertyDisplay("Force SP combo, potentially overcapping gauge", 0x80ff0080)]
+                ForceSPCombo = 5, // force SP combo (useful to get max gauge, if ST extension is not needed)
+
+                [PropertyDisplay("Use tomahawk if outside melee", 0x80c08000)]
+                TomahawkIfNotInMelee = 6,
+
+                [PropertyDisplay("Use combo, unless it can't be finished before downtime and unless gauge and/or ST would overcap", 0x80c0c000)]
+                ComboFitBeforeDowntime = 7, // useful on late phases before downtime
             }
 
             public enum InfuriateUse : uint
@@ -102,6 +111,14 @@ namespace BossMod.WAR
                 UseOutsideMelee = 6, // use immediately if outside melee range
             }
 
+            public enum SpecialAction : uint
+            {
+                None = 0, // don't use any special actions
+
+                [PropertyDisplay("LB3", 0x8000ff00)]
+                LB3, // use LB3 if available
+            }
+
             public GaugeUse GaugeStrategy; // how are we supposed to handle gauge
             public InfuriateUse InfuriateStrategy; // how are we supposed to use infuriate
             public PotionUse PotionStrategy; // how are we supposed to use potions
@@ -109,7 +126,9 @@ namespace BossMod.WAR
             public OffensiveAbilityUse UpheavalUse; // how are we supposed to use upheaval
             public OffensiveAbilityUse PrimalRendUse; // how are we supposed to use PR
             public OnslaughtUse OnslaughtStrategy; // how are we supposed to use onslaught
+            public SpecialAction SpecialActionUse; // any special actions we want to use
             public bool Aggressive; // if true, we use buffs and stuff at last possible moment; otherwise we make sure to keep at least 1 GCD safety net
+            public bool OnslaughtHeadroom; // if true, consider onslaught to have slightly higher animation lock than in reality, to account for potential small movement animation delay
 
             public override string ToString()
             {
@@ -119,7 +138,7 @@ namespace BossMod.WAR
             // TODO: these bindings should be done by the framework...
             public void ApplyStrategyOverrides(uint[] overrides)
             {
-                if (overrides.Length >= 7)
+                if (overrides.Length >= 8)
                 {
                     GaugeStrategy = (GaugeUse)overrides[0];
                     InfuriateStrategy = (InfuriateUse)overrides[1];
@@ -128,6 +147,7 @@ namespace BossMod.WAR
                     UpheavalUse = (OffensiveAbilityUse)overrides[4];
                     PrimalRendUse = (OffensiveAbilityUse)overrides[5];
                     OnslaughtStrategy = (OnslaughtUse)overrides[6];
+                    SpecialActionUse = (SpecialAction)overrides[7];
                 }
                 else
                 {
@@ -138,50 +158,38 @@ namespace BossMod.WAR
                     UpheavalUse = OffensiveAbilityUse.Automatic;
                     PrimalRendUse = OffensiveAbilityUse.Automatic;
                     OnslaughtStrategy = OnslaughtUse.Automatic;
+                    SpecialActionUse = SpecialAction.None;
                 }
             }
         }
 
-        public static int GaugeGainedFromAction(State state, AID action)
+        public static int GaugeGainedFromAction(State state, AID action) => action switch
         {
-            return action switch
-            {
-                AID.Maim or AID.StormEye => 10,
-                AID.StormPath => 20,
-                AID.MythrilTempest => state.Unlocked(TraitID.MasteringTheBeast) ? 20 : 0,
-                _ => 0
-            };
-        }
+            AID.Maim or AID.StormEye => 10,
+            AID.StormPath => 20,
+            AID.MythrilTempest => state.Unlocked(TraitID.MasteringTheBeast) ? 20 : 0,
+            _ => 0
+        };
 
-        public static AID GetNextSTComboAction(AID comboLastMove, AID finisher)
+        public static AID GetNextSTComboAction(AID comboLastMove, AID finisher) => comboLastMove switch
         {
-            return comboLastMove switch
-            {
-                AID.Maim => finisher,
-                AID.HeavySwing => AID.Maim,
-                _ => AID.HeavySwing
-            };
-        }
+            AID.Maim => finisher,
+            AID.HeavySwing => AID.Maim,
+            _ => AID.HeavySwing
+        };
 
-        public static int GetSTComboLength(AID comboLastMove)
+        public static int GetSTComboLength(AID comboLastMove) => comboLastMove switch
         {
-            return comboLastMove switch
-            {
-                AID.Maim => 1,
-                AID.HeavySwing => 2,
-                _ => 3
-            };
-        }
+            AID.Maim => 1,
+            AID.HeavySwing => 2,
+            _ => 3
+        };
 
-        public static AID GetNextMaimComboAction(AID comboLastMove)
-        {
-            return comboLastMove == AID.HeavySwing ? AID.Maim : AID.HeavySwing;
-        }
+        public static int GetAOEComboLength(AID comboLastMove) => comboLastMove == AID.Overpower ? 1 : 2;
 
-        public static AID GetNextAOEComboAction(AID comboLastMove)
-        {
-            return comboLastMove == AID.Overpower ? AID.MythrilTempest : AID.Overpower;
-        }
+        public static AID GetNextMaimComboAction(AID comboLastMove) => comboLastMove == AID.HeavySwing ? AID.Maim : AID.HeavySwing;
+
+        public static AID GetNextAOEComboAction(AID comboLastMove) => comboLastMove == AID.Overpower ? AID.MythrilTempest : AID.Overpower;
 
         public static AID GetNextUnlockedComboAction(State state, float minBuffToRefresh, bool aoe)
         {
@@ -217,17 +225,19 @@ namespace BossMod.WAR
         }
 
         // by default, we spend resources either under raid buffs or if another raid buff window will cover at least 4 GCDs of the fight
-        public static bool ShouldSpendGauge(State state, Strategy strategy) => strategy.GaugeStrategy switch
+        public static bool ShouldSpendGauge(State state, Strategy strategy, bool aoe) => strategy.GaugeStrategy switch
         {
-            Strategy.GaugeUse.Automatic => (state.RaidBuffsLeft > state.GCD || strategy.FightEndIn <= strategy.RaidBuffsIn + 10) && state.SurgingTempestLeft > state.GCD,
+            Strategy.GaugeUse.Automatic or Strategy.GaugeUse.TomahawkIfNotInMelee => (state.RaidBuffsLeft > state.GCD || strategy.FightEndIn <= strategy.RaidBuffsIn + 10) && state.SurgingTempestLeft > state.GCD,
             Strategy.GaugeUse.Spend => true,
             Strategy.GaugeUse.ConserveIfNoBuffs => state.RaidBuffsLeft > state.GCD,
             Strategy.GaugeUse.Conserve => false,
             Strategy.GaugeUse.ForceExtendST => false,
+            Strategy.GaugeUse.ForceSPCombo => false,
+            Strategy.GaugeUse.ComboFitBeforeDowntime => state.SurgingTempestLeft > state.GCD && strategy.FightEndIn <= state.GCD + 2.5f * ((aoe ? GetAOEComboLength(state.ComboLastMove) : GetSTComboLength(state.ComboLastMove)) - 1),
             _ => true
         };
 
-        public static bool ShouldUseInfuriate(State state, Strategy strategy)
+        public static bool ShouldUseInfuriate(State state, Strategy strategy, bool aoe)
         {
             switch (strategy.InfuriateStrategy)
             {
@@ -251,7 +261,7 @@ namespace BossMod.WAR
                     if (state.Unlocked(AID.InnerRelease))
                     {
                         // with IR, main purpose of infuriate is to generate gauge to burn in spend mode
-                        if (ShouldSpendGauge(state, strategy))
+                        if (ShouldSpendGauge(state, strategy, aoe))
                             return true;
 
                         // don't delay if we risk overcapping stacks
@@ -408,16 +418,21 @@ namespace BossMod.WAR
             // forced PR
             if (strategy.PrimalRendUse == Strategy.OffensiveAbilityUse.Force && state.PrimalRendLeft > state.GCD)
                 return AID.PrimalRend;
-            // forbid automatic PR when out of melee range, to avoid fucking up player positioning when avoiding mechanics
-            float primalRendWindow = (strategy.PrimalRendUse == Strategy.OffensiveAbilityUse.Delay || state.RangeToTarget > 3) ? 0 : MathF.Min(state.PrimalRendLeft, strategy.PositionLockIn);
-
+            // forced tomahawk
+            if (strategy.GaugeStrategy == Strategy.GaugeUse.TomahawkIfNotInMelee && state.RangeToTarget > 3)
+                return AID.Tomahawk;
             // forced surging tempest combo (TODO: at which point does AOE combo start giving ST?)
             if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceExtendST && state.Unlocked(AID.StormEye))
                 return aoe ? GetNextAOEComboAction(state.ComboLastMove) : GetNextSTComboAction(state.ComboLastMove, AID.StormEye);
+            // forced SP combo
+            if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceSPCombo)
+                return GetNextSTComboAction(state.ComboLastMove, AID.StormPath);
 
+            // forbid automatic PR when out of melee range, to avoid fucking up player positioning when avoiding mechanics
+            float primalRendWindow = (strategy.PrimalRendUse == Strategy.OffensiveAbilityUse.Delay || state.RangeToTarget > 3) ? 0 : MathF.Min(state.PrimalRendLeft, strategy.PositionLockIn);
             var irCD = state.CD(state.Unlocked(AID.InnerRelease) ? CDGroup.InnerRelease : CDGroup.Berserk);
 
-            bool spendGauge = ShouldSpendGauge(state, strategy);
+            bool spendGauge = ShouldSpendGauge(state, strategy, aoe);
             if (!state.Unlocked(AID.InnerRelease))
                 spendGauge &= irCD > 5; // TODO: improve...
 
@@ -510,6 +525,10 @@ namespace BossMod.WAR
         // window-end is either GCD or GCD - time-for-second-ogcd; we are allowed to use ogcds only if their animation lock would complete before window-end
         public static ActionID GetNextBestOGCD(State state, Strategy strategy, float deadline, bool aoe)
         {
+            // LB3 if requested (TODO: condition)
+            if (strategy.SpecialActionUse == Strategy.SpecialAction.LB3)
+                return ActionID.MakeSpell(AID.LandWaker);
+
             // 0. onslaught as a gap-filler - this should be used asap even if we're delaying GCD, since otherwise we'll probably end up delaying it even more
             bool wantOnslaught = state.Unlocked(AID.Onslaught) && state.TargetingEnemy && ShouldUseOnslaught(state, strategy);
             if (wantOnslaught && state.RangeToTarget > 3)
@@ -537,11 +556,11 @@ namespace BossMod.WAR
                 return ActionID.MakeSpell(aoe && state.Unlocked(AID.Orogeny) ? AID.Orogeny : AID.Upheaval);
 
             // 4. infuriate, if not forbidden and not delayed; note that infuriate can't be used out of combat
-            if (state.Unlocked(AID.Infuriate) && strategy.CombatTimer >= 0 && state.CanWeave(state.CD(CDGroup.Infuriate) - 60, 0.6f, deadline) && ShouldUseInfuriate(state, strategy))
+            if (state.Unlocked(AID.Infuriate) && strategy.CombatTimer >= 0 && state.CanWeave(state.CD(CDGroup.Infuriate) - 60, 0.6f, deadline) && ShouldUseInfuriate(state, strategy, aoe))
                 return ActionID.MakeSpell(AID.Infuriate);
 
             // 5. onslaught, if surging tempest up and not forbidden
-            if (wantOnslaught && state.CanWeave(state.CD(CDGroup.Onslaught) - 60, 0.6f, deadline))
+            if (wantOnslaught && state.CanWeave(state.CD(CDGroup.Onslaught) - 60, strategy.OnslaughtHeadroom ? 0.8f : 0.6f, deadline))
                 return ActionID.MakeSpell(AID.Onslaught);
 
             // no suitable oGCDs...

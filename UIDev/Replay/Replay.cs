@@ -174,6 +174,7 @@ namespace UIDev
             public ulong InstanceID;
             public uint OID;
             public ushort Zone;
+            public float CountdownOnPull = 10000;
             public TimeRange Time = new(); // pull to deactivation
             public List<EncounterPhase> Phases = new();
             public List<EncounterState> States = new();
@@ -189,6 +190,7 @@ namespace UIDev
         }
 
         public string Path = "";
+        public ulong QPF = TimeSpan.TicksPerSecond;
         public List<WorldState.Operation> Ops = new();
         public List<Participant> Participants = new();
         public List<Action> Actions = new();
@@ -199,6 +201,7 @@ namespace UIDev
         public List<EnvControl> EnvControls = new();
         public List<ClientAction> ClientActions = new();
         public List<Encounter> Encounters = new();
+        public SortedList<DateTime, string> UserMarkers = new();
 
         public IEnumerable<Action> EncounterActions(Encounter e) => Actions.Skip(e.FirstAction).TakeWhile(a => a.Timestamp <= e.Time.End);
         public IEnumerable<Status> EncounterStatuses(Encounter e) => Statuses.Skip(e.FirstStatus).TakeWhile(s => s.Time.Start <= e.Time.End);

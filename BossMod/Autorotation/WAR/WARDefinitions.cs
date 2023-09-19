@@ -55,6 +55,9 @@ namespace BossMod.WAR
         Shirk = 7537, // L48, instant, 120.0s CD (group 45), range 25, single-target 0/0, targets=party
         LowBlow = 7540, // L12, instant, 25.0s CD (group 41), range 3, single-target 0/0, targets=hostile
         Interject = 7538, // L18, instant, 30.0s CD (group 44), range 3, single-target 0/0, targets=hostile
+
+        // special
+        LandWaker = 4240, // LB3
     }
 
     public enum TraitID : uint
@@ -98,6 +101,7 @@ namespace BossMod.WAR
         Interject = 44, // 30.0 max
         Shirk = 45, // 120.0 max
         ArmsLength = 46, // 120.0 max
+        LimitBreak = 71, // special/fake (TODO: remove need for it?)
     }
 
     public enum SID : uint
@@ -227,7 +231,7 @@ namespace BossMod.WAR
             SupportedActions.OGCD(AID.Holmgang, 6, CDGroup.Holmgang, 240.0f).EffectDuration = 10;
             SupportedActions.OGCD(AID.Equilibrium, 0, CDGroup.Equilibrium, 60.0f).EffectDuration = 0;
             SupportedActions.OGCD(AID.Reprisal, 0, CDGroup.Reprisal, 60.0f).EffectDuration = 10;
-            SupportedActions.OGCD(AID.ShakeItOff, 0, CDGroup.ShakeItOff, 90.0f).EffectDuration = 15;
+            SupportedActions.OGCD(AID.ShakeItOff, 0, CDGroup.ShakeItOff, 90.0f).EffectDuration = 30;
             SupportedActions.OGCD(AID.RawIntuition, 0, CDGroup.Bloodwhetting, 25.0f).EffectDuration = 4;
             SupportedActions.OGCD(AID.NascentFlash, 30, CDGroup.Bloodwhetting, 25.0f).EffectDuration = 4;
             SupportedActions.OGCD(AID.Bloodwhetting, 0, CDGroup.Bloodwhetting, 25.0f).EffectDuration = 4;
@@ -239,6 +243,7 @@ namespace BossMod.WAR
             SupportedActions.OGCD(AID.Shirk, 25, CDGroup.Shirk, 120.0f);
             SupportedActions.OGCD(AID.LowBlow, 3, CDGroup.LowBlow, 25.0f);
             SupportedActions.OGCD(AID.Interject, 3, CDGroup.Interject, 30.0f);
+            SupportedActions.OGCD(AID.LandWaker, 0, CDGroup.LimitBreak, 0, 3.86f);
         }
     }
 }

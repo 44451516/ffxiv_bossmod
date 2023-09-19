@@ -34,7 +34,7 @@ namespace BossMod
         private AutorotationConfig _config;
         private BossModuleManager _bossmods;
         private AutoHints _autoHints;
-        private WindowManager.Window? _ui;
+        private UISimpleWindow _ui;
         private CommonActions? _classActions;
 
         private unsafe delegate bool UseActionDelegate(FFXIVClientStructs.FFXIV.Client.Game.ActionManager* self, ActionType actionType, uint actionID, ulong targetID, uint itemLocation, uint callType, uint comboRouteID, bool* outOptGTModeStarted);
@@ -59,6 +59,7 @@ namespace BossMod
             _config = Service.Config.Get<AutorotationConfig>();
             _bossmods = bossmods;
             _autoHints = new(bossmods.WorldState);
+            _ui = new("Autorotation", DrawOverlay, false, new(100, 100), ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoFocusOnAppearing) { RespectCloseHotkey = false };
 
             ActionManagerEx.Instance!.ActionRequested += OnActionRequested;
             WorldState.Actors.CastEvent += OnCastEvent;
@@ -78,11 +79,11 @@ namespace BossMod
         {
             ActionManagerEx.Instance!.ActionRequested -= OnActionRequested;
             WorldState.Actors.CastEvent -= OnCastEvent;
-
             if (_config.ActionManagerExHookEnabled == false)
             {
                 _useActionHook.Dispose();   
             }
+            _ui.Dispose();
             _classActions?.Dispose();
             _autoHints.Dispose();
         }
@@ -137,19 +138,7 @@ namespace BossMod
             _classActions?.Update();
             ActionManagerEx.Instance!.AutoQueue = _classActions?.CalculateNextAction() ?? default;
 
-            bool showUI = _classActions != null && _config.ShowUI;
-            if (showUI && _ui == null)
-            {
-                _ui = WindowManager.CreateWindow("Autorotation", DrawOverlay, () => { }, () => true);
-                _ui.SizeHint = new(100, 100);
-                _ui.MinSize = new(100, 100);
-                _ui.Flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
-            }
-            else if (!showUI && _ui != null)
-            {
-                WindowManager.CloseWindow(_ui);
-                _ui = null;
-            }
+            _ui.IsOpen = _classActions != null && _config.ShowUI;
 
             if (_config.ShowPositionals && PrimaryTarget != null && _classActions != null && _classActions.AutoAction != CommonActions.AutoActionNone && !PrimaryTarget.Omnidirectional)
             {
@@ -186,7 +175,7 @@ namespace BossMod
             ImGui.TextUnformatted(strategy.ToString());
             ImGui.TextUnformatted($"Raidbuffs: {state.RaidBuffsLeft:f2}s left, next in {strategy.RaidBuffsIn:f2}s");
             ImGui.TextUnformatted($"Downtime: {strategy.FightEndIn:f2}s, pos-lock: {strategy.PositionLockIn:f2}");
-            ImGui.TextUnformatted($"GCD={Cooldowns[CommonDefinitions.GCDGroup]:f3}, AnimLock={EffAnimLock:f3}+{AnimLockDelay:f3}");
+            ImGui.TextUnformatted($"GCD={Cooldowns[CommonDefinitions.GCDGroup]:f3}, AnimLock={EffAnimLock:f3}+{AnimLockDelay:f3}, Combo={state.ComboTimeLeft:f3}");
         }
 
         private void OnActionRequested(object? sender, ClientActionRequest request)

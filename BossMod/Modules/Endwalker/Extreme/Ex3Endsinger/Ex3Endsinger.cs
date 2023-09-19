@@ -1,5 +1,4 @@
-﻿using BossMod.Endwalker.Alliance.A3Azeyma;
-
+﻿
 namespace BossMod.Endwalker.Extreme.Ex3Endsigner
 {
     // raidwide is slightly delayed

@@ -1,34 +1,14 @@
-﻿using BossMod.AI;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace BossMod.Endwalker.Ultimate.DSW2
 {
-    // eyes mechanics are quite standalone...
-    class P2SanctityOfTheWard1Gaze : Components.GenericGaze
+    class P2SanctityOfTheWard1Gaze : DragonsGaze
     {
-        private WPos? _eyePosition;
-
-        public P2SanctityOfTheWard1Gaze() : base(ActionID.MakeSpell(AID.DragonsGazeAOE)) { }
-
-        public override IEnumerable<Eye> ActiveEyes(BossModule module, int slot, Actor actor)
+        public P2SanctityOfTheWard1Gaze() : base(OID.BossP2)
         {
-            // TODO: activation time
-            if (_eyePosition != null && NumCasts == 0)
-            {
-                yield return new(_eyePosition.Value);
-                yield return new(module.PrimaryActor.Position);
-            }
-        }
-
-        public override void OnEventEnvControl(BossModule module, uint directorID, byte index, uint state)
-        {
-            // seen indices: 2 = E, 5 = SW, 6 = W => inferring 0=N, 1=NE, ... cw order
-            if (directorID == 0x8003759A && state == 0x00020001 && index <= 7)
-            {
-                _eyePosition = module.Bounds.Center + 40 * (180 - index * 45).Degrees().ToDirection();
-            }
+            EnableHints = true;
         }
     }
 
@@ -290,9 +270,9 @@ namespace BossMod.Endwalker.Ultimate.DSW2
         {
             foreach (var safespot in MovementHintOffsets(pcSlot).Take(1))
             {
-                arena.AddCircle(module.Bounds.Center + safespot, 2, ArenaColor.Safe);
+                arena.AddCircle(module.Bounds.Center + safespot, 1, ArenaColor.Safe);
                 if (_groupEast.None())
-                    arena.AddCircle(module.Bounds.Center - safespot, 2, ArenaColor.Safe); // if there are no valid assignments, draw spots for both groups
+                    arena.AddCircle(module.Bounds.Center - safespot, 1, ArenaColor.Safe); // if there are no valid assignments, draw spots for both groups
             }
         }
 

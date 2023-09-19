@@ -26,6 +26,8 @@ namespace BossMod.BRD
             SupportedSpell(AID.VenomousBite).TransformAction = SupportedSpell(AID.CausticBite).TransformAction = () => ActionID.MakeSpell(_state.BestCausticBite);
             SupportedSpell(AID.Windbite).TransformAction = SupportedSpell(AID.Stormbite).TransformAction = () => ActionID.MakeSpell(_state.BestStormbite);
             SupportedSpell(AID.QuickNock).TransformAction = SupportedSpell(AID.Ladonsbite).TransformAction = () => ActionID.MakeSpell(_state.BestLadonsbite);
+            // button replacement
+            SupportedSpell(AID.WanderersMinuet).TransformAction = SupportedSpell(AID.PitchPerfect).TransformAction = () => ActionID.MakeSpell(_state.ActiveSong == Rotation.Song.WanderersMinuet ? AID.PitchPerfect : AID.WanderersMinuet);
 
             SupportedSpell(AID.Peloton).Condition = _ => !Player.InCombat;
             SupportedSpell(AID.HeadGraze).Condition = target => target?.CastInfo?.Interruptible ?? false;
@@ -83,7 +85,7 @@ namespace BossMod.BRD
                 SimulateManualActionForAI(ActionID.MakeSpell(AID.SecondWind), Player, Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.5f);
             if (_state.Unlocked(AID.WardensPaean))
             {
-                var esunableTarget = Autorot.WorldState.Party.WithoutSlot().FirstOrDefault(p => p.Statuses.Any(s => Utils.StatusIsRemovable(s.ID)));
+                var esunableTarget = FindEsunableTarget();
                 SimulateManualActionForAI(ActionID.MakeSpell(AID.WardensPaean), esunableTarget, esunableTarget != null);
             }
             if (_state.Unlocked(AID.Peloton))
@@ -147,9 +149,14 @@ namespace BossMod.BRD
             SupportedSpell(AID.Ladonsbite).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
 
             // smart targets
+            SupportedSpell(AID.WardensPaean).TransformTarget = _config.SmartWardensPaeanTarget ? SmartTargetEsunable : null;
         }
 
         private int NumTargetsHitByLadonsbite(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOECone(Player.Position, 12, (primary.Position - Player.Position).Normalized(), 45.Degrees());
         private int NumTargetsHitByRainOfDeath(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOECircle(primary.Position, 8);
+
+        // smart targeting utility: return target (if friendly) or mouseover (if friendly) or first esunable party member (if available) or self (otherwise)
+        private Actor? FindEsunableTarget() => Autorot.WorldState.Party.WithoutSlot().FirstOrDefault(p => p.Statuses.Any(s => Utils.StatusIsRemovable(s.ID)));
+        private Actor? SmartTargetEsunable(Actor? primaryTarget) => SmartTargetFriendly(primaryTarget) ?? FindEsunableTarget() ?? Player;
     }
 }

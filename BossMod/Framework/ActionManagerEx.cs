@@ -166,13 +166,12 @@ namespace BossMod
                 Service.Log($"[AMEx] UseActionLocation address = 0x{useActionLocationAddress:X}");
                 _useActionLocationHook = Hook<UseActionLocationDelegate>.FromAddress(useActionLocationAddress, UseActionLocationDetour);
                 _useActionLocationHook.Enable();
-
                 var processActionEffectPacketAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 4C 24 68 48 33 CC E8 ?? ?? ?? ?? 4C 8D 5C 24 70 49 8B 5B 20 49 8B 73 28 49 8B E3 5F C3");
                 Service.Log($"[AMEx] ProcessActionEffectPacket address = 0x{processActionEffectPacketAddress:X}");
                 _processActionEffectPacketHook = Hook<ProcessActionEffectPacketDelegate>.FromAddress(processActionEffectPacketAddress, ProcessActionEffectPacketDetour);
                 _processActionEffectPacketHook.Enable();
             }
-            _gtQueuePatch = Service.SigScanner.ScanModule("74 24 41 81 FE F5 0D 00 00");
+            _gtQueuePatch = Service.SigScanner.ScanModule("74 20 81 FD F5 0D 00 00");
             Service.Log($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
             AllowGTQueueing = true;
         }

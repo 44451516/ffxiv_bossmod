@@ -9,6 +9,7 @@ namespace BossMod
     public class PartyRolesConfig : ConfigNode
     {
         public enum Assignment { MT, ST, H1, H2, D1, D2, D3, D4, Unassigned }
+        // public enum Assignment { MT, OT, H1, H2, M1, M2, R1, R2, Unassigned }
 
         public Dictionary<ulong, Assignment> Assignments = new();
 

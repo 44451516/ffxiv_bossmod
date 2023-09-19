@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace BossMod
@@ -29,6 +30,20 @@ namespace BossMod
     // this is generally not available for non-player party members, but we can try to guess
     public class ClientState
     {
+        public float? CountdownRemaining;
+
+        public IEnumerable<WorldState.Operation> CompareToInitial()
+        {
+            if (CountdownRemaining != null)
+                yield return new OpCountdownChange() { Value = CountdownRemaining };
+        }
+
+        public void Tick(float dt)
+        {
+            if (CountdownRemaining != null)
+                CountdownRemaining = CountdownRemaining.Value - dt;
+        }
+
         // implementation of operations
         public event EventHandler<OpActionRequest>? ActionRequested;
         public class OpActionRequest : WorldState.Operation
@@ -40,7 +55,14 @@ namespace BossMod
                 ws.Client.ActionRequested?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"CLAR|{Request.Action}|{Request.TargetID:X8}|{StrVec3(Request.TargetPos)}|{Request.SourceSequence}|{Request.InitialAnimationLock:f3}|{Request.InitialCastTimeElapsed:f3}/{Request.InitialCastTimeTotal:f3}|{Request.InitialRecastElapsed:f3}/{Request.InitialRecastTotal:f3}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "CLAR")
+                .Emit(Request.Action)
+                .EmitActor(Request.TargetID)
+                .Emit(Request.TargetPos)
+                .Emit(Request.SourceSequence)
+                .Emit(Request.InitialAnimationLock, "f3")
+                .EmitFloatPair(Request.InitialCastTimeElapsed, Request.InitialCastTimeTotal)
+                .EmitFloatPair(Request.InitialRecastElapsed, Request.InitialRecastTotal);
         }
 
         public event EventHandler<OpActionReject>? ActionRejected;
@@ -53,7 +75,31 @@ namespace BossMod
                 ws.Client.ActionRejected?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"CLRJ|{Value.Action}|{Value.SourceSequence}|{Value.RecastElapsed:f3}/{Value.RecastTotal:f3}|{Value.LogMessageID}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "CLRJ")
+                .Emit(Value.Action)
+                .Emit(Value.SourceSequence)
+                .EmitFloatPair(Value.RecastElapsed, Value.RecastTotal)
+                .Emit(Value.LogMessageID);
+        }
+
+        public event EventHandler<OpCountdownChange>? CountdownChanged;
+        public class OpCountdownChange : WorldState.Operation
+        {
+            public float? Value;
+
+            protected override void Exec(WorldState ws)
+            {
+                ws.Client.CountdownRemaining = Value;
+                ws.Client.CountdownChanged?.Invoke(ws, this);
+            }
+
+            public override void Write(ReplayRecorder.Output output)
+            {
+                if (Value != null)
+                    WriteTag(output, "CDN+").Emit(Value.Value);
+                else
+                    WriteTag(output, "CDN-");
+            }
         }
     }
 }

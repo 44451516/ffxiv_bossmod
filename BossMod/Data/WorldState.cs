@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Numerics;
 
 namespace BossMod
 {
@@ -10,16 +9,21 @@ namespace BossMod
     public class WorldState
     {
         // state access
-        public DateTime CurrentTime { get; private set; }
+        public ulong QPF;
+        public FrameState Frame;
         public ushort CurrentZone { get; private set; }
+        public Dictionary<string, string> RSVEntries { get; init; } = new();
         public WaymarkState Waymarks { get; init; } = new();
         public ActorState Actors { get; init; } = new();
         public PartyState Party { get; init; }
         public ClientState Client { get; init; } = new();
         public PendingEffects PendingEffects { get; init; } = new();
 
-        public WorldState()
+        public DateTime CurrentTime => Frame.Timestamp;
+
+        public WorldState(ulong qpf)
         {
+            QPF = qpf;
             Party = new(Actors);
         }
 
@@ -27,7 +31,7 @@ namespace BossMod
         public event EventHandler<Operation>? Modified;
         public abstract class Operation
         {
-            public DateTime Timestamp { get; private set; } // TODO: this should be removed...
+            public DateTime Timestamp; // TODO: this should be removed...
 
             internal void Execute(WorldState ws)
             {
@@ -35,11 +39,10 @@ namespace BossMod
                 Timestamp = ws.CurrentTime;
             }
 
-            protected abstract void Exec(WorldState ws);
-            public abstract string Str(WorldState? ws);
-            public override string ToString() => Str(null);
+            protected ReplayRecorder.Output WriteTag(ReplayRecorder.Output output, string tag) => output.Entry(tag, Timestamp);
 
-            protected static string StrVec3(Vector3 v) => $"{v.X:f3}/{v.Y:f3}/{v.Z:f3}";
+            protected abstract void Exec(WorldState ws);
+            public abstract void Write(ReplayRecorder.Output output);
         }
 
         public void Execute(Operation op)
@@ -52,14 +55,18 @@ namespace BossMod
         public IEnumerable<Operation> CompareToInitial()
         {
             if (CurrentTime != default)
-                yield return new OpFrameStart() { NewTimestamp = CurrentTime };
+                yield return new OpFrameStart() { Frame = Frame };
             if (CurrentZone != 0)
                 yield return new OpZoneChange() { Zone = CurrentZone };
+            foreach (var (k, v) in RSVEntries)
+                yield return new OpRSVData() { Key = k, Value = v };
             foreach (var o in Waymarks.CompareToInitial())
                 yield return o;
             foreach (var o in Actors.CompareToInitial())
                 yield return o;
             foreach (var o in Party.CompareToInitial())
+                yield return o;
+            foreach (var o in Client.CompareToInitial())
                 yield return o;
         }
 
@@ -67,18 +74,39 @@ namespace BossMod
         public event EventHandler<OpFrameStart>? FrameStarted;
         public class OpFrameStart : Operation
         {
-            public DateTime NewTimestamp;
+            public FrameState Frame;
             public TimeSpan PrevUpdateTime;
-            public long FrameTimeMS;
             public ulong GaugePayload;
 
             protected override void Exec(WorldState ws)
             {
-                ws.CurrentTime = NewTimestamp;
+                ws.Frame = Frame;
+                ws.Client.Tick(Frame.Duration);
                 ws.FrameStarted?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"FRAM|{PrevUpdateTime.TotalMilliseconds:f3}|{FrameTimeMS}|{GaugePayload:X16}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "FRAM")
+                .Emit(PrevUpdateTime.TotalMilliseconds, "f3")
+                .Emit()
+                .Emit(GaugePayload, "X16")
+                .Emit(Frame.QPC)
+                .Emit(Frame.Index)
+                .Emit(Frame.DurationRaw)
+                .Emit(Frame.Duration)
+                .Emit(Frame.TickSpeedMultiplier);
+        }
+
+        public event EventHandler<OpUserMarker>? UserMarkerAdded;
+        public class OpUserMarker : Operation
+        {
+            public string Text = "";
+
+            protected override void Exec(WorldState ws)
+            {
+                ws.UserMarkerAdded?.Invoke(ws, this);
+            }
+
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "UMRK").Emit(Text);
         }
 
         public event EventHandler<OpRSVData>? RSVDataReceived;
@@ -90,10 +118,11 @@ namespace BossMod
             protected override void Exec(WorldState ws)
             {
                 Service.LuminaGameData?.Excel.RsvProvider.Add(Key, Value);
+                ws.RSVEntries[Key] = Value;
                 ws.RSVDataReceived?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"RSV |{Key}|{Value}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "RSV ").Emit(Key).Emit(Value);
         }
 
         public event EventHandler<OpZoneChange>? CurrentZoneChanged;
@@ -107,7 +136,7 @@ namespace BossMod
                 ws.CurrentZoneChanged?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"ZONE|{Zone}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ZONE").Emit(Zone);
         }
 
         // global events
@@ -126,7 +155,7 @@ namespace BossMod
                 ws.DirectorUpdate?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"DIRU|{DirectorID:X8}|{UpdateID:X8}|{Param1:X8}|{Param2:X8}|{Param3:X8}|{Param4:X8}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "DIRU").Emit(DirectorID, "X8").Emit(UpdateID, "X8").Emit(Param1, "X8").Emit(Param2, "X8").Emit(Param3, "X8").Emit(Param4, "X8");
         }
 
         public event EventHandler<OpEnvControl>? EnvControl;
@@ -141,7 +170,7 @@ namespace BossMod
                 ws.EnvControl?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"ENVC|{DirectorID:X8}|{Index:X2}|{State:X8}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ENVC").Emit(DirectorID, "X8").Emit(Index, "X2").Emit(State, "X8");
         }
     }
 }

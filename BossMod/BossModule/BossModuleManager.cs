@@ -3,16 +3,14 @@ using System.Collections.Generic;
 
 namespace BossMod
 {
-    // base class that creates and manages instances of proper boss modules in response to world state changes
-    // derived class should perform rendering as appropriate
+    // class that creates and manages instances of proper boss modules in response to world state changes
     public class BossModuleManager : IDisposable
     {
         public WorldState WorldState { get; init; }
         public RaidCooldowns RaidCooldowns { get; init; }
-        protected BossModuleConfig WindowConfig { get; init; }
+        public BossModuleConfig WindowConfig { get; init; }
 
         private bool _running = false;
-        private bool _configOrModulesUpdated = false;
         private bool _activeModuleOverridden = false;
 
         private List<BossModule> _loadedModules = new();
@@ -26,9 +24,9 @@ namespace BossMod
         public BossModule? ActiveModule
         {
             get => _activeModule;
-            protected set {
+            set {
+                Service.Log($"[BMM] Active module override: from {_activeModule?.GetType().FullName ?? "<n/a>"} (manual-override={_activeModuleOverridden}) to {value?.GetType().FullName ?? "<n/a>"}");
                 _activeModule = value;
-                _configOrModulesUpdated = true;
                 _activeModuleOverridden = true;
             }
         }
@@ -75,7 +73,7 @@ namespace BossMod
             for (int i = 0; i < _loadedModules.Count; ++i)
             {
                 var m = _loadedModules[i];
-                m.StateMachine.PrepullTimer = PrepullTimer();
+                m.StateMachine.PrepullTimer = WorldState.Client.CountdownRemaining ?? 10000;
                 bool wasActive = m.StateMachine.ActiveState != null;
                 bool isActive;
                 try
@@ -115,23 +113,14 @@ namespace BossMod
             var curPriority = ModuleDisplayPriority(_activeModule);
             if (bestPriority > curPriority && (anyModuleActivated || !_activeModuleOverridden))
             {
-                Service.Log($"[BMM] Active module change: from {_activeModule?.GetType()} (prio {curPriority}, manual-override={_activeModuleOverridden}) to {bestModule?.GetType()} (prio {bestPriority})");
+                Service.Log($"[BMM] Active module change: from {_activeModule?.GetType().FullName ?? "<n/a>"} (prio {curPriority}, manual-override={_activeModuleOverridden}) to {bestModule?.GetType().FullName ?? "<n/a>"} (prio {bestPriority})");
                 _activeModule = bestModule;
-                _configOrModulesUpdated = true;
                 _activeModuleOverridden = false;
-            }
-
-            if (_configOrModulesUpdated)
-            {
-                RefreshConfigOrModules();
-                _configOrModulesUpdated = false;
             }
         }
 
-        protected virtual void RefreshConfigOrModules() { }
         protected virtual void OnModuleLoaded(BossModule module) { Service.Log($"[BMM] Boss module '{module.GetType()}' for actor {module.PrimaryActor.InstanceID:X} ({module.PrimaryActor.OID:X}) '{module.PrimaryActor.Name}' loaded"); }
         protected virtual void OnModuleUnloaded(BossModule module) { Service.Log($"[BMM] Boss module '{module.GetType()}' for actor {module.PrimaryActor.InstanceID:X} unloaded"); }
-        protected virtual float PrepullTimer() => 0; // TODO: reconsider...
 
         private void Startup()
         {
@@ -147,8 +136,6 @@ namespace BossMod
             WorldState.Actors.Added += ActorAdded;
             foreach (var a in WorldState.Actors)
                 ActorAdded(null, a);
-
-            _configOrModulesUpdated = true;
         }
 
         private void Shutdown()
@@ -164,15 +151,11 @@ namespace BossMod
             foreach (var m in _loadedModules)
                 m.Dispose();
             _loadedModules.Clear();
-
-            RefreshConfigOrModules();
-            _configOrModulesUpdated = false;
         }
 
         private void LoadModule(BossModule m)
         {
             _loadedModules.Add(m);
-            _configOrModulesUpdated = true;
             OnModuleLoaded(m);
         }
 
@@ -187,7 +170,6 @@ namespace BossMod
             }
             m.Dispose();
             _loadedModules.RemoveAt(index);
-            _configOrModulesUpdated = true;
         }
 
         private int ModuleDisplayPriority(BossModule? m)
@@ -195,9 +177,11 @@ namespace BossMod
             if (m == null)
                 return 0;
             if (m.StateMachine.ActiveState != null)
-                return 3;
+                return 4;
+            if (m.PrimaryActor.InstanceID == 0)
+                return 2; // demo module
             if (!m.PrimaryActor.IsDestroyed && !m.PrimaryActor.IsDead && m.PrimaryActor.IsTargetable)
-                return 2;
+                return 3;
             return 1;
         }
 
@@ -223,12 +207,11 @@ namespace BossMod
                 Shutdown();
 
             int demoIndex = _loadedModules.FindIndex(m => m is DemoModule);
-            if (WindowConfig.ShowDemo && demoIndex < 0)
+            bool showDemo = WindowConfig.Enable && WindowConfig.ShowDemo;
+            if (showDemo && demoIndex < 0)
                 LoadModule(CreateDemoModule());
-            else if (!WindowConfig.ShowDemo && demoIndex >= 0)
+            else if (!showDemo && demoIndex >= 0)
                 UnloadModule(demoIndex);
-
-            _configOrModulesUpdated = true;
         }
     }
 }

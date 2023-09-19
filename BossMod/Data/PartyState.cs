@@ -108,7 +108,7 @@ namespace BossMod
                 ws.Party.Modified?.Invoke(ws, this);
             }
 
-            public override string Str(WorldState? ws) => $"PAR |{Slot}|{ContentID:X}|{InstanceID:X8}";
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "PAR ").Emit(Slot).Emit(ContentID, "X").Emit(InstanceID, "X8");
         }
     }
 }

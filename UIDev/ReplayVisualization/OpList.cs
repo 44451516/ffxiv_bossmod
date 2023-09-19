@@ -2,7 +2,9 @@
 using ImGuiNET;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace UIDev
 {
@@ -13,7 +15,7 @@ namespace UIDev
         private IEnumerable<WorldState.Operation> _ops;
         private DateTime _relativeTS;
         private Action<DateTime> _scrollTo;
-        private List<(DateTime Timestamp, string Text, Action<UITree>? Children, Action? ContextMenu)> _nodes = new();
+        private List<(int Index, DateTime Timestamp, string Text, Action<UITree>? Children, Action? ContextMenu)> _nodes = new();
         private HashSet<uint> _filteredOIDs = new();
         private HashSet<ActionID> _filteredActions = new();
         private HashSet<uint> _filteredStatuses = new();
@@ -48,9 +50,14 @@ namespace UIDev
             if (!_nodesUpToDate)
             {
                 _nodes.Clear();
-                foreach (var op in _ops.Where(FilterOp))
+                int i = 0;
+                foreach (var op in _ops)
                 {
-                    _nodes.Add((op.Timestamp, OpName(op), OpChildren(op), OpContextMenu(op)));
+                    if (FilterOp(op))
+                    {
+                        _nodes.Add((i, op.Timestamp, OpName(op), OpChildren(op), OpContextMenu(op)));
+                    }
+                    ++i;
                 }
                 _nodesUpToDate = true;
             }
@@ -58,7 +65,7 @@ namespace UIDev
             var timeRef = ImGui.GetIO().KeyShift && _relativeTS != default ? _relativeTS : reference;
             foreach (var node in _nodes)
             {
-                foreach (var n in tree.Node($"{(node.Timestamp - timeRef).TotalSeconds:f3}: {node.Text}", node.Children == null, 0xffffffff, node.ContextMenu, () => _scrollTo(node.Timestamp), () => _relativeTS = node.Timestamp))
+                foreach (var n in tree.Node($"{(node.Timestamp - timeRef).TotalSeconds:f3}: {node.Text}###{node.Index}", node.Children == null, 0xffffffff, node.ContextMenu, () => _scrollTo(node.Timestamp), () => _relativeTS = node.Timestamp))
                 {
                     if (node.Children != null)
                         node.Children(tree);
@@ -129,6 +136,21 @@ namespace UIDev
             };
         }
 
+        private string DumpOp(WorldState.Operation op)
+        {
+            using (var stream = new MemoryStream(1024))
+            {
+                var writer = new ReplayRecorder.TextOutput(stream, null);
+                op.Write(writer);
+                writer.Flush();
+                stream.Position = 0;
+                var bytes = new byte[stream.Length];
+                stream.Read(bytes, 0, bytes.Length);
+                var start = Array.IndexOf(bytes, (byte)'|') + 1;
+                return Encoding.UTF8.GetString(bytes, start, bytes.Length - start);
+            }
+        }
+
         private string OpName(WorldState.Operation o)
         {
             return o switch
@@ -149,7 +171,7 @@ namespace UIDev
                 ActorState.OpEventObjectStateChange op => $"EObjState: {ActorString(op.InstanceID, op.Timestamp)} = {op.State:X4}",
                 ActorState.OpEventObjectAnimation op => $"EObjAnim: {ActorString(op.InstanceID, op.Timestamp)} = {((uint)op.Param1 << 16) | op.Param2:X8}",
                 ActorState.OpPlayActionTimelineEvent op => $"Play action timeline: {ActorString(op.InstanceID, op.Timestamp)} = {op.ActionTimelineID:X4}",
-                _ => o.ToString() ?? o.GetType().Name
+                _ => DumpOp(o)
             };
         }
 
@@ -164,9 +186,20 @@ namespace UIDev
 
         private void DrawEventCast(UITree tree, ActorState.OpCastEvent op)
         {
-            foreach (var t in tree.Nodes(op.Value.Targets, t => new(ActorString(t.ID, op.Timestamp))))
+            var action = _replay.Actions.Find(a => a.GlobalSequence == op.Value.GlobalSequence);
+            if (action != null && action.Timestamp == op.Timestamp && action.Source?.InstanceID == op.InstanceID)
             {
-                tree.LeafNodes(t.Effects, ReplayUtils.ActionEffectString);
+                foreach (var t in tree.Nodes(action.Targets, t => new(ReplayUtils.ActionTargetString(t, op.Timestamp))))
+                {
+                    tree.LeafNodes(t.Effects, ReplayUtils.ActionEffectString);
+                }
+            }
+            else
+            {
+                foreach (var t in tree.Nodes(op.Value.Targets, t => new(ActorString(t.ID, op.Timestamp))))
+                {
+                    tree.LeafNodes(t.Effects, ReplayUtils.ActionEffectString);
+                }
             }
         }
 
@@ -245,7 +278,8 @@ namespace UIDev
 
         private string ActorString(ulong instanceID, DateTime timestamp)
         {
-            return ActorString(FindParticipant(instanceID, timestamp), timestamp);
+            var p = FindParticipant(instanceID, timestamp);
+            return p != null || instanceID == 0 ? ActorString(p, timestamp) : $"<unknown> {instanceID:X}";
         }
 
         private string CastEventTargetString(ActorCastEvent ev, DateTime timestamp)
