@@ -51,14 +51,14 @@ namespace BossMod
             //_logger = new("Network", logDir);
 
             // this is lifted from dalamud - for some reason they stopped dispatching client messages :(
-            //Service.GameNetwork.NetworkMessage += HandleMessage;
-            var processZonePacketDownAddress = Service.SigScanner.ScanText("40 55 56 57 48 8D 6C 24 B9 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 37 8B FA");
-            _processZonePacketDownHook = Hook<ProcessZonePacketDownDelegate>.FromAddress(processZonePacketDownAddress, ProcessZonePacketDownDetour);
-            _processZonePacketDownHook.Enable();
-
-            var processZonePacketUpAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 41 56 41 57 48 83 EC 70 8B 81 ?? ?? ?? ??");
-            _processZonePacketUpHook = Hook<ProcessZonePacketUpDelegate>.FromAddress(processZonePacketUpAddress, ProcessZonePacketUpDetour);
-            _processZonePacketUpHook.Enable();
+            Service.GameNetwork.NetworkMessage += HandleMessage;
+            // var processZonePacketDownAddress = Service.SigScanner.ScanText("40 53 56 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 ?? 8B F2");
+            // _processZonePacketDownHook = Hook<ProcessZonePacketDownDelegate>.FromAddress(processZonePacketDownAddress, ProcessZonePacketDownDetour);
+            // _processZonePacketDownHook.Enable();
+            //
+            // var processZonePacketUpAddress = Service.SigScanner.ScanText("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 41 56 41 57 48 83 EC 70 8B 81 ?? ?? ?? ??");
+            // _processZonePacketUpHook = Hook<ProcessZonePacketUpDelegate>.FromAddress(processZonePacketUpAddress, ProcessZonePacketUpDetour);
+            // _processZonePacketUpHook.Enable();
             
             
             var processReplayPacketAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 0F 84 ?? ?? ?? ?? 48 8B 4B 38 48 89 4B 40");
@@ -66,14 +66,20 @@ namespace BossMod
             _processReplayPacketHook.Enable();
         }
 
+        // private unsafe void HandleMessage(IntPtr dataPtr, ushort opCode, uint sourceActorId, uint targetActorId, NetworkMessageDirection direction, uint packetLength)
+        // {
+        // }
+
+  
+
         public void Dispose()
         {
             _config.Modified -= ApplyConfig;
             //_logger.Deactivate();
 
-            //Service.GameNetwork.NetworkMessage -= HandleMessage;
-            _processZonePacketDownHook.Dispose();
-            _processZonePacketUpHook.Dispose();
+            Service.GameNetwork.NetworkMessage -= HandleMessage;
+            // _processZonePacketDownHook.Dispose();
+            // _processZonePacketUpHook.Dispose();
             _processReplayPacketHook.Dispose();
         }
 
@@ -92,17 +98,18 @@ namespace BossMod
 
         private unsafe void ProcessZonePacketDownDetour(void* self, uint targetId, void* dataPtr)
         {
-            HandleMessage((IntPtr)dataPtr + sizeof(Protocol.Server_IPCHeader), ((Protocol.Server_IPCHeader*)dataPtr)->MessageType, 0, targetId, NetworkMessageDirection.ZoneDown, 0);
+            HandleMessage((IntPtr)dataPtr + sizeof(Protocol.Server_IPCHeader), ((Protocol.Server_IPCHeader*)dataPtr)->MessageType, 0, targetId, NetworkMessageDirection.ZoneDown);
             _processZonePacketDownHook.Original(self, targetId, dataPtr);
         }
 
         private unsafe byte ProcessZonePacketUpDetour(void* self, void* dataPtr, void* a3, byte a4)
         {
-            HandleMessage((IntPtr)dataPtr + 0x20, Utils.ReadField<ushort>(dataPtr, 0), 0, 0, NetworkMessageDirection.ZoneUp, Utils.ReadField<uint>(dataPtr, 8));
+            HandleMessage((IntPtr)dataPtr + 0x20, Utils.ReadField<ushort>(dataPtr, 0), 0, 0, NetworkMessageDirection.ZoneUp);
             return _processZonePacketUpHook.Original(self, dataPtr, a3, a4);
         }
 
-        private unsafe void HandleMessage(IntPtr dataPtr, ushort opCode, uint sourceActorId, uint targetActorId, NetworkMessageDirection direction, uint packetLength)
+        // private unsafe void HandleMessage(IntPtr dataPtr, ushort opCode, uint sourceActorId, uint targetActorId, NetworkMessageDirection direction, uint packetLength)
+        private unsafe void HandleMessage(IntPtr dataPtr, ushort opCode, uint sourceActorId, uint targetActorId, NetworkMessageDirection direction)
         {
             if (direction == NetworkMessageDirection.ZoneDown)
             {
@@ -187,7 +194,7 @@ namespace BossMod
                 // client->server
                 if (_config.DumpClientPackets)
                 {
-                    DumpClientMessage(dataPtr, opCode, packetLength);
+                    // DumpClientMessage(dataPtr, opCode, packetLength);
                 }
             }
         }
@@ -219,7 +226,8 @@ namespace BossMod
         
         private unsafe byte ProcessReplayPacketDetour(IntPtr replayModule, Protocol.ReplayPacketHeader* header, IntPtr dataPtr)
         {
-            HandleMessage(dataPtr, header->MessageType, 0, header->TargetId, NetworkMessageDirection.ZoneDown, header->Size);
+            // HandleMessage(dataPtr, header->MessageType, 0, header->TargetId, NetworkMessageDirection.ZoneDown, header->Size);
+            HandleMessage(dataPtr, header->MessageType, 0, header->TargetId, NetworkMessageDirection.ZoneDown);
             return _processReplayPacketHook.Original(replayModule, header, dataPtr);
         }
 
