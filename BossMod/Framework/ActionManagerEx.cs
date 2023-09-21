@@ -171,7 +171,7 @@ namespace BossMod
                 _processActionEffectPacketHook = Hook<ProcessActionEffectPacketDelegate>.FromAddress(processActionEffectPacketAddress, ProcessActionEffectPacketDetour);
                 _processActionEffectPacketHook.Enable();
             }
-            _gtQueuePatch = Service.SigScanner.ScanModule("F6 46 3A ?? 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 75 ??");
+            _gtQueuePatch = Service.SigScanner.ScanModule("74 20 81 FD F5 0D 00 00");
             Service.Log($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
             AllowGTQueueing = true;
         }
