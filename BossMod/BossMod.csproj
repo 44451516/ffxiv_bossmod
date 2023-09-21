@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.0.942</Version>
+    <Version>0.0.0.943</Version>
     <Description>Boss mod.</Description>
   </PropertyGroup>
 

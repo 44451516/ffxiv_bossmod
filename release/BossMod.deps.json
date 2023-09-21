@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v7.0": {
-      "BossMod/0.0.0.942": {
+      "BossMod/0.0.0.943": {
         "dependencies": {
           "DalamudPackager": "2.1.10",
           "SharpDX.Mathematics": "4.2.0"
@@ -708,7 +708,7 @@
     }
   },
   "libraries": {
-    "BossMod/0.0.0.942": {
+    "BossMod/0.0.0.943": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
