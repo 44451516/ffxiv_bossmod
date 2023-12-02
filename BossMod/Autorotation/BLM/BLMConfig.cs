@@ -3,10 +3,10 @@
     [ConfigDisplay(Parent = typeof(AutorotationConfig))]
     class BLMConfig : ConfigNode
     {
-        [PropertyDisplay("Execute optimal rotations on Blizzard1 (ST) or Blizzard2 (AOE)")]
+        [PropertyDisplay("在Blizzard1（单体）或Blizzard2（群体）上执行最优旋转")]
         public bool FullRotation = true;
 
-        [PropertyDisplay("Use mouseover targeting for friendly spells")]
+        [PropertyDisplay("对友方法术使用鼠标悬停目标")]
         public bool MouseoverFriendly = true;
     }
 }

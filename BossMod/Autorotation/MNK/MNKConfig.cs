@@ -3,10 +3,10 @@
     [ConfigDisplay(Parent = typeof(AutorotationConfig))]
     class MNKConfig : ConfigNode
     {
-        [PropertyDisplay("Execute optimal rotations on Bootshine (ST) or Arm of the Destroyer (AOE)")]
+        [PropertyDisplay("在Bootshine（单体）或Arm of the Destroyer（群体）上执行最优循环")]
         public bool FullRotation = true;
 
-        [PropertyDisplay("Execute form-specific aoe GCD on Four-point Fury")]
+        [PropertyDisplay("在Four-point Fury上执行特定形态的群体GCD")]
         public bool AOECombos = true;
     }
 }
