@@ -34,7 +34,7 @@ namespace BossMod.DRG
         Nastrond = 7400, // L70, instant, 10.0s CD (group 2), range 15, AOE rect 15/4, targets=hostile
         MirageDive = 7399, // L68, instant, 1.0s CD (group 0), range 20, single-target 0/0, targets=hostile
         Stardiver = 16480, // L80, instant, 30.0s CD (group 6), range 20, AOE circle 5/0, targets=hostile, animLock=1.500s
-        WyrmwindThrust = 25773, // L90, instant, 10.0s CD (group 1), range 15, AOE rect 15/4, targets=hostile, animLock=???
+        WyrmwindThrust = 25773, // L90, instant, 10.0s CD (group 1), range 15, AOE rect 15/4, targets=hostile
 
         // offsensive CDs
         LifeSurge = 83, // L6, instant, 45.0s CD (group 14), range 0, single-target 0/0, targets=self
@@ -82,17 +82,17 @@ namespace BossMod.DRG
         Geirskogul = 7, // 30.0 max
         HighJump = 8, // 30.0 max
         LanceCharge = 9, // 60.0 max
-        LifeSurge = 14, // 2*45.0 max
+        LifeSurge = 14, // 2*40.0 max
         SpineshatterDive = 19, // 2*60.0 max
         DragonfireDive = 20, // 120.0 max
         DragonSight = 21, // 120.0 max
         BattleLitany = 23, // 120.0 max
-        SecondWind = 40, // 120.0 max
         LegSweep = 41, // 40.0 max
-        Bloodbath = 42, // 90.0 max
-        Feint = 43, // 90.0 max
-        TrueNorth = 44, // 2*45.0 max
-        ArmsLength = 46, // 120.0 max
+        TrueNorth = 45, // 2*45.0 max
+        Bloodbath = 46, // 90.0 max
+        Feint = 47, // 90.0 max
+        ArmsLength = 48, // 120.0 max
+        SecondWind = 49, // 120.0 max
     }
 
     public enum SID : uint

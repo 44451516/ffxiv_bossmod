@@ -23,10 +23,10 @@ namespace BossMod.RealmReborn.Extreme.Ex1Ultima
                 // when tanks need to swap, OT moves between boss and MT and taunts; OT needs to ignore diffractive lasers at this point
                 WDir hintOffset = assignment switch
                 {
-                    PartyRolesConfig.Assignment.D1 => _meleeRange * 45.Degrees().ToDirection(),
-                    PartyRolesConfig.Assignment.D2 => _meleeRange * (-45).Degrees().ToDirection(),
-                    PartyRolesConfig.Assignment.D3 => _rangedRange * 30.Degrees().ToDirection(),
-                    PartyRolesConfig.Assignment.D4 => _rangedRange * (-30).Degrees().ToDirection(),
+                    PartyRolesConfig.Assignment.M1 => _meleeRange * 45.Degrees().ToDirection(),
+                    PartyRolesConfig.Assignment.M2 => _meleeRange * (-45).Degrees().ToDirection(),
+                    PartyRolesConfig.Assignment.R1 => _rangedRange * 30.Degrees().ToDirection(),
+                    PartyRolesConfig.Assignment.R2 => _rangedRange * (-30).Degrees().ToDirection(),
                     PartyRolesConfig.Assignment.H1 => _rangedRange * 10.Degrees().ToDirection(),
                     PartyRolesConfig.Assignment.H2 => _rangedRange * (-10).Degrees().ToDirection(),
                     _ => new(0, _viscousAetheroplasm!.NeedTankSwap ? -2 : _meleeRange)

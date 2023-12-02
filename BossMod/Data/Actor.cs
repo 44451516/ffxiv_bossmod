@@ -9,7 +9,7 @@ namespace BossMod
     {
         None = 0,
         Player = 0x104,
-        Unknown = 0x201,
+        Part = 0x201,
         Pet = 0x202,
         Chocobo = 0x203,
         Enemy = 0x205,
@@ -86,7 +86,6 @@ namespace BossMod
         public uint ID;
         public ulong SourceID;
         public ushort Extra;
-        public byte StackCount;
         public DateTime ExpireAt;
     }
 
@@ -120,7 +119,7 @@ namespace BossMod
         public ulong TargetID;
         public ActorCastInfo? CastInfo;
         public ActorTetherInfo Tether = new();
-        public ActorStatus[] Statuses = new ActorStatus[30]; // empty slots have ID=0
+        public ActorStatus[] Statuses = new ActorStatus[60]; // empty slots have ID=0
 
         public Role Role => Class.GetRole();
         public WPos Position => new(PosRot.X, PosRot.Z);

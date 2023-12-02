@@ -225,7 +225,7 @@ namespace BossMod.RealmReborn.Extreme.Ex4Ifrit
         public override void Update(BossModule module)
         {
             NailKillOrder.RemoveAll(a => a.IsDestroyed || a.IsDead);
-            BossTankRole = OTTankAtIncinerateCounts[IncinerateCount] ? PartyRolesConfig.Assignment.ST : PartyRolesConfig.Assignment.MT;
+            BossTankRole = OTTankAtIncinerateCounts[IncinerateCount] ? PartyRolesConfig.Assignment.OT : PartyRolesConfig.Assignment.MT;
         }
 
         public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -413,6 +413,6 @@ namespace BossMod.RealmReborn.Extreme.Ex4Ifrit
         }
     }
     class Ex4IfritAIHellfire1 : Ex4IfritAIHellfire { public Ex4IfritAIHellfire1() : base(150.Degrees(), PartyRolesConfig.Assignment.MT) { } }
-    class Ex4IfritAIHellfire2 : Ex4IfritAIHellfire { public Ex4IfritAIHellfire2() : base(110.Degrees(), PartyRolesConfig.Assignment.ST) { } }
+    class Ex4IfritAIHellfire2 : Ex4IfritAIHellfire { public Ex4IfritAIHellfire2() : base(110.Degrees(), PartyRolesConfig.Assignment.OT) { } }
     class Ex4IfritAIHellfire3 : Ex4IfritAIHellfire { public Ex4IfritAIHellfire3() : base(70.Degrees(), PartyRolesConfig.Assignment.MT) { } }
 }

@@ -10,6 +10,7 @@ namespace BossMod
     {
         // state access
         public ulong QPF;
+        public string GameVersion;
         public FrameState Frame;
         public ushort CurrentZone { get; private set; }
         public Dictionary<string, string> RSVEntries { get; init; } = new();
@@ -21,9 +22,10 @@ namespace BossMod
 
         public DateTime CurrentTime => Frame.Timestamp;
 
-        public WorldState(ulong qpf)
+        public WorldState(ulong qpf, string gameVersion)
         {
             QPF = qpf;
+            GameVersion = gameVersion;
             Party = new(Actors);
         }
 
@@ -161,7 +163,6 @@ namespace BossMod
         public event EventHandler<OpEnvControl>? EnvControl;
         public class OpEnvControl : Operation
         {
-            public uint DirectorID;
             public byte Index;
             public uint State;
 
@@ -170,7 +171,7 @@ namespace BossMod
                 ws.EnvControl?.Invoke(ws, this);
             }
 
-            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ENVC").Emit(DirectorID, "X8").Emit(Index, "X2").Emit(State, "X8");
+            public override void Write(ReplayRecorder.Output output) => WriteTag(output, "ENVC").Emit(Index, "X2").Emit(State, "X8");
         }
     }
 }

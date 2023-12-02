@@ -33,8 +33,8 @@ namespace BossMod.RealmReborn.Trial.T08ThornmarchH
                 {
                     PartyRolesConfig.Assignment.H1 => 0,
                     PartyRolesConfig.Assignment.H2 => 1,
-                    PartyRolesConfig.Assignment.D3 => 2,
-                    PartyRolesConfig.Assignment.D4 => 3,
+                    PartyRolesConfig.Assignment.R1 => 2,
+                    PartyRolesConfig.Assignment.R2 => 3,
                     _ => -1,
                 };
                 if (soakedTower >= 0)
@@ -71,9 +71,9 @@ namespace BossMod.RealmReborn.Trial.T08ThornmarchH
             }
         }
 
-        public override void OnEventEnvControl(BossModule module, uint directorID, byte index, uint state)
+        public override void OnEventEnvControl(BossModule module, byte index, uint state)
         {
-            if (directorID == 0x80034E2B && index is >= 8 and < 16)
+            if (index is >= 8 and < 16)
             {
                 var towerIndex = index - 8;
                 switch (state)

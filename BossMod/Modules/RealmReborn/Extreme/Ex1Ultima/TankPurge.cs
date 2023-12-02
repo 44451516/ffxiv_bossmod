@@ -17,23 +17,23 @@
                         if ((NumCasts & 1) == 0)
                             hints.PlannedActions.Add((ActionID.MakeSpell(WAR.AID.Reprisal), actor, 1, false));
                         break;
-                    case PartyRolesConfig.Assignment.ST:
+                    case PartyRolesConfig.Assignment.OT:
                         if ((NumCasts & 1) == 1)
                             hints.PlannedActions.Add((ActionID.MakeSpell(WAR.AID.Reprisal), actor, 1, false));
                         break;
-                    case PartyRolesConfig.Assignment.D1:
+                    case PartyRolesConfig.Assignment.M1:
                         if ((NumCasts & 1) == 0)
                             hints.PlannedActions.Add((ActionID.MakeSpell(DRG.AID.Feint), module.PrimaryActor, 1, false));
                         break;
-                    case PartyRolesConfig.Assignment.D2:
+                    case PartyRolesConfig.Assignment.M2:
                         if ((NumCasts & 1) == 1)
                             hints.PlannedActions.Add((ActionID.MakeSpell(DRG.AID.Feint), module.PrimaryActor, 1, false));
                         break;
-                    case PartyRolesConfig.Assignment.D3:
+                    case PartyRolesConfig.Assignment.R1:
                         if ((NumCasts & 1) == 0)
                             hints.PlannedActions.Add((ActionID.MakeSpell(BLM.AID.Addle), module.PrimaryActor, 1, false));
                         break;
-                    case PartyRolesConfig.Assignment.D4:
+                    case PartyRolesConfig.Assignment.R2:
                         if ((NumCasts & 1) == 1)
                             hints.PlannedActions.Add((ActionID.MakeSpell(BLM.AID.Addle), module.PrimaryActor, 1, false));
                         break;

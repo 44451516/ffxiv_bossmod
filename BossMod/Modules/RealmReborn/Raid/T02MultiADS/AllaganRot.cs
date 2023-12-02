@@ -10,7 +10,7 @@ namespace BossMod.RealmReborn.Raid.T02MultiADS
         private int _rotHolderSlot = -1;
 
         private static float _rotPassRadius = 3;
-        private static PartyRolesConfig.Assignment[] _rotPriority = { PartyRolesConfig.Assignment.D3, PartyRolesConfig.Assignment.D1, PartyRolesConfig.Assignment.D2, PartyRolesConfig.Assignment.H1, PartyRolesConfig.Assignment.H2, PartyRolesConfig.Assignment.D4 };
+        private static PartyRolesConfig.Assignment[] _rotPriority = { PartyRolesConfig.Assignment.R1, PartyRolesConfig.Assignment.M1, PartyRolesConfig.Assignment.M2, PartyRolesConfig.Assignment.H1, PartyRolesConfig.Assignment.H2, PartyRolesConfig.Assignment.R2 };
 
         public override void AddGlobalHints(BossModule module, GlobalHints hints)
         {

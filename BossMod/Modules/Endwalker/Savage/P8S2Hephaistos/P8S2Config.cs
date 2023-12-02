@@ -6,7 +6,7 @@
         [PropertyDisplay("万象灰烬: T/N在右")]
         public bool LimitlessDesolationTHRight = false;
 
-        [PropertyDisplay("概念支配 1: long debuffs take S towers")]
+        [PropertyDisplay("High concept 1: long debuffs take S towers")]
         public bool HC1LongGoS = true;
 
         public P8S2Config() : base(90) { }

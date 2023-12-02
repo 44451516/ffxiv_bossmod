@@ -1,13 +1,13 @@
 [
     {
         "Author":  "veyn",
-        "Name":  "Boss Mod",
+        "Name":  "Boss ModX",
         "InternalName":  "BossMod",
-        "AssemblyVersion":  "0.0.0.944",
-        "Description":  "2023_09_21_6.40cn",
+        "AssemblyVersion": "0.0.1.0",
+        "Description":  "2023_12_02_6.45cn",
         "ApplicableVersion":  "any",    
         "RepoUrl":  "https://github.com/awgil/ffxiv_bossmod",
-        "DalamudApiLevel":  8,
+        "DalamudApiLevel":  9,
         "LoadPriority":  0,
         "ImageUrls":  [
                           "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/master/Data/image1.png",

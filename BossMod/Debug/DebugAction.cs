@@ -74,14 +74,14 @@ namespace BossMod
                 {
                     var data = Service.DataManager.GetExcelSheet<Lumina.Excel.GeneratedSheets.Action>()?.GetRow(hover.ActionID);
                     name = data?.Name;
-                    type = FFXIVClientStructs.FFXIV.Client.Game.ActionType.Spell;
+                    type = FFXIVClientStructs.FFXIV.Client.Game.ActionType.Action;
                     unlockLink = data?.UnlockLink ?? 0;
                 }
                 else if (hover.ActionKind == HoverActionKind.GeneralAction)
                 {
                     var data = Service.DataManager.GetExcelSheet<Lumina.Excel.GeneratedSheets.GeneralAction>()?.GetRow(hover.ActionID);
                     name = data?.Name;
-                    type = FFXIVClientStructs.FFXIV.Client.Game.ActionType.General;
+                    type = FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction;
                     unlockLink = data?.UnlockLink ?? 0;
                 }
                 else if (hover.ActionKind == HoverActionKind.Trait)
@@ -147,8 +147,9 @@ namespace BossMod
 
         private unsafe void DrawStatus(string prompt, ActionID action, bool checkRecast, bool checkCasting)
         {
-            var status = ActionManagerEx.Instance!.GetActionStatus(action, Service.ClientState.LocalPlayer?.TargetObjectId ?? 0xE0000000, checkRecast, checkCasting);
-            ImGui.TextUnformatted($"{prompt}: {status} '{Service.LuminaRow<Lumina.Excel.GeneratedSheets.LogMessage>(status)?.Text}'");
+            uint extra;
+            var status = ActionManagerEx.Instance!.GetActionStatus(action, Service.ClientState.LocalPlayer?.TargetObjectId ?? 0xE0000000, checkRecast, checkCasting, &extra);
+            ImGui.TextUnformatted($"{prompt}: {status} [{extra}] '{Service.LuminaRow<Lumina.Excel.GeneratedSheets.LogMessage>(status)?.Text}'");
         }
     }
 }

@@ -41,9 +41,9 @@ namespace BossMod.Endwalker.Criterion.C02AMR.C022Gorai
             }
         }
 
-        public override void OnEventEnvControl(BossModule module, uint directorID, byte index, uint state)
+        public override void OnEventEnvControl(BossModule module, byte index, uint state)
         {
-            if (directorID == 0x8003908B && state == 0x00020001)
+            if (state == 0x00020001)
             {
                 // 03-0A are anims, 0B-12 are tower circles
                 // anims states are 00020001 (appear) and 00080004 (fall start)

@@ -154,19 +154,19 @@ namespace BossMod
 
         // this also checks pending statuses
         // note that we check pending statuses first - otherwise we get the same problem with double refresh if we try to refresh early (we find old status even though we have pending one)
-        public (float Left, int Stacks) StatusDetails(Actor? actor, uint sid, ulong SourceID, float pendingDuration = 1000)
+        public (float Left, int Stacks) StatusDetails(Actor? actor, uint sid, ulong sourceID, float pendingDuration = 1000)
         {
             if (actor == null)
                 return (0, 0);
-            var pending = Autorot.WorldState.PendingEffects.PendingStatus(actor.InstanceID, sid, SourceID);
+            var pending = Autorot.WorldState.PendingEffects.PendingStatus(actor.InstanceID, sid, sourceID);
             if (pending != null)
                 return (pendingDuration, pending.Value);
-            var status = actor.FindStatus(sid, SourceID);
+            var status = actor.FindStatus(sid, sourceID);
             if (status != null)
                 return (StatusDuration(status.Value.ExpireAt), status.Value.Extra & 0xFF);
             return (0, 0);
         }
-        public (float Left, int Stacks) StatusDetails<SID>(Actor? actor, SID sid, ulong SourceID, float pendingDuration = 1000) where SID : Enum => StatusDetails(actor, (uint)(object)sid, SourceID, pendingDuration);
+        public (float Left, int Stacks) StatusDetails<SID>(Actor? actor, SID sid, ulong sourceID, float pendingDuration = 1000) where SID : Enum => StatusDetails(actor, (uint)(object)sid, sourceID, pendingDuration);
 
         // check whether specified status is a damage buff
         public bool IsDamageBuff(uint statusID)
@@ -361,7 +361,7 @@ namespace BossMod
             s.Level = pc?.Level ?? 0;
             s.UnlockProgress = _lock.Progress();
             s.CurMP = Player.CurMP;
-            s.TargetingEnemy = Autorot.PrimaryTarget != null && Autorot.PrimaryTarget.Type is ActorType.Enemy or ActorType.Unknown && !Autorot.PrimaryTarget.IsAlly;
+            s.TargetingEnemy = Autorot.PrimaryTarget != null && Autorot.PrimaryTarget.Type is ActorType.Enemy or ActorType.Part && !Autorot.PrimaryTarget.IsAlly;
             s.RangeToTarget = Autorot.PrimaryTarget != null ? (Autorot.PrimaryTarget.Position - Player.Position).Length() - Autorot.PrimaryTarget.HitboxRadius - Player.HitboxRadius : float.MaxValue;
             s.AnimationLock = am.EffectiveAnimationLock;
             s.AnimationLockDelay = am.EffectiveAnimationLockDelay;

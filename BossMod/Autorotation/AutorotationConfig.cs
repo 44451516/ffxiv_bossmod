@@ -1,4 +1,4 @@
-﻿namespace BossMod
+﻿﻿namespace BossMod
 {
     [ConfigDisplay(Name = "自动循环设置 (实验性!)", Order = 5)]
     class AutorotationConfig : ConfigNode
@@ -22,7 +22,7 @@
         [PropertyDisplay("启用能影响玩家位置的技能 (例如 猛攻, 蛮荒崩裂)")]
         public bool EnableMovement = true;
 
-        [PropertyDisplay("Sticky auto actions")]
+        [PropertyDisplay("粘性自动操作")]
         public bool StickyAutoActions = false;
     }
 }

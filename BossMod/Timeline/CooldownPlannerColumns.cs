@@ -13,6 +13,7 @@ namespace BossMod
         private Action _onModified;
         private StateMachineTree _tree;
         private List<int> _phaseBranches;
+        private ModuleRegistry.Info? _moduleInfo;
         private bool _syncTimings;
         private string _name = "";
         private StateMachineTimings _timings = new();
@@ -31,6 +32,7 @@ namespace BossMod
             _onModified = onModified;
             _tree = tree;
             _phaseBranches = phaseBranches;
+            _moduleInfo = moduleInfo;
             _syncTimings = syncTimings;
             var classDef = PlanDefinitions.Classes[plan.Class];
             foreach (var track in classDef.CooldownTracks)
@@ -71,14 +73,14 @@ namespace BossMod
 
         public void DrawCommonControls()
         {
-            if (ImGui.Button("导出至剪切板"))
+            if (ImGui.Button("Export to clipboard"))
                 ExportToClipboard();
             ImGui.SameLine();
-            if (ImGui.Button("从剪切板导入"))
+            if (ImGui.Button("Import from clipboard"))
                 ImportFromClipboard();
             ImGui.SameLine();
             ImGui.SetNextItemWidth(100);
-            if (ImGui.InputText("名称", ref _name, 255))
+            if (ImGui.InputText("Name", ref _name, 255))
                 _onModified();
         }
 
@@ -87,7 +89,7 @@ namespace BossMod
             if (ImGui.Button("<##Phase") && selectedPhase > 0)
                 --selectedPhase;
             ImGui.SameLine();
-            ImGui.TextUnformatted($"当前阶段: {selectedPhase + 1}/{_tree.Phases.Count}");
+            ImGui.TextUnformatted($"Current phase: {selectedPhase + 1}/{_tree.Phases.Count}");
             ImGui.SameLine();
             if (ImGui.Button(">##Phase") && selectedPhase < _tree.Phases.Count - 1)
                 ++selectedPhase;
@@ -106,7 +108,7 @@ namespace BossMod
             if (ImGui.Button("<##Branch") && _phaseBranches[selectedPhase] > 0)
                 --_phaseBranches[selectedPhase];
             ImGui.SameLine();
-            ImGui.TextUnformatted($"当前分支: {_phaseBranches[selectedPhase] + 1}/{selPhase.StartingNode.NumBranches}");
+            ImGui.TextUnformatted($"Current branch: {_phaseBranches[selectedPhase] + 1}/{selPhase.StartingNode.NumBranches}");
             ImGui.SameLine();
             if (ImGui.Button(">##Branch") && _phaseBranches[selectedPhase] < selPhase.StartingNode.NumBranches - 1)
                 ++_phaseBranches[selectedPhase];
@@ -131,23 +133,43 @@ namespace BossMod
 
         public void ExportToClipboard()
         {
-            ImGui.SetClipboardText(JObject.FromObject(BuildPlan()).ToString());
+            if (_moduleInfo == null)
+            {
+                Service.Log($"Failed to export plan, module info unavailable");
+                return;
+            }
+
+            var json = BuildPlan().ToJSON(Serialization.BuildSerializer());
+            json["Class"] = _plan.Class.ToString();
+            json["Encounter"] = _moduleInfo.ModuleType.FullName;
+            ImGui.SetClipboardText(json.ToString());
         }
 
         public void ImportFromClipboard()
         {
             try
             {
-                var plan = JObject.Parse(ImGui.GetClipboardText()).ToObject<CooldownPlan>();
-                if (plan != null && plan.Class == _plan.Class)
+                var json = JObject.Parse(ImGui.GetClipboardText());
+                var cls = Enum.Parse<Class>(json?["Class"]?.ToString() ?? "None");
+                if (cls != _plan.Class)
                 {
-                    ExtractPlanData(plan);
-                    _onModified();
+                    Service.Log($"Failed to import: plan belongs to {cls} instead of {_plan.Class}");
+                    return;
                 }
-                else
+                var module = json?["Encounter"]?.ToString() ?? "";
+                if (module != _moduleInfo?.ModuleType.FullName)
                 {
-                    Service.Log($"Failed to import: plan belong to {plan?.Class} instead of {_plan.Class}");
+                    Service.Log($"Failed to import: plan belongs to {module} instead of {_moduleInfo?.ModuleType.FullName}");
+                    return;
                 }
+                var plan = CooldownPlan.FromJSON(cls, _plan.Level, json, Serialization.BuildSerializer());
+                if (plan == null)
+                {
+                    Service.Log($"Failed to import: some error occured");
+                    return;
+                }
+                ExtractPlanData(plan);
+                _onModified();
             }
             catch (Exception ex)
             {

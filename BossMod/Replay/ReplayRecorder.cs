@@ -175,31 +175,28 @@ namespace BossMod
         private WorldState _ws;
         private Output _logger;
 
-        public const int Version = 10;
+        public const int Version = 11;
 
-        public ReplayRecorder(WorldState ws, ReplayRecorderConfig config)
+        public ReplayRecorder(WorldState ws, ReplayLogFormat format, bool logInitialState, DirectoryInfo targetDirectory, string logPrefix)
         {
             _ws = ws;
-            if (config.TargetDirectory == null)
-                throw new Exception("Target directory is not configured properly");
-
-            config.TargetDirectory.Create();
-            Stream stream = new FileStream($"{config.TargetDirectory.FullName}/{config.LogPrefix}_{_ws.CurrentTime:yyyy_MM_dd_HH_mm_ss}.log", FileMode.Create, FileAccess.Write, FileShare.Read);
-            switch (config.WorldLogFormat)
+            targetDirectory.Create();
+            Stream stream = new FileStream($"{targetDirectory.FullName}/{logPrefix}_{_ws.CurrentTime:yyyy_MM_dd_HH_mm_ss}.log", FileMode.Create, FileAccess.Write, FileShare.Read);
+            switch (format)
             {
-                case ReplayRecorderConfig.LogFormat.BinaryCompressed:
+                case ReplayLogFormat.BinaryCompressed:
                     WriteHeader(stream, "BLCB");// bossmod log compressed brotli
                     stream = new BrotliStream(stream, CompressionLevel.Optimal, false);
                     _logger = new BinaryOutput(stream);
                     break;
-                case ReplayRecorderConfig.LogFormat.BinaryUncompressed:
+                case ReplayLogFormat.BinaryUncompressed:
                     WriteHeader(stream, "BLOG");// bossmod log
                     _logger = new BinaryOutput(stream);
                     break;
-                case ReplayRecorderConfig.LogFormat.TextCondensed:
+                case ReplayLogFormat.TextCondensed:
                     _logger = new TextOutput(stream, null);
                     break;
-                case ReplayRecorderConfig.LogFormat.TextVerbose:
+                case ReplayLogFormat.TextVerbose:
                     _logger = new TextOutput(stream, _ws.Actors);
                     break;
                 default:
@@ -207,14 +204,17 @@ namespace BossMod
             }
 
             // log initial state
-            _logger.Entry("VER ", _ws.CurrentTime).Emit(Version).Emit(_ws.QPF);
+            _logger.Entry("VER ", _ws.CurrentTime).Emit(Version).Emit(_ws.QPF).Emit(_ws.GameVersion);
             if (_logger is BinaryOutput)
                 _logger.Emit(_ws.CurrentTime.Ticks);
             _logger.EndEntry();
-            foreach (var op in _ws.CompareToInitial())
+            if (logInitialState)
             {
-                op.Timestamp = _ws.CurrentTime;
-                Log(null, op);
+                foreach (var op in _ws.CompareToInitial())
+                {
+                    op.Timestamp = _ws.CurrentTime;
+                    Log(null, op);
+                }
             }
 
             // log changes

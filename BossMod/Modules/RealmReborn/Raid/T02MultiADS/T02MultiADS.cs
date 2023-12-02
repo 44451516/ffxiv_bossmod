@@ -116,7 +116,7 @@ namespace BossMod.RealmReborn.Raid.T02MultiADS
                     e.AttackStrength = 0.2f + 0.05f * targetVulnStacks;
                     e.Priority = 1;
                     e.ShouldBeInterrupted = true; // interrupt every high voltage; TODO consider interrupt rotation
-                    if (assignment is PartyRolesConfig.Assignment.MT or PartyRolesConfig.Assignment.ST)
+                    if (assignment is PartyRolesConfig.Assignment.MT or PartyRolesConfig.Assignment.OT)
                     {
                         if (e.Actor.TargetID == actor.InstanceID)
                         {

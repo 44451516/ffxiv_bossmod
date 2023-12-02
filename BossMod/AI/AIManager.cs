@@ -60,10 +60,10 @@ namespace BossMod.AI
             ImGui.TextUnformatted($"AI: {(_beh != null ? "on" : "off")}, master={_autorot.WorldState.Party[_masterSlot]?.Name}");
             ImGui.TextUnformatted($"Navi={_controller.NaviTargetPos} / {_controller.NaviTargetRot}{(_controller.ForceFacing ? " forced" : "")}");
             _beh?.DrawDebug();
-            if (ImGui.Button("重置"))
+            if (ImGui.Button("Reset"))
                 SwitchToIdle();
             ImGui.SameLine();
-            if (ImGui.Button("跟随队长"))
+            if (ImGui.Button("Follow leader"))
             {
                 var leader = Service.PartyList[(int)Service.PartyList.PartyLeaderIndex];
                 int leaderSlot = leader != null ? _autorot.WorldState.Party.ContentIDs.IndexOf((ulong)leader.ContentId) : -1;

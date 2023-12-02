@@ -6,16 +6,16 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v7.0": {
-      "BossMod/0.0.0.944": {
+      "BossMod/0.0.1.0": {
         "dependencies": {
-          "DalamudPackager": "2.1.10",
+          "DalamudPackager": "2.1.12",
           "SharpDX.Mathematics": "4.2.0"
         },
         "runtime": {
           "BossMod.dll": {}
         }
       },
-      "DalamudPackager/2.1.10": {},
+      "DalamudPackager/2.1.12": {},
       "Microsoft.NETCore.Platforms/1.1.0": {},
       "Microsoft.NETCore.Targets/1.1.0": {},
       "Microsoft.Win32.Primitives/4.3.0": {
@@ -708,17 +708,17 @@
     }
   },
   "libraries": {
-    "BossMod/0.0.0.944": {
+    "BossMod/0.0.1.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "DalamudPackager/2.1.10": {
+    "DalamudPackager/2.1.12": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-S6NrvvOnLgT4GDdgwuKVJjbFo+8ZEj+JsEYk9ojjOR/MMfv1dIFpT8aRJQfI24rtDcw1uF+GnSSMN4WW1yt7fw==",
-      "path": "dalamudpackager/2.1.10",
-      "hashPath": "dalamudpackager.2.1.10.nupkg.sha512"
+      "sha512": "sha512-Sc0PVxvgg4NQjcI8n10/VfUQBAS4O+Fw2pZrAqBdRMbthYGeogzu5+xmIGCGmsEZ/ukMOBuAqiNiB5qA3MRalg==",
+      "path": "dalamudpackager/2.1.12",
+      "hashPath": "dalamudpackager.2.1.12.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/1.1.0": {
       "type": "package",

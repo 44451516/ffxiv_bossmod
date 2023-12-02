@@ -101,9 +101,9 @@ namespace BossMod.Endwalker.Ultimate.DSW2
             var role = Progress switch
             {
                 1 => PartyRolesConfig.Assignment.MT,
-                2 => PartyRolesConfig.Assignment.ST,
-                3 => CanPassVowTo(assignments, PartyRolesConfig.Assignment.D1) ? PartyRolesConfig.Assignment.D1 : PartyRolesConfig.Assignment.D2,
-                4 => _config.P6MortalVowOrder == DSW2Config.P6MortalVow.TanksMeleeR1 ? PartyRolesConfig.Assignment.D3 : PartyRolesConfig.Assignment.D4,
+                2 => PartyRolesConfig.Assignment.OT,
+                3 => CanPassVowTo(assignments, PartyRolesConfig.Assignment.M1) ? PartyRolesConfig.Assignment.M1 : PartyRolesConfig.Assignment.M2,
+                4 => _config.P6MortalVowOrder == DSW2Config.P6MortalVow.TanksMeleeR1 ? PartyRolesConfig.Assignment.R1 : PartyRolesConfig.Assignment.R2,
                 _ => PartyRolesConfig.Assignment.Unassigned
             };
             return role != PartyRolesConfig.Assignment.Unassigned && CanPassVowTo(assignments, role) ? module.Raid[assignments[(int)role]] : null;

@@ -1,4 +1,7 @@
 ﻿using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Hooking;
+using Dalamud.Memory;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -11,54 +14,53 @@ namespace BossMod
         private DateTime _startTime;
         private ulong _startQPC;
 
-        private Network _network;
         private PartyAlliance _alliance = new();
         private List<Operation> _globalOps = new();
         private Dictionary<ulong, List<Operation>> _actorOps = new();
-        private Actor?[] _actorsByIndex;
+        private Actor?[] _actorsByIndex = new Actor?[Service.ObjectTable.Length];
 
         private List<(ulong Caster, ActorCastEvent Event)> _castEvents = new();
         private List<(uint Seq, ulong Target, int TargetIndex)> _confirms = new();
 
-        public WorldStateGame(Network network) : base(Utils.FrameQPF())
+        private delegate void ProcessPacketActorControlDelegate(uint actorID, uint category, uint p1, uint p2, uint p3, uint p4, uint p5, uint p6, ulong targetID, byte replaying);
+        private Hook<ProcessPacketActorControlDelegate> _processPacketActorControlHook;
+
+        private unsafe delegate void ProcessEnvControlDelegate(void* self, uint index, ushort s1, ushort s2);
+        private Hook<ProcessEnvControlDelegate> _processEnvControlHook;
+
+        private unsafe delegate void ProcessPacketRSVDataDelegate(byte* packet);
+        private Hook<ProcessPacketRSVDataDelegate> _processPacketRSVDataHook;
+
+        public unsafe WorldStateGame(string gameVersion) : base(Utils.FrameQPF(), gameVersion)
         {
             _startTime = DateTime.Now;
             _startQPC = Utils.FrameQPC();
 
-            _actorsByIndex = new Actor?[Service.ObjectTable.Length];
-            _network = network;
-            _network.EventActionEffect += OnNetworkActionEffect;
-            _network.EventEffectResult += OnNetworkEffectResult;
-            _network.EventActorControlTargetIcon += OnNetworkActorControlTargetIcon;
-            _network.EventActorControlTether += OnNetworkActorControlTether;
-            _network.EventActorControlTetherCancel += OnNetworkActorControlTetherCancel;
-            _network.EventActorControlEObjSetState += OnNetworkActorControlEObjSetState;
-            _network.EventActorControlEObjAnimation += OnNetworkActorControlEObjAnimation;
-            _network.EventActorControlPlayActionTimeline += OnNetworkActorControlPlayActionTimeline;
-            _network.EventActorControlSelfActionRejected += OnNetworkActorControlSelfActionRejected;
-            _network.EventActorControlSelfDirectorUpdate += OnNetworkActorControlSelfDirectorUpdate;
-            _network.EventEnvControl += OnNetworkEnvControl;
-            _network.EventWaymark += OnNetworkWaymark;
-            _network.EventRSVData += OnNetworkRSVData;
             ActionManagerEx.Instance!.ActionRequested += OnActionRequested;
+            ActionManagerEx.Instance!.ActionEffectReceived += OnActionEffect;
+            ActionManagerEx.Instance!.EffectResultReceived += OnEffectResult;
+
+            _processPacketActorControlHook = Service.Hook.HookFromSignature<ProcessPacketActorControlDelegate>("E8 ?? ?? ?? ?? 0F B7 0B 83 E9 64", ProcessPacketActorControlDetour);
+            _processPacketActorControlHook.Enable();
+            Service.Log($"[WSG] ProcessPacketActorControl address = 0x{_processPacketActorControlHook.Address:X}");
+
+            _processEnvControlHook = Service.Hook.HookFromSignature<ProcessEnvControlDelegate>("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 20 8B FA 41 0F B7 E8", ProcessEnvControlDetour);
+            _processEnvControlHook.Enable();
+            Service.Log($"[WSG] ProcessEnvControl address = 0x{_processEnvControlHook.Address:X}");
+
+            _processPacketRSVDataHook = Service.Hook.HookFromSignature<ProcessPacketRSVDataDelegate>("44 8B 09 4C 8D 41 34", ProcessPacketRSVDataDetour);
+            _processPacketRSVDataHook.Enable();
+            Service.Log($"[WSG] ProcessPacketRSVData address = 0x{_processPacketRSVDataHook.Address:X}");
         }
 
         public void Dispose()
         {
-            _network.EventActionEffect -= OnNetworkActionEffect;
-            _network.EventEffectResult -= OnNetworkEffectResult;
-            _network.EventActorControlTargetIcon -= OnNetworkActorControlTargetIcon;
-            _network.EventActorControlTether -= OnNetworkActorControlTether;
-            _network.EventActorControlTetherCancel -= OnNetworkActorControlTetherCancel;
-            _network.EventActorControlEObjSetState -= OnNetworkActorControlEObjSetState;
-            _network.EventActorControlEObjAnimation -= OnNetworkActorControlEObjAnimation;
-            _network.EventActorControlPlayActionTimeline -= OnNetworkActorControlPlayActionTimeline;
-            _network.EventActorControlSelfActionRejected -= OnNetworkActorControlSelfActionRejected;
-            _network.EventActorControlSelfDirectorUpdate -= OnNetworkActorControlSelfDirectorUpdate;
-            _network.EventEnvControl -= OnNetworkEnvControl;
-            _network.EventWaymark -= OnNetworkWaymark;
-            _network.EventRSVData -= OnNetworkRSVData;
             ActionManagerEx.Instance!.ActionRequested -= OnActionRequested;
+            ActionManagerEx.Instance!.ActionEffectReceived -= OnActionEffect;
+            ActionManagerEx.Instance!.EffectResultReceived -= OnEffectResult;
+            _processPacketActorControlHook.Dispose();
+            _processEnvControlHook.Dispose();
+            _processPacketRSVDataHook.Dispose();
         }
 
         public void Update(TimeSpan prevFramePerf)
@@ -91,9 +93,22 @@ namespace BossMod
             }
             _globalOps.Clear();
 
+            UpdateWaymarks();
             UpdateActors();
             UpdateParty();
             UpdateClient();
+        }
+
+        private unsafe void UpdateWaymarks()
+        {
+            var wm = Waymark.A;
+            foreach (ref var marker in MarkingController.Instance()->FieldMarkerArraySpan)
+            {
+                Vector3? pos = marker.Active ? new(marker.X / 1000.0f, marker.Y / 1000.0f, marker.Z / 1000.0f) : null;
+                if (Waymarks[wm] != pos)
+                    Execute(new WaymarkState.OpWaymarkChange() { ID = wm, Pos = pos });
+                ++wm;
+            }
         }
 
         private void UpdateActors()
@@ -108,7 +123,7 @@ namespace BossMod
 
                 if (obj != null && (obj.ObjectId & 0xFF000000) == 0xFF000000)
                 {
-                    Service.Log($"[WorldState] Skipping bad object #{i} with id {obj.ObjectId:X}");
+                    //Service.Log($"[WorldState] Skipping bad object #{i} with id {obj.ObjectId:X}");
                     obj = null;
                 }
 
@@ -365,76 +380,68 @@ namespace BossMod
             return curGauge != null ? Utils.ReadField<ulong>(curGauge, 8) : 0;
         }
 
-        private void OnNetworkActionEffect(object? sender, (ulong actorID, ActorCastEvent cast) args)
-        {
-            _actorOps.GetOrAdd(args.actorID).Add(new ActorState.OpCastEvent() { InstanceID = args.actorID, Value = args.cast });
-            _castEvents.Add((args.actorID, args.cast));
-        }
-
-        private void OnNetworkEffectResult(object? sender, (ulong actorID, uint seq, int targetIndex) args)
-        {
-            _actorOps.GetOrAdd(args.actorID).Add(new ActorState.OpEffectResult() { InstanceID = args.actorID, Seq = args.seq, TargetIndex = args.targetIndex });
-            _confirms.Add((args.seq, args.actorID, args.targetIndex));
-        }
-
-        private void OnNetworkActorControlTargetIcon(object? sender, (ulong actorID, uint iconID) args)
-        {
-            _actorOps.GetOrAdd(args.actorID).Add(new ActorState.OpIcon() { InstanceID = args.actorID, IconID = args.iconID });
-        }
-
-        private void OnNetworkActorControlTether(object? sender, (ulong actorID, ulong targetID, uint tetherID) args)
-        {
-            _actorOps.GetOrAdd(args.actorID).Add(new ActorState.OpTether() { InstanceID = args.actorID, Value = new() { ID = args.tetherID, Target = args.targetID } });
-        }
-
-        private void OnNetworkActorControlTetherCancel(object? sender, ulong actorID)
-        {
-            _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether() { InstanceID = actorID, Value = new() });
-        }
-
-        private void OnNetworkActorControlEObjSetState(object? sender, (ulong actorID, ushort state) args)
-        {
-            _actorOps.GetOrAdd(args.actorID).Add(new ActorState.OpEventObjectStateChange() { InstanceID = args.actorID, State = args.state });
-        }
-
-        private void OnNetworkActorControlEObjAnimation(object? sender, (ulong actorID, ushort p1, ushort p2) args)
-        {
-            _actorOps.GetOrAdd(args.actorID).Add(new ActorState.OpEventObjectAnimation() { InstanceID = args.actorID, Param1 = args.p1, Param2 = args.p2 });
-        }
-
-        private void OnNetworkActorControlPlayActionTimeline(object? sender, (ulong actorID, ushort actionTimelineID) args)
-        {
-            _actorOps.GetOrAdd(args.actorID).Add(new ActorState.OpPlayActionTimelineEvent() { InstanceID = args.actorID, ActionTimelineID = args.actionTimelineID });
-        }
-
-        private void OnNetworkActorControlSelfActionRejected(object? sender, ClientActionReject arg)
-        {
-            _globalOps.Add(new ClientState.OpActionReject() { Value = arg });
-        }
-
-        private void OnNetworkActorControlSelfDirectorUpdate(object? sender, (uint directorID, uint updateID, uint p1, uint p2, uint p3, uint p4) args)
-        {
-            _globalOps.Add(new OpDirectorUpdate() { DirectorID = args.directorID, UpdateID = args.updateID, Param1 = args.p1, Param2 = args.p2, Param3 = args.p3, Param4 = args.p4 });
-        }
-
-        private void OnNetworkEnvControl(object? sender, (uint directorID, byte index, uint state) args)
-        {
-            _globalOps.Add(new OpEnvControl() { DirectorID = args.directorID, Index = args.index, State = args.state });
-        }
-
-        private void OnNetworkWaymark(object? sender, (Waymark waymark, Vector3? pos) args)
-        {
-            _globalOps.Add(new WaymarkState.OpWaymarkChange() { ID = args.waymark, Pos = args.pos });
-        }
-
-        private void OnNetworkRSVData(object? sender, (string key, string value) args)
-        {
-            _globalOps.Add(new OpRSVData() { Key = args.key, Value = args.value });
-        }
-
-        private void OnActionRequested(object? sender, ClientActionRequest arg)
+        private void OnActionRequested(ClientActionRequest arg)
         {
             _globalOps.Add(new ClientState.OpActionRequest() { Request = arg });
+        }
+
+        private void OnActionEffect(ulong casterID, ActorCastEvent info)
+        {
+            _actorOps.GetOrAdd(casterID).Add(new ActorState.OpCastEvent() { InstanceID = casterID, Value = info });
+            _castEvents.Add((casterID, info));
+        }
+
+        private void OnEffectResult(ulong targetID, uint seq, int targetIndex)
+        {
+            _actorOps.GetOrAdd(targetID).Add(new ActorState.OpEffectResult() { InstanceID = targetID, Seq = seq, TargetIndex = targetIndex });
+            _confirms.Add((seq, targetID, targetIndex));
+        }
+
+        private void ProcessPacketActorControlDetour(uint actorID, uint category, uint p1, uint p2, uint p3, uint p4, uint p5, uint p6, ulong targetID, byte replaying)
+        {
+            _processPacketActorControlHook.Original(actorID, category, p1, p2, p3, p4, p5, p6, targetID, replaying);
+            switch ((Network.ServerIPC.ActorControlCategory)category)
+            {
+                case Network.ServerIPC.ActorControlCategory.TargetIcon:
+                    _actorOps.GetOrAdd(actorID).Add(new ActorState.OpIcon() { InstanceID = actorID, IconID = p1 - Network.IDScramble.Delta });
+                    break;
+                case Network.ServerIPC.ActorControlCategory.Tether:
+                    _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether() { InstanceID = actorID, Value = new() { ID = p2, Target = p3 } });
+                    break;
+                case Network.ServerIPC.ActorControlCategory.TetherCancel:
+                    // note: this seems to clear tether only if existing matches p2
+                    _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether() { InstanceID = actorID, Value = new() });
+                    break;
+                case Network.ServerIPC.ActorControlCategory.EObjSetState:
+                    // p2 is unused (seems to be director id?), p3==1 means housing (?) item instead of event obj, p4 is housing item id
+                    _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventObjectStateChange() { InstanceID = actorID, State = (ushort)p1 });
+                    break;
+                case Network.ServerIPC.ActorControlCategory.EObjAnimation:
+                    _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventObjectAnimation() { InstanceID = actorID, Param1 = (ushort)p1, Param2 = (ushort)p2 });
+                    break;
+                case Network.ServerIPC.ActorControlCategory.PlayActionTimeline:
+                    _actorOps.GetOrAdd(actorID).Add(new ActorState.OpPlayActionTimelineEvent() { InstanceID = actorID, ActionTimelineID = (ushort)p1 });
+                    break;
+                case Network.ServerIPC.ActorControlCategory.ActionRejected:
+                    _globalOps.Add(new ClientState.OpActionReject() { Value = new() { Action = new((ActionType)p2, p3), SourceSequence = p6, RecastElapsed = p4 * 0.01f, RecastTotal = p5 * 0.01f, LogMessageID = p1 } });
+                    break;
+                case Network.ServerIPC.ActorControlCategory.DirectorUpdate:
+                    _globalOps.Add(new OpDirectorUpdate() { DirectorID = p1, UpdateID = p2, Param1 = p3, Param2 = p4, Param3 = p5, Param4 = p6 });
+                    break;
+            }
+        }
+
+        private unsafe void ProcessEnvControlDetour(void* self, uint index, ushort s1, ushort s2)
+        {
+            // note: this function is only executed for incoming packets that pass some checks (validation that currently active director is what is expected) - don't think it's a big deal?
+            _processEnvControlHook.Original(self, index, s1, s2);
+            _globalOps.Add(new OpEnvControl() { Index = (byte)index, State = s1 | ((uint)s2 << 16) });
+        }
+
+        private unsafe void ProcessPacketRSVDataDetour(byte* packet)
+        {
+            _processPacketRSVDataHook.Original(packet);
+            _globalOps.Add(new OpRSVData() { Key = MemoryHelper.ReadStringNullTerminated((nint)(packet + 4)), Value = MemoryHelper.ReadString((nint)(packet + 0x34), *(int*)packet) });
         }
     }
 }

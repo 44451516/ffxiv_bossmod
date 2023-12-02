@@ -82,7 +82,7 @@
         {
             Cast(id, AID.Paradeigma, delay, 3)
                 .ActivateOnEnter<WhiteFlame>()
-                .OnEnter(() => Module.FindComponent<WhiteFlame>()?.Enable()); // enable asap
+                .ExecOnEnter<WhiteFlame>(comp => comp.Enable()); // enable asap
             TrinityOfSoulsCast(id + 0x10, 5.6f);
             ComponentCondition<WhiteFlame>(id + 0x20, 0.8f, comp => comp.NumCasts > 0, "Baits 1");
             TrinityOfSoulsResolve(id + 0x30, 1.8f);
@@ -136,6 +136,7 @@
         {
             Cast(id, AID.Paradeigma, delay, 3);
             Cast(id + 0x10, AID.EngravementOfSouls, 3.2f, 4)
+                .ActivateOnEnter<EngravementOfSouls3Hints>()
                 .ActivateOnEnter<EngravementOfSoulsTethers>(); // tethers appear ~2.3s after cast ends
             Cast(id + 0x20, AID.UnnaturalEnchainment, 3.2f, 7, "Fixed towers")
                 .ActivateOnEnter<UnnaturalEnchainment>() // note: tethers appear ~0.1s before cast start
@@ -149,7 +150,7 @@
                 .ActivateOnEnter<TheosCross>()
                 .ActivateOnEnter<TheosSaltire>();
             ComponentCondition<TheosCross>(id + 0x41, 3.0f, comp => comp.NumCasts > 0, "Cross/plus resolve") // TODO: don't show name?
-                .OnEnter(() => Module.FindComponent<WhiteFlame>()?.Enable())
+                .ExecOnEnter<WhiteFlame>(comp => comp.Enable())
                 .DeactivateOnExit<TheosCross>()
                 .DeactivateOnExit<TheosSaltire>();
             ComponentCondition<EngravementOfSouls3Spread>(id + 0x42, 0.3f, comp => !comp.Active, "Tower baits")
@@ -159,7 +160,8 @@
                 .DeactivateOnExit<WhiteFlame>();
             ComponentCondition<EngravementOfSoulsTowers>(id + 0x50, 0.2f, comp => comp.CastsStarted);
             ComponentCondition<EngravementOfSoulsTowers>(id + 0x51, 2.0f, comp => comp.NumCasts > 0, "Towers resolve")
-                .DeactivateOnExit<EngravementOfSoulsTowers>();
+                .DeactivateOnExit<EngravementOfSoulsTowers>()
+                .DeactivateOnExit<EngravementOfSouls3Hints>();
 
             OnTheSoul(id + 0x1000, 1.0f)
                 .DeactivateOnExit<UnnaturalEnchainment>(); // TODO: deactivate 1.6s later, when env controls happen

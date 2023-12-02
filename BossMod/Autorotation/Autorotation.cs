@@ -64,26 +64,21 @@ namespace BossMod
             ActionManagerEx.Instance!.ActionRequested += OnActionRequested;
             WorldState.Actors.CastEvent += OnCastEvent;
 
-            var useActionAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 64 B1 01");
-            _useActionHook = Hook<UseActionDelegate>.FromAddress(useActionAddress, UseActionDetour);
-     
+            _useActionHook = Service.Hook.HookFromSignature<UseActionDelegate>("E8 ?? ?? ?? ?? EB 64 B1 01", UseActionDetour);
             
             if (_config.ActionManagerExHookEnabled == false)
             {
                 _useActionHook.Enable();   
             }
-            
         }
 
         public void Dispose()
         {
             ActionManagerEx.Instance!.ActionRequested -= OnActionRequested;
             WorldState.Actors.CastEvent -= OnCastEvent;
-            if (_config.ActionManagerExHookEnabled == false)
-            {
-                _useActionHook.Dispose();   
-            }
+
             _ui.Dispose();
+            _useActionHook.Dispose();
             _classActions?.Dispose();
             _autoHints.Dispose();
         }
@@ -92,14 +87,14 @@ namespace BossMod
         {
             var player = WorldState.Party.Player();
             PrimaryTarget = WorldState.Actors.Find(player?.TargetID ?? 0);
-            SecondaryTarget = WorldState.Actors.Find(Mouseover.Instance?.Object?.ObjectId ?? 0);
+            SecondaryTarget = WorldState.Actors.Find(Utils.MouseoverID());
 
             Hints.Clear();
             if (player != null)
             {
                 var playerAssignment = Service.Config.Get<PartyRolesConfig>()[WorldState.Party.ContentIDs[PartyState.PlayerSlot]];
                 var activeModule = Bossmods.ActiveModule?.StateMachine.ActivePhase != null ? Bossmods.ActiveModule : null;
-                Hints.FillPotentialTargets(WorldState, playerAssignment == PartyRolesConfig.Assignment.MT || playerAssignment == PartyRolesConfig.Assignment.ST && !WorldState.Party.WithoutSlot().Any(p => p != player && p.Role == Role.Tank));
+                Hints.FillPotentialTargets(WorldState, playerAssignment == PartyRolesConfig.Assignment.MT || playerAssignment == PartyRolesConfig.Assignment.OT && !WorldState.Party.WithoutSlot().Any(p => p != player && p.Role == Role.Tank));
                 Hints.FillPlannedActions(Bossmods.ActiveModule, PartyState.PlayerSlot, player); // note that we might fill some actions even if module is not active yet (prepull)
                 if (activeModule != null)
                     activeModule.CalculateAIHints(PartyState.PlayerSlot, player, playerAssignment, Hints);
@@ -178,7 +173,7 @@ namespace BossMod
             ImGui.TextUnformatted($"GCD={Cooldowns[CommonDefinitions.GCDGroup]:f3}, AnimLock={EffAnimLock:f3}+{AnimLockDelay:f3}, Combo={state.ComboTimeLeft:f3}");
         }
 
-        private void OnActionRequested(object? sender, ClientActionRequest request)
+        private void OnActionRequested(ClientActionRequest request)
         {
             _classActions?.NotifyActionExecuted(request);
         }

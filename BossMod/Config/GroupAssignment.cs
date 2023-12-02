@@ -32,13 +32,7 @@ namespace BossMod
     // typically you would use derived classes that provide validation
     public class GroupAssignment
     {
-        public int[] Assignments; // assignment -> group id
-
-        public GroupAssignment()
-        {
-            Assignments = new int[(int)PartyRolesConfig.Assignment.Unassigned];
-            Array.Fill(Assignments, -1);
-        }
+        public int[] Assignments = Utils.MakeArray((int)PartyRolesConfig.Assignment.Unassigned, -1); // assignment -> group id
 
         public int this[PartyRolesConfig.Assignment r]
         {
@@ -86,8 +80,8 @@ namespace BossMod
         public static GroupAssignmentLightParties DefaultLightParties()
         {
             var r = new GroupAssignmentLightParties();
-            r[PartyRolesConfig.Assignment.MT] = r[PartyRolesConfig.Assignment.H1] = r[PartyRolesConfig.Assignment.D1] = r[PartyRolesConfig.Assignment.D3] = 0;
-            r[PartyRolesConfig.Assignment.ST] = r[PartyRolesConfig.Assignment.H2] = r[PartyRolesConfig.Assignment.D2] = r[PartyRolesConfig.Assignment.D4] = 1;
+            r[PartyRolesConfig.Assignment.MT] = r[PartyRolesConfig.Assignment.H1] = r[PartyRolesConfig.Assignment.M1] = r[PartyRolesConfig.Assignment.R1] = 0;
+            r[PartyRolesConfig.Assignment.OT] = r[PartyRolesConfig.Assignment.H2] = r[PartyRolesConfig.Assignment.M2] = r[PartyRolesConfig.Assignment.R2] = 1;
             return r;
         }
 
@@ -106,20 +100,20 @@ namespace BossMod
         public static GroupAssignmentDDSupportPairs DefaultOneMeleePerPair()
         {
             GroupAssignmentDDSupportPairs r = new();
-            r[PartyRolesConfig.Assignment.MT] = r[PartyRolesConfig.Assignment.D3] = 0;
-            r[PartyRolesConfig.Assignment.H1] = r[PartyRolesConfig.Assignment.D1] = 1;
-            r[PartyRolesConfig.Assignment.ST] = r[PartyRolesConfig.Assignment.D4] = 2;
-            r[PartyRolesConfig.Assignment.H2] = r[PartyRolesConfig.Assignment.D2] = 3;
+            r[PartyRolesConfig.Assignment.MT] = r[PartyRolesConfig.Assignment.R1] = 0;
+            r[PartyRolesConfig.Assignment.H1] = r[PartyRolesConfig.Assignment.M1] = 1;
+            r[PartyRolesConfig.Assignment.OT] = r[PartyRolesConfig.Assignment.R2] = 2;
+            r[PartyRolesConfig.Assignment.H2] = r[PartyRolesConfig.Assignment.M2] = 3;
             return r;
         }
 
         public static GroupAssignmentDDSupportPairs DefaultMeleeTogether()
         {
             GroupAssignmentDDSupportPairs r = new();
-            r[PartyRolesConfig.Assignment.MT] = r[PartyRolesConfig.Assignment.D1] = 0;
-            r[PartyRolesConfig.Assignment.ST] = r[PartyRolesConfig.Assignment.D2] = 1;
-            r[PartyRolesConfig.Assignment.H1] = r[PartyRolesConfig.Assignment.D3] = 2;
-            r[PartyRolesConfig.Assignment.H2] = r[PartyRolesConfig.Assignment.D4] = 3;
+            r[PartyRolesConfig.Assignment.MT] = r[PartyRolesConfig.Assignment.M1] = 0;
+            r[PartyRolesConfig.Assignment.OT] = r[PartyRolesConfig.Assignment.M2] = 1;
+            r[PartyRolesConfig.Assignment.H1] = r[PartyRolesConfig.Assignment.R1] = 2;
+            r[PartyRolesConfig.Assignment.H2] = r[PartyRolesConfig.Assignment.R2] = 3;
             return r;
         }
 
@@ -146,12 +140,12 @@ namespace BossMod
         {
             GroupAssignmentUnique r = new();
             r[PartyRolesConfig.Assignment.MT] = 0;
-            r[PartyRolesConfig.Assignment.D1] = 1;
-            r[PartyRolesConfig.Assignment.ST] = 2;
-            r[PartyRolesConfig.Assignment.D2] = 3;
-            r[PartyRolesConfig.Assignment.D3] = 4;
+            r[PartyRolesConfig.Assignment.M1] = 1;
+            r[PartyRolesConfig.Assignment.OT] = 2;
+            r[PartyRolesConfig.Assignment.M2] = 3;
+            r[PartyRolesConfig.Assignment.R1] = 4;
             r[PartyRolesConfig.Assignment.H1] = 5;
-            r[PartyRolesConfig.Assignment.D4] = 6;
+            r[PartyRolesConfig.Assignment.R2] = 6;
             r[PartyRolesConfig.Assignment.H2] = 7;
             return r;
         }

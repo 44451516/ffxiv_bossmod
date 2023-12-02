@@ -1,4 +1,5 @@
-﻿using ImGuiNET;
+﻿using Dalamud.Interface.Utility.Raii;
+using ImGuiNET;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -44,7 +45,7 @@ namespace BossMod
                 NotifyModified();
             }
             ImGui.SameLine();
-            if (ImGui.Button(plans.SelectedIndex >= 0 ? "编辑计划" : "创建新计划"))
+            if (ImGui.Button(plans.SelectedIndex >= 0 ? "Edit plan" : "Create new plan"))
             {
                 if (plans.SelectedIndex < 0)
                 {
@@ -79,19 +80,19 @@ namespace BossMod
 
         public override void DrawCustom(UITree tree, WorldState ws)
         {
-            foreach (var _ in tree.Node("冷却计划"))
+            foreach (var _ in tree.Node("Cooldown plans"))
             {
                 foreach (var (c, plans) in CooldownPlans)
                 {
                     for (int i = 0; i < plans.Available.Count; ++i)
                     {
                         ImGui.PushID($"{c}/{i}");
-                        if (ImGui.Button($"编辑"))
+                        if (ImGui.Button($"Edit"))
                         {
                             StartPlanEditor(plans.Available[i]);
                         }
                         ImGui.SameLine();
-                        if (ImGui.Button($"Copy【创建副本】"))
+                        if (ImGui.Button($"Copy"))
                         {
                             var plan = plans.Available[i].Clone();
                             plan.Name += " Copy";
@@ -100,7 +101,7 @@ namespace BossMod
                             StartPlanEditor(plan);
                         }
                         ImGui.SameLine();
-                        if (ImGui.Button($"删除"))
+                        if (UIMisc.DangerousButton($"Delete"))
                         {
                             if (plans.SelectedIndex == i)
                                 plans.SelectedIndex = -1;
@@ -112,20 +113,15 @@ namespace BossMod
                         }
                         ImGui.SameLine();
                         bool selected = plans.SelectedIndex == i;
-                        if (plans.Available.Count > 1)
+                        if (ImGui.Checkbox($"{c} '{plans.Available[i].Name}'", ref selected))
                         {
-                            if (ImGui.Checkbox($"{c} '{plans.Available[i].Name}'", ref selected))
-                            {
-                                plans.SelectedIndex = selected ? i : -1;
-                                NotifyModified();
-                            }
+                            plans.SelectedIndex = selected ? i : -1;
+                            NotifyModified();
                         }
-
-                      
                         ImGui.PopID();
                     }
                 }
-                ImGui.TextUnformatted("添加新计划:");
+                ImGui.TextUnformatted("Add new plan:");
                 foreach (var (c, plans) in CooldownPlans)
                 {
                     ImGui.SameLine();

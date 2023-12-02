@@ -21,6 +21,7 @@ namespace BossMod
         private DebugAddon _debugAddon = new();
         private DebugTiming _debugTiming = new();
         private DebugCollision _debugCollision = new();
+        private DebugVfx _debugVfx = new();
 
         public MainDebugWindow(WorldState ws, Autorotation autorot) : base("Boss mod debug UI", false, new(300, 200))
         {
@@ -38,12 +39,14 @@ namespace BossMod
             _debugClassDefinitions.Dispose();
             _debugAddon.Dispose();
             _debugCollision.Dispose();
+            _debugVfx.Dispose();
         }
 
         public unsafe override void Draw()
         {
             var player = Service.ClientState.LocalPlayer;
             ImGui.TextUnformatted($"Current zone: {_ws.CurrentZone}, player=0x{(ulong)Utils.GameObjectInternal(player):X}, playerCID={Service.ClientState.LocalContentId:X}, pos = {Utils.Vec3String(player?.Position ?? new Vector3())}");
+            ImGui.TextUnformatted($"ID scramble: {Network.IDScramble.Delta} = {*Network.IDScramble.OffsetAdjusted} - {*Network.IDScramble.OffsetBaseFixed} - {*Network.IDScramble.OffsetBaseChanging}");
 
             var eventFwk = FFXIVClientStructs.FFXIV.Client.Game.Event.EventFramework.Instance();
             var instanceDirector = eventFwk != null ? eventFwk->GetInstanceContentDirector() : null;
@@ -131,7 +134,7 @@ namespace BossMod
             {
                 DrawCountdown();
             }
-            if (ImGui.CollapsingHeader("Addon"))
+            if (ImGui.CollapsingHeader("Addon / agent"))
             {
                 _debugAddon.Draw();
             }
@@ -146,6 +149,10 @@ namespace BossMod
             if (ImGui.CollapsingHeader("Collision"))
             {
                 _debugCollision.Draw();
+            }
+            if (ImGui.CollapsingHeader("VFX"))
+            {
+                _debugVfx.Draw();
             }
         }
 
@@ -212,7 +219,7 @@ namespace BossMod
             DrawTarget("GPose target", ts->GPoseTarget, selfPos, angle);
             DrawTarget("Mouseover", ts->MouseOverTarget, selfPos, angle);
             DrawTarget("Focus", ts->FocusTarget, selfPos, angle);
-            ImGui.TextUnformatted($"UI Mouseover: {(Mouseover.Instance?.Object != null ? Utils.ObjectString(Mouseover.Instance.Object) : "<null>")}");
+            ImGui.TextUnformatted($"UI Mouseover: {Utils.ObjectString(Utils.MouseoverID())}");
 
             if (ImGui.Button("Target closest enemy"))
             {
