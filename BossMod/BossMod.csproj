@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.0.945</Version>
+    <Version>0.0.0.946</Version>
     <Description>Boss mod.</Description>
   </PropertyGroup>
 
@@ -13,7 +13,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <OutputPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\devPlugins\BossMod\</OutputPath>
+    <OutputPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\releasePlugins\BossMod\</OutputPath>
   </PropertyGroup>
 
 
@@ -32,7 +32,7 @@
 
   <PropertyGroup>
 <!--    <DalamudLibPath>E:\Games\FFVIX\Dalamud\7.3.1.0\</DalamudLibPath>-->
-    <DalamudLibPath>E:\Games\FFVIX\Dalamud\dev\</DalamudLibPath>
+    <DalamudLibPath>C:\Users\woodnaonly\AppData\Roaming\XIVLauncher\addon\Hooks\7.11.0.0\</DalamudLibPath>
   </PropertyGroup>
 
   <ItemGroup>

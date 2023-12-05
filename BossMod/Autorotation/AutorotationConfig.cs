@@ -7,7 +7,7 @@
         [PropertyDisplay("关闭HOOK[取消需要重启游戏]")]
         public bool ActionManagerExHookEnabled = true;
         
-        [PropertyDisplay("启用自动循环")]
+        [PropertyDisplay("启用自动循环[把上面的打钩取消，然后重启]")]
         public bool Enabled = false;
 
         [PropertyDisplay("记录信息")]
@@ -22,7 +22,7 @@
         [PropertyDisplay("启用能影响玩家位置的技能 (例如 猛攻, 蛮荒崩裂)")]
         public bool EnableMovement = true;
 
-        [PropertyDisplay("Sticky auto actions")]
+        [PropertyDisplay("粘性自动操作")]
         public bool StickyAutoActions = false;
     }
 }

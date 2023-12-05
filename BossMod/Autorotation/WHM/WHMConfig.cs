@@ -3,19 +3,19 @@
     [ConfigDisplay(Parent = typeof(AutorotationConfig))]
     class WHMConfig : ConfigNode
     {
-        [PropertyDisplay("Execute optimal rotations on Glare (ST damage), Holy (AOE damage), Cure1 (ST heal) and Medica1 (AOE heal)")]
+        [PropertyDisplay("在Glare（单体伤害）、Holy（群体伤害）、Cure1（单体治疗）和Medica1（群体治疗）上执行最优循环")]
         public bool FullRotation = true;
 
-        [PropertyDisplay("When trying to cast raise, apply swiftcast and thin air automatically, if possible")]
+        [PropertyDisplay("尝试施放复活时，如果可能的话自动应用迅速咏唱和薄空")]
         public bool SwiftFreeRaise = true;
 
-        [PropertyDisplay("Use mouseover targeting for friendly spells")]
+        [PropertyDisplay("对友方法术使用鼠标悬停定位")]
         public bool MouseoverFriendly = true;
 
-        [PropertyDisplay("Smart targeting for Cure 3 (target/mouseover if friendly, otherwise party member that has most nearby damaged players)")]
+        [PropertyDisplay("如果友方，则目标/鼠标悬停，否则选择附近受伤玩家最多的队伍成员")]
         public bool SmartCure3Target = true;
 
-        [PropertyDisplay("Never overcap blood lilies: cast misery instead of solace/rapture if needed")]
+        [PropertyDisplay("永远不要超过血百合上限：如果需要，使用Misery而不是Solace/Rapture")]
         public bool NeverOvercapBloodLilies = false;
     }
 }

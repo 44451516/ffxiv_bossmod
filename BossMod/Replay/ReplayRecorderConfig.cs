@@ -3,31 +3,31 @@ using System.IO;
 
 namespace BossMod
 {
-    [ConfigDisplay(Name = "Replay recorder settings", Order = 0)]
+    [ConfigDisplay(Name = "录像设置", Order = 0)]
     public class ReplayRecorderConfig : ConfigNode
     {
         public enum LogFormat
         {
-            [PropertyDisplay("Compressed binary")]
+            [PropertyDisplay("压缩二进制")]
             BinaryCompressed,
 
-            [PropertyDisplay("Raw binary")]
+            [PropertyDisplay("原始二进制")]
             BinaryUncompressed,
 
-            [PropertyDisplay("Condensed text")]
+            [PropertyDisplay("精简文本")]
             TextCondensed,
 
-            [PropertyDisplay("Verbose text")]
+            [PropertyDisplay("详细文本")]
             TextVerbose,
         }
 
-        [PropertyDisplay("Show recorder UI")]
+        [PropertyDisplay("显示录像管理界面")]
         public bool ShowUI = false;
 
-        [PropertyDisplay("Store server packets in the replay")]
+        [PropertyDisplay("在录像中存储服务器数据包")]
         public bool DumpServerPackets = false;
 
-        [PropertyDisplay("Store client packets in the replay")]
+        [PropertyDisplay("在录像中存储客户器数据包")]
         public bool DumpClientPackets = false;
 
         [PropertyDisplay("Log format")]
