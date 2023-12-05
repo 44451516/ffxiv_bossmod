@@ -122,6 +122,7 @@ namespace BossMod
         private unsafe delegate void ProcessActionEffectPacketDelegate(uint casterID, void* casterObj, Vector3* targetPos, Protocol.Server_ActionEffectHeader* header, ulong* effects, ulong* targets);
         private Hook<ProcessActionEffectPacketDelegate> _processActionEffectPacketHook;
 
+        //UseAction 内的指令：有条件跳转，禁止地面目标动作排队
         private IntPtr _gtQueuePatch; // instruction inside UseAction: conditional jump that disallows queueing for ground-targeted actions
         private bool _gtQueuePatchEnabled;
         public bool AllowGTQueueing
@@ -131,6 +132,7 @@ namespace BossMod
             {
                 if (_gtQueuePatchEnabled != value)
                 {
+                    //UseAction 内的指令：有条件跳转，禁止地面目标动作排队,不知道有啥用可以考虑删除
                     SafeMemory.WriteBytes(_gtQueuePatch, new byte[] { value ? (byte)0xEB : (byte)0x74 });
                     _gtQueuePatchEnabled = value;
                 }
@@ -180,8 +182,6 @@ namespace BossMod
             // 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 75 ??
             _gtQueuePatch = Service.SigScanner.ScanText("74 20 81 FD F5 0D 00 00");
             Service.Log($"[AMEx] GT1 queue check address = 0x{_gtQueuePatch:X} ");
-            // Service.Log($"[AMEx] GT2 queue check address = 0x{Service.SigScanner.ScanText("?? 20 81 FD F5 0D 00 00"):X}");
-            // Service.Log($"[AMEx] GT3 queue check address = 0x{Service.SigScanner.ScanText("3A 01 ?? 20 81 FD F5 0D 00 00"):X}");
             
             AllowGTQueueing = true;
         }
