@@ -131,7 +131,7 @@ namespace BossMod
             {
                 if (_gtQueuePatchEnabled != value)
                 {
-                    // SafeMemory.WriteBytes(_gtQueuePatch, new byte[] { value ? (byte)0xEB : (byte)0x74 });
+                    SafeMemory.WriteBytes(_gtQueuePatch, new byte[] { value ? (byte)0xEB : (byte)0x74 });
                     _gtQueuePatchEnabled = value;
                 }
             }
@@ -171,13 +171,18 @@ namespace BossMod
                 _processActionEffectPacketHook = Hook<ProcessActionEffectPacketDelegate>.FromAddress(processActionEffectPacketAddress, ProcessActionEffectPacketDetour);
                 _processActionEffectPacketHook.Enable();
                 
-                // ?? 20 81 FD F5 0D 00 00
-                // 74 20 81 FD F5 0D 00 00
-                _gtQueuePatch = Service.SigScanner.ScanModule("74 20 81 FD F5 0D 00 00");
-                Service.Log($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
+          
             }
-    
-           
+            // ?? 20 81 FD F5 0D 00 00
+            // 74 20 81 FD F5 0D 00 00
+            // F6 46 3A 01 ?? 20 81 FD F5 0D 00 00
+            // 74 20 81 FD F5 0D 00 00 74 18 81 FD FB 1C 00 00 74 10 81 FD 53 5F 00 00 74 08 81 FD 6F 73 00 00 75 49
+            // 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 74 ?? 81 FD ?? ?? ?? ?? 75 ??
+            _gtQueuePatch = Service.SigScanner.ScanText("74 20 81 FD F5 0D 00 00");
+            Service.Log($"[AMEx] GT1 queue check address = 0x{_gtQueuePatch:X} 0x{Service.SigScanner.ScanText("74 20 81 FD F5 0D 00 00"):X}");
+            // Service.Log($"[AMEx] GT2 queue check address = 0x{Service.SigScanner.ScanText("?? 20 81 FD F5 0D 00 00"):X}");
+            // Service.Log($"[AMEx] GT3 queue check address = 0x{Service.SigScanner.ScanText("3A 01 ?? 20 81 FD F5 0D 00 00"):X}");
+            
             AllowGTQueueing = true;
         }
 
