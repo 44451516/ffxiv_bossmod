@@ -131,7 +131,7 @@ namespace BossMod
             {
                 if (_gtQueuePatchEnabled != value)
                 {
-                    SafeMemory.WriteBytes(_gtQueuePatch, new byte[] { value ? (byte)0xEB : (byte)0x74 });
+                    // SafeMemory.WriteBytes(_gtQueuePatch, new byte[] { value ? (byte)0xEB : (byte)0x74 });
                     _gtQueuePatchEnabled = value;
                 }
             }
@@ -170,11 +170,14 @@ namespace BossMod
                 Service.Log($"[AMEx] ProcessActionEffectPacket address = 0x{processActionEffectPacketAddress:X}");
                 _processActionEffectPacketHook = Hook<ProcessActionEffectPacketDelegate>.FromAddress(processActionEffectPacketAddress, ProcessActionEffectPacketDetour);
                 _processActionEffectPacketHook.Enable();
+                
+                // ?? 20 81 FD F5 0D 00 00
+                // 74 20 81 FD F5 0D 00 00
+                _gtQueuePatch = Service.SigScanner.ScanModule("74 20 81 FD F5 0D 00 00");
+                Service.Log($"[AMEx] GT queue check address = 0x{_gtQueuePatch:X}");
             }
-            // ?? 20 81 FD F5 0D 00 00
-            // 
-            _gtQueuePatch = Service.SigScanner.ScanModule("F6 46 3A 01 ?? 20 81 FD F5 0D 00 00");
-
+    
+           
             AllowGTQueueing = true;
         }
 
