@@ -17,48 +17,48 @@ namespace BossMod
     {
         public enum Opcode
         {
-            ActionEffect1 = 0x0348,
-            ActionEffect8 = 0x02B7,
-            ActionEffect16 = 0x00F4,
-            ActionEffect24 = 0x015A,
-            ActionEffect32 = 0x01E5,
+            ActionEffect1 = 0x00FF,
+            ActionEffect8 = 0x032B,
+            ActionEffect16 = 0x02B1,
+            ActionEffect24 = 0x00B4,
+            ActionEffect32 = 0x0208,
             
-            ActorCast = 0x03DC,
-            ActorControl = 0x0108,
-            ActorControlSelf = 0x0154,
-            ActorControlTarget = 0x0320,
-            ActorGauge = 0x0293,
+            ActorCast = 0x017F,
+            ActorControl = 0x02C3,
+            ActorControlSelf = 0x0302,
+            ActorControlTarget = 0x03E2,
+            ActorGauge = 0x032E,
             
             
-            WaymarkPreset = 0x008D,
-            Waymark = 0x031E,
+            WaymarkPreset = 0x02C2,
+            Waymark = 0x0138,
             
-            EffectResult1 = 0x01FB, 
-            EffectResult4 = 0x02C3, 
-            EffectResult8 = 0x02A7, 
-            EffectResult16 = 0x021D, 
+            EffectResult1 = 0x0174, 
+            EffectResult4 = 0x01BB, 
+            EffectResult8 = 0x0155, 
+            EffectResult16 = 0x02CE, 
 
-            EffectResultBasic1 = 0x0100, 
-            EffectResultBasic4 = 0x0389, 
-            EffectResultBasic8 = 0x0283, 
-            EffectResultBasic16 = 0x030D, 
-            EffectResultBasic32 = 0x0351,
-            EffectResultBasic64 = 0x035C,
+            EffectResultBasic1 = 0x03D0,
+            EffectResultBasic4 = 0x0334,
+            EffectResultBasic8 = 0x00AA,
+            EffectResultBasic16 = 0x01F2,
+            EffectResultBasic32 = 0x034E,
+            EffectResultBasic64 = 0x0066,
 
 
-            EnvControl = 0x017A,
+            EnvControl = 0x0378,
 
-            UpdateRecastTimes = 0x01D8, 
+            UpdateRecastTimes = 0x0301, 
 
-            UpdateHate = 0x01A3, 
+            UpdateHate = 0x034F, 
 
-            UpdateHater = 0x01BF, 
+            UpdateHater = 0x0291, 
 
-            Countdown = 0x0160,
+            Countdown = 0x00C3,
 
-            CountdownCancel = 0x01C2,
+            CountdownCancel = 0x0193,
 
-            RSVData = 0x014F
+            RSVData = 0x0246
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
