@@ -1,30 +1,45 @@
-general:
-- optionally log raw ipcs when recording, visualize in replay analysis
-- simulate autorotation in replay analysis
-- move replay analysis to plugin
-- replay manager class
+autorotation rework:
+- priority action suggestions
+- control panel w/ presets and bindings
+- module registry supporting alternatives per job
+- bozja holster / action support
 - proper lb support
-- bozja action support
+- proper gcd time calculations
+- simulation in replay analysis
+
+network rework:
+- optionally log raw ipcs to replay
+- visualize in replay analysis, dump to file
+- utility to inject custom ipcs to the stream for debugging?
+
+general:
+- live replay
+-- checkbox - record ops to temp struct
+-- start record == rundown + start listening to main worldstate events
+-- on bossmodule activation == mark as 'interesting'
+-- on bossmodule deactivation or zone change == if current is interesting, move it to last (discard prev last); clear and restart current
+-- button to 'keep' last (add as temp to replay manager) or to 'save' last (save into replay file)
 - better timing tracking for: statuses, gauges, cooldowns, cast times, anim lock, ...
-- replay: global participant, track oid (existence) / name histories
 - constrain bossmodules to zone id (e.g. for T04)
-- waymarks from game state rather than network
+- refactor pendingeffects
 
 boss modules:
 - wipe should not fast forward all phases
-- aglaia revise, implement phases
 - fail log
 - boss module config presets/profiles
 
 autorotation:
+- don't fire 2mins on few % trash before boss...
+-- separate button?
+-- also don't re-dot?
+-- while shift is held?
 - dot/regen server tick tracking
-- brd cd planning
--- dots (do not apply but refresh / do not refresh / force refresh asap)
--- AA (delay / force)
--- songs (add options to force specific song asap)
--- other misc ogcds - pp, barrage, sidewinder (delay / force)
+- brd
+-- aoe rotation (2/3/4+ targets, barrage usage)
+-- take traits into account (ij proccing rs, ea proccing repertoire)
 - drg
--- l90
+-- priorities...
+-- dragon sight is a true north
 -- cd planning
 - war
 -- simulate gauge changes (message can arrive few frames after ActionEffect...)

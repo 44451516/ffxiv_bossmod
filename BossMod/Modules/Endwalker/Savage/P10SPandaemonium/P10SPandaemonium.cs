@@ -17,7 +17,7 @@ namespace BossMod.Endwalker.Savage.P10SPandaemonium
     class CirclesOfPandaemonium : Components.SelfTargetedAOEs
     {
         public CirclesOfPandaemonium() : base(ActionID.MakeSpell(AID.CirclesOfPandaemonium), new AOEShapeDonut(12, 40)) { }
-        public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor) => ActiveCasters.Select(c => new AOEInstance(Shape, new(module.Bounds.Center.X, Border.MainPlatformCenterZ - Border.MainPlatformHalfSize.Z), c.CastInfo!.Rotation, c.CastInfo.FinishAt, Color, Risky));
+        public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor) => ActiveCasters.Select(c => new AOEInstance(Shape, new(module.Bounds.Center.X, Border.MainPlatformCenterZ - Border.MainPlatformHalfSize.Z), c.CastInfo!.Rotation, c.CastInfo.NPCFinishAt, Color, Risky));
     }
 
     class Imprisonment : Components.SelfTargetedAOEs
@@ -51,6 +51,7 @@ namespace BossMod.Endwalker.Savage.P10SPandaemonium
         public P10SPandaemoniumConfig() : base(90) { }
     }
 
+    [ModuleInfo(CFCID = 939, NameID = 12354)]
     public class P10SPandaemonium : BossModule
     {
         public P10SPandaemonium(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsRect(new(100, 92.5f), 30, 22.5f)) { }

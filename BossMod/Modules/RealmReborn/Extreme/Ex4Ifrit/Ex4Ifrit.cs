@@ -20,10 +20,11 @@ namespace BossMod.RealmReborn.Extreme.Ex4Ifrit
         public CrimsonCyclone() : base(ActionID.MakeSpell(AID.CrimsonCyclone), new AOEShapeRect(49, 9)) { }
     }
 
+    [ModuleInfo(CFCID = 63, NameID = 1185)]
     public class Ex4Ifrit : BossModule
     {
-        public List<Actor> SmallNails;
-        public List<Actor> LargeNails;
+        public IReadOnlyList<Actor> SmallNails;
+        public IReadOnlyList<Actor> LargeNails;
 
         public Ex4Ifrit(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(0, 0), 20))
         {

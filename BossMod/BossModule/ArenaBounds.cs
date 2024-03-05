@@ -43,6 +43,7 @@ namespace BossMod
         public abstract IEnumerable<WPos> BuildClipPoly(float offset = 0); // positive offset increases area, negative decreases
         public abstract Pathfinding.Map BuildMap(float resolution = 0.5f);
         public abstract bool Contains(WPos p);
+        public abstract float IntersectRay(WPos origin, WDir dir);
         public abstract WDir ClampToBounds(WDir offset, float scale = 1);
         public WPos ClampToBounds(WPos position) => Center + ClampToBounds(position - Center);
 
@@ -60,7 +61,7 @@ namespace BossMod
                 (false, false) => CurveApprox.CircleSector(center, outerRadius, centerDirection - halfAngle, centerDirection + halfAngle, MaxApproxError),
                 (false,  true) => CurveApprox.Circle(center, outerRadius, MaxApproxError),
                 ( true, false) => CurveApprox.DonutSector(center, innerRadius, outerRadius, centerDirection - halfAngle, centerDirection + halfAngle, MaxApproxError),
-                ( true,  true) => CurveApprox.DonutSector(center, innerRadius, outerRadius, 0.0f.Radians(), (2 * MathF.PI).Radians(), MaxApproxError),
+                ( true,  true) => CurveApprox.Donut(center, innerRadius, outerRadius, MaxApproxError),
             };
             return ClipAndTriangulate(points);
         }
@@ -74,7 +75,7 @@ namespace BossMod
         {
             if (innerRadius >= outerRadius || innerRadius < 0)
                 return new();
-            return ClipAndTriangulate(CurveApprox.DonutSector(center, innerRadius, outerRadius, 0.0f.Radians(), (2 * MathF.PI).Radians(), MaxApproxError));
+            return ClipAndTriangulate(CurveApprox.Donut(center, innerRadius, outerRadius, MaxApproxError));
         }
 
         public List<(WPos, WPos, WPos)> ClipAndTriangulateTri(WPos a, WPos b, WPos c)
@@ -129,6 +130,7 @@ namespace BossMod
         }
 
         public override bool Contains(WPos position) => position.InCircle(Center, HalfSize);
+        public override float IntersectRay(WPos origin, WDir dir) => Intersect.RayCircle(origin, dir, Center, HalfSize);
 
         public override WDir ClampToBounds(WDir offset, float scale)
         {
@@ -154,6 +156,7 @@ namespace BossMod
 
         public override Pathfinding.Map BuildMap(float resolution) => new Pathfinding.Map(resolution, Center, HalfSize, HalfSize);
         public override bool Contains(WPos position) => WPos.AlmostEqual(position, Center, HalfSize);
+        public override float IntersectRay(WPos origin, WDir dir) => Intersect.RayRect(origin, dir, Center, new(0, 1), HalfSize, HalfSize);
 
         public override WDir ClampToBounds(WDir offset, float scale)
         {
@@ -192,6 +195,7 @@ namespace BossMod
 
         public override Pathfinding.Map BuildMap(float resolution) => new Pathfinding.Map(resolution, Center, HalfWidth, HalfHeight, Rotation);
         public override bool Contains(WPos position) => position.InRect(Center, Rotation, HalfHeight, HalfHeight, HalfWidth);
+        public override float IntersectRay(WPos origin, WDir dir) => Intersect.RayRect(origin, dir, Center, Rotation.ToDirection(), HalfWidth, HalfHeight);
 
         public override WDir ClampToBounds(WDir offset, float scale)
         {

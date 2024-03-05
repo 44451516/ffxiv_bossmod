@@ -48,7 +48,7 @@ namespace BossMod.Endwalker.HuntA.Storsie
             if (shape != null)
             {
                 _imminentAOE = shape;
-                _activation = module.WorldState.CurrentTime.AddSeconds(10.5f);
+                _activation = module.WorldState.CurrentTime.AddSeconds(10.4f);
             }
         }
 
@@ -74,6 +74,7 @@ namespace BossMod.Endwalker.HuntA.Storsie
         }
     }
 
+    [ModuleInfo(NotoriousMonsterID = 175)]
     public class Storsie : SimpleBossModule
     {
         public Storsie(WorldState ws, Actor primary) : base(ws, primary) { }

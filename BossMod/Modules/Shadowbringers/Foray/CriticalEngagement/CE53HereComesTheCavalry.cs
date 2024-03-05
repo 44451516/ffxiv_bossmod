@@ -94,8 +94,8 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE53HereComesTheCavalr
             {
                 _sources.Clear();
                 // charge always happens through center, so create two sources with origin at center looking orthogonally
-                _sources.Add(new(module.Bounds.Center, 12, spell.FinishAt, _shape, spell.Rotation + 90.Degrees(), Kind.DirForward));
-                _sources.Add(new(module.Bounds.Center, 12, spell.FinishAt, _shape, spell.Rotation - 90.Degrees(), Kind.DirForward));
+                _sources.Add(new(module.Bounds.Center, 12, spell.NPCFinishAt, _shape, spell.Rotation + 90.Degrees(), Kind.DirForward));
+                _sources.Add(new(module.Bounds.Center, 12, spell.NPCFinishAt, _shape, spell.Rotation - 90.Degrees(), Kind.DirForward));
             }
         }
 
@@ -154,6 +154,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE53HereComesTheCavalr
         }
     }
 
+    [ModuleInfo(CFCID = 778, DynamicEventID = 22)]
     public class CE53HereComesTheCavalry : BossModule
     {
         public CE53HereComesTheCavalry(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-750, 790), 25)) { }

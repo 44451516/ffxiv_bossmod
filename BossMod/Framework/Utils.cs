@@ -110,19 +110,14 @@ namespace BossMod
         public static unsafe float GameObjectRadius(GameObject obj) => GameObjectInternal(obj)->GetRadius();
         //public static unsafe Vector3 GameObjectNonInterpolatedPosition(GameObject obj) => ReadField<Vector3>(GameObjectInternal(obj), 0x10);
         //public static unsafe float GameObjectNonInterpolatedRotation(GameObject obj) => ReadField<float>(GameObjectInternal(obj), 0x20);
-        public static unsafe byte CharacterShieldValue(Character chr) => ShieldPercentage(chr); // CharacterInternal(chr)->ShieldValue; // % of max hp; see effect result
-        public static unsafe bool CharacterInCombat(Character chr) => CharacterInternal(chr)->InCombat; // see actor control 4
-        public static unsafe byte CharacterAnimationState(Character chr, bool second) => ReadField<byte>(CharacterInternal(chr), second ? 0x1B2B : 0x1B2A); // see actor control 62
-        public static unsafe byte CharacterModelState(Character chr) => ReadField<byte>(CharacterInternal(chr), 0x1B2C); // see actor control 63
-        public static unsafe float CharacterCastRotation(Character chr) => ReadField<float>(CharacterInternal(chr), 0x1AD0); // see ActorCast -> Character::StartCast
-        
-        
-        // public static unsafe ulong CharacterTargetID(Character chr) => ReadField<ulong>(CharacterInternal(chr), 0x1AB8); // until FFXIVClientStructs fixes offset and type...
-        public static unsafe ulong CharacterTargetID(Character chr) => CharacterInternal(chr)->TargetId; // until FFXIVClientStructs fixes offset and type...
-        public static unsafe ushort CharacterTetherID(Character chr) => ReadField<ushort>(CharacterInternal(chr), 0x1A50); // see actor control 35 -> Character::SetTether (note that there is also a secondary tether...)
-        // public static unsafe ushort CharacterTetherID(Character chr) => ReadField<ushort>(CharacterInternal(chr), 0x12F0 + 0xA0); // see actor control 35 -> CharacterTethers::Set (note that there is also a secondary tether...)
-
-        public static unsafe ulong CharacterTetherTargetID(Character chr) => ReadField<ulong>(CharacterInternal(chr), 0x1A60);
+        public static unsafe byte CharacterShieldValue(Character chr) => ReadField<byte>(CharacterInternal(chr), 0x1A0 + 0x46); // CharacterInternal(chr)->ShieldValue; // % of max hp; see effect result
+        public static unsafe bool CharacterInCombat(Character chr) => (ReadField<byte>(CharacterInternal(chr), 0x1EB) & 0x20) != 0; // see actor control 4
+        public static unsafe byte CharacterAnimationState(Character chr, bool second) => ReadField<byte>(CharacterInternal(chr), 0x970 + (second ? 0x2C2 : 0x2C1)); // see actor control 62
+        public static unsafe byte CharacterModelState(Character chr) => ReadField<byte>(CharacterInternal(chr), 0x970 + 0x2C0); // see actor control 63
+        public static unsafe float CharacterCastRotation(Character chr) => ReadField<float>(CharacterInternal(chr), 0x1B6C); // see ActorCast -> Character::StartCast
+        public static unsafe ulong CharacterTargetID(Character chr) => ReadField<ulong>(CharacterInternal(chr), 0x1B58); // until FFXIVClientStructs fixes offset and type...
+        public static unsafe ushort CharacterTetherID(Character chr) => ReadField<ushort>(CharacterInternal(chr), 0x12F0 + 0xA0); // see actor control 35 -> CharacterTethers::Set (note that there is also a secondary tether...)
+        public static unsafe ulong CharacterTetherTargetID(Character chr) => ReadField<ulong>(CharacterInternal(chr), 0x12F0 + 0xA0 + 0x10);
         public static unsafe Vector3 BattleCharaCastLocation(BattleChara chara) => BattleCharaInternal(chara)->GetCastInfo->CastLocation; // see ActorCast -> Character::StartCast -> Character::StartOmen
 
         public static unsafe uint FrameIndex() => FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance()->FrameCounter;
@@ -137,14 +132,7 @@ namespace BossMod
             var pronoun = FFXIVClientStructs.FFXIV.Client.UI.Misc.PronounModule.Instance();
             return pronoun != null && pronoun->UiMouseOverTarget != null ? pronoun->UiMouseOverTarget->ObjectID : 0;
         }
-        
 
-        public unsafe static byte ShieldPercentage(this Character chara)
-        {
-            FFXIVClientStructs.FFXIV.Client.Game.Character.BattleChara* baseVal = (FFXIVClientStructs.FFXIV.Client.Game.Character.BattleChara*)chara.Address;
-            var value = baseVal->Character.CharacterData.ShieldValue;
-            return value;
-        }
         public static unsafe ulong SceneObjectFlags(FFXIVClientStructs.FFXIV.Client.Graphics.Scene.Object* o)
         {
             return ReadField<ulong>(o, 0x38);

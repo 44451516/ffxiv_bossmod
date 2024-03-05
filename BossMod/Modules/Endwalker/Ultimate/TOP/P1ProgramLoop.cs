@@ -51,6 +51,11 @@ namespace BossMod.Endwalker.Ultimate.TOP
             }
         }
 
+        public override PlayerPriority CalcPriority(BossModule module, int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
+        {
+            return PlayerStates[playerSlot].Order == PlayerStates[pcSlot].Order % 4 + 1 ? PlayerPriority.Interesting : base.CalcPriority(module, pcSlot, pc, playerSlot, player, ref customColor);
+        }
+
         public override void DrawArenaForeground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
         {
             var ps = PlayerStates[pcSlot];
@@ -80,7 +85,7 @@ namespace BossMod.Endwalker.Ultimate.TOP
                 arena.AddLine(t.Position, module.PrimaryActor.Position, correctSoaker ? ArenaColor.Safe : ArenaColor.Danger, tetherToGrab ? 2 : 1);
             }
 
-            if (grabThisTether)
+            if (grabThisTether && NumTethersDone == NumTowersDone)
             {
                 // show hint for tether position
                 var spot = GetTetherDropSpot(module, ps.Group);
@@ -99,7 +104,7 @@ namespace BossMod.Endwalker.Ultimate.TOP
         {
             switch ((AID)spell.Action.ID)
             {
-                case AID.StorageViolation:
+                case AID.StorageViolation1:
                 case AID.StorageViolationObliteration:
                     ++NumTowersDone;
                     break;

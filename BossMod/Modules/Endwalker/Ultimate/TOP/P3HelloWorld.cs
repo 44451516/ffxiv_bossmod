@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace BossMod.Endwalker.Ultimate.TOP
@@ -15,10 +14,12 @@ namespace BossMod.Endwalker.Ultimate.TOP
         private TowerColor[] _initialRots = new TowerColor[PartyState.MaxPartySize];
         private TowerColor _defamationTowerColor;
         private BitMask _defamationTowers;
+        private BitMask _defamationRotDone;
+        private BitMask _stackRotDone;
 
         public override void AddHints(BossModule module, int slot, Actor actor, TextHints hints, MovementHints? movementHints)
         {
-            if (_initialRoles[slot] != PlayerRole.None)
+            if (_initialRoles[slot] != PlayerRole.None && NumCasts < 16)
                 hints.Add($"Next role: {RoleForNextTowers(slot)}", false);
 
             if (Towers.Count == 4)
@@ -58,7 +59,7 @@ namespace BossMod.Endwalker.Ultimate.TOP
             }
             else if (NumRotExplodes < NumCasts)
             {
-                if (RoleForNextTowers(slot) is PlayerRole.RemoteTether or PlayerRole.LocalTether)
+                if (PendingRot(slot))
                 {
                     if (module.Raid.WithoutSlot().InRadiusExcluding(actor, 5).Any())
                         hints.Add("GTFO from raid!");
@@ -66,7 +67,7 @@ namespace BossMod.Endwalker.Ultimate.TOP
                 else
                 {
                     // TODO: hint to grab rot?..
-                    if (module.Raid.WithSlot(true).WhereSlot(i => RoleForNextTowers(i) is PlayerRole.RemoteTether or PlayerRole.LocalTether).InRadius(actor.Position, 5).Any())
+                    if (module.Raid.WithSlot(true).WhereSlot(PendingRot).InRadius(actor.Position, 5).Any())
                         hints.Add("GTFO from rots!");
                 }
             }
@@ -76,14 +77,30 @@ namespace BossMod.Endwalker.Ultimate.TOP
 
         public override void AddGlobalHints(BossModule module, GlobalHints hints)
         {
-            if (_defamationTowerColor != TowerColor.None)
+            if (_defamationTowerColor != TowerColor.None && NumCasts < 16)
                 hints.Add($"Defamation color: {_defamationTowerColor}");
         }
 
         public override PlayerPriority CalcPriority(BossModule module, int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
         {
-            var role = _initialRoles[pcSlot];
-            return role != PlayerRole.None && role == _initialRoles[playerSlot] ? PlayerPriority.Danger : PlayerPriority.Normal;
+            var initialPCRole = _initialRoles[pcSlot];
+            var initialPlayerRole = _initialRoles[playerSlot];
+            if (initialPCRole == PlayerRole.None)
+                return PlayerPriority.Irrelevant; // mechanic not started yet
+            if (initialPCRole == initialPlayerRole)
+            {
+                customColor = ArenaColor.Vulnerable;
+                return PlayerPriority.Interesting; // partner
+            }
+            var avoidPlayer = (RoleForNextTowers(initialPCRole), RoleForNextTowers(initialPlayerRole)) switch
+            {
+                (PlayerRole.Defamation, _) => !_defamationRotDone[playerSlot],
+                (PlayerRole.Stack, _) => !_stackRotDone[playerSlot],
+                (_, PlayerRole.Defamation) => !_defamationRotDone[pcSlot],
+                (_, PlayerRole.Stack) => !_stackRotDone[pcSlot],
+                _ => false,
+            };
+            return avoidPlayer ? PlayerPriority.Danger : PlayerPriority.Normal;
         }
 
         public override void DrawArenaForeground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
@@ -114,7 +131,7 @@ namespace BossMod.Endwalker.Ultimate.TOP
             {
                 // draw rot 'spreads' (rots will explode on players who used to have defamation/stack role and thus now have one of the tether roles)
                 foreach (var (i, p) in module.Raid.WithSlot(true))
-                    if (RoleForNextTowers(i) is PlayerRole.RemoteTether or PlayerRole.LocalTether)
+                    if (PendingRot(i))
                         arena.AddCircle(p.Position, 5, ArenaColor.Danger);
             }
 
@@ -189,7 +206,17 @@ namespace BossMod.Endwalker.Ultimate.TOP
             switch ((AID)spell.Action.ID)
             {
                 case AID.HWRedRot:
+                    if (_defamationTowerColor == TowerColor.Red)
+                        _defamationRotDone.Set(module.Raid.FindSlot(spell.MainTargetID));
+                    else
+                        _stackRotDone.Set(module.Raid.FindSlot(spell.MainTargetID));
+                    ++NumRotExplodes;
+                    break;
                 case AID.HWBlueRot:
+                    if (_defamationTowerColor == TowerColor.Blue)
+                        _defamationRotDone.Set(module.Raid.FindSlot(spell.MainTargetID));
+                    else
+                        _stackRotDone.Set(module.Raid.FindSlot(spell.MainTargetID));
                     ++NumRotExplodes;
                     break;
                 case AID.HWTetherBreak:
@@ -265,6 +292,13 @@ namespace BossMod.Endwalker.Ultimate.TOP
         private int NextTowerOrder => NumCasts >> 2;
         private PlayerRole RoleForNextTowers(PlayerRole r, int offset = 0) => (PlayerRole)(((int)r + NextTowerOrder + offset) & 3);
         private PlayerRole RoleForNextTowers(int slot, int offset = 0) => RoleForNextTowers(_initialRoles[slot], offset);
+
+        private bool PendingRot(int slot) => RoleForNextTowers(slot) switch
+        {
+            PlayerRole.RemoteTether => !_defamationRotDone[slot],
+            PlayerRole.LocalTether => !_stackRotDone[slot],
+            _ => false
+        };
 
         private int PartnerSlot(int slot)
         {

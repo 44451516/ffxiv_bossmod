@@ -180,9 +180,17 @@ namespace BossMod.Components
             {
                 // draw spread and stack circles
                 foreach (var s in ActiveStacks)
+                {
+                    if (arena.Config.ShowOutlinesAndShadows)
+                        arena.AddCircle(s.Target.Position, s.Radius, 0xFF000000, 2);
                     arena.AddCircle(s.Target.Position, s.Radius, ArenaColor.Safe);
+                }
                 foreach (var s in ActiveSpreads)
+                {
+                    if (arena.Config.ShowOutlinesAndShadows)
+                        arena.AddCircle(s.Target.Position, s.Radius, 0xFF000000, 2);
                     arena.AddCircle(s.Target.Position, s.Radius, ArenaColor.Danger);
+                }
             }
         }
     }
@@ -232,11 +240,11 @@ namespace BossMod.Components
         {
             if (spell.Action == StackAction && module.WorldState.Actors.Find(spell.TargetID) is var stackTarget && stackTarget != null)
             {
-                AddStack(stackTarget, spell.FinishAt);
+                AddStack(stackTarget, spell.NPCFinishAt);
             }
             else if (spell.Action == SpreadAction && module.WorldState.Actors.Find(spell.TargetID) is var spreadTarget && spreadTarget != null)
             {
-                AddSpread(spreadTarget, spell.FinishAt);
+                AddSpread(spreadTarget, spell.NPCFinishAt);
             }
         }
 

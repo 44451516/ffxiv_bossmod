@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace BossMod.Endwalker.Unreal.Un5Thordan;
@@ -21,9 +20,9 @@ class HiemalStormSpread : Components.UniformStackSpread
     }
 }
 
-class HiemalStormVoidzone : Components.PersistentVoidzoneAtCastTarget
+class HiemalStormVoidzone : Components.PersistentVoidzone
 {
-    public HiemalStormVoidzone() : base(6, ActionID.MakeSpell(AID.HiemalStormAOE), m => m.Enemies(OID.HiemalStorm).Where(x => x.EventState != 7), 1.5f) { }
+    public HiemalStormVoidzone() : base(6, m => m.Enemies(OID.HiemalStorm).Where(x => x.EventState != 7)) { }
 }
 
 class SpiralPierce : Components.BaitAwayTethers
@@ -65,7 +64,7 @@ class HeavyImpact : Components.ConcentricAOEs
     public override void OnCastStarted(BossModule module, Actor caster, ActorCastInfo spell)
     {
         if ((AID)spell.Action.ID == AID.HeavyImpactAOE1)
-            AddSequence(caster.Position, spell.FinishAt, spell.Rotation);
+            AddSequence(caster.Position, spell.NPCFinishAt, spell.Rotation);
     }
 
     public override void OnEventCast(BossModule module, Actor caster, ActorCastEvent spell)

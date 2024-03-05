@@ -7,6 +7,7 @@
         OpticalUnit = 0x3D64, // R0.500, x1
         Tower1 = 0x1EB83C, // R0.500, EventObj type, spawn during fight (unlike Tower2, doesn't get eobjstate events on enter/exit)
         Tower2 = 0x1EB83D, // R0.500, EventObj type, spawn during fight
+        Tower3 = 0x1EB83E, // R0.500, EventObj type, spawn during fight (p5 sigma, requires two soakers)
         OmegaM = 0x3D60, // R3.000-5.010, spawn during fight (starts as M, turns into F)
         OmegaF = 0x3D61, // R3.000-5.010, spawn during fight (starts as F, turns into M)
         OmegaMHelper = 0x3D62, // R5.010, spawn during fight (never targetable)
@@ -15,15 +16,22 @@
         LeftArmUnit = 0x3D66, // R1.680, spawn during fight
         RightArmUnit = 0x3D67, // R1.680, spawn during fight
         P3IntermissionVoidzone = 0x1EB821, // R0.500, EventObj type, spawn during fight
-        OmegaMP5 = 0x3D68, // R5.010, spawn during fight
-        OmegaFP5 = 0x3D6A, // R5.010, spawn during fight
-        //_Gen_RearPowerUnit = 0x3D6B, // R6.720, spawn during fight
-        //_Gen_Omega = 0x3D6C, // R12.006, spawn during fight
-        //_Gen_Omega = 0x394D, // R12.502, spawn during fight
+        BossP5 = 0x3D68, // R5.010, spawn during fight (starts as M, changes model to F)
+        OmegaMP5 = 0x3D69, // R5.010, spawn during fight (never targetable)
+        OmegaFP5 = 0x3D6A, // R5.010, spawn during fight (never targetable)
+        RearPowerUnit = 0x3D6B, // R6.720, spawn during fight (never targetable, does rotating aoe)
+        BeetleHelper = 0x3D6C, // R12.006, spawn during fight (never targetable)
+        FinalHelper = 0x394D, // R12.502, spawn during fight (never targetable)
+        RocketPunch1 = 0x3D5D, // R1.500, spawn during fight (not sure which one is blue or yellow)
+        RocketPunch2 = 0x3D5E, // R1.500, spawn during fight
+        IntermissionAlpha = 0x3E75, // R0.900, spawn during fight (purely visual during pre-p6 intermission)
+        IntermissionOmegaF = 0x3E76, // R0.500, spawn during fight (purely visual during pre-p6 intermission)
+        BossP6 = 0x3D6D, // R13.000, spawn during fight
+        CosmoMeteor = 0x3D6E, // R3.000, spawn during fight (p6 big meteor)
+        CosmoComet = 0x3D6F, // R1.000, spawn during fight (p6 small comet)
 
         //_Gen_Actor1ea1a1 = 0x1EA1A1, // R2.000, x1, EventObj type
         //_Gen_Exit = 0x1E850B, // R0.500, x1, EventObj type
-
     };
 
     public enum AID : uint
@@ -31,7 +39,7 @@
         // p1
         AutoAttackP1 = 31741, // Boss->player, no cast, single-target
         ProgramLoop = 31491, // Boss->self, 4.0s cast, single-target, visual (first mechanic start)
-        StorageViolation = 31492, // Helper->self, no cast, range 3 circle tower
+        StorageViolation1 = 31492, // Helper->self, no cast, range 3 circle tower (1-man)
         StorageViolationObliteration = 31494, // Helper->self, no cast, range 100 circle if tower is unsoaked
         Blaster = 31495, // Boss->self, 7.9s cast, single-target, visual (first tethers explosion)
         BlasterRepeat = 31496, // Boss->self, no cast, single-target, visual (1-3 tether explosion)
@@ -124,6 +132,7 @@
         HWBlueTowerUnsoakedWipe = 31586, // Helper->self, no cast, range 100 circle - 'latent performance defect', wipe if blue tower was not soaked
         HWStack = 31574, // Helper->players, no cast, range 5 circle - 'critical synchronization bug', 2-man stack
         HWDefamation = 31575, // Helper->players, no cast, range 20 circle - 'critical overflow bug', defamation
+        HWStackExpireFail = 31576, // Helper->player, no cast, single-target - 'latent synchronization defect', damage-down if stack was not soaked in time
         HWDefamationExpireFail = 31577, // Helper->player, no cast, single-target - damage-down if defamation was not soaked in time
         HWRedRot = 31578, // Helper->players, no cast, range 5 circle - 'critical underflow bug' - aoe on red rot expiration
         HWBlueRot = 31579, // Helper->player, no cast, range 5 circle - 'critical performance bug' - aoe on blue rot expiration
@@ -152,20 +161,84 @@
         BlueScreenFail = 31613, // Helper->self, 1.0s cast, range 100 circle, wipe if hp is high enough
 
         // p5
-        AutoAttackP5 = 31745, // OmegaMP5->player, no cast, single-target
-        P5AppearM = 31621, // OmegaMP5->self, no cast, single-target, visual (appear)
+        AutoAttackP5M = 31745, // BossP5->player, no cast, single-target
+        AutoAttackP5F = 31746, // BossP5->player, no cast, single-target (after changing model)
+        P5AppearM = 31621, // BossP5->self, no cast, single-target, visual (appear)
         P5AppearF = 31622, // OmegaFP5->self, no cast, single-target, visual (appear)
-        P5SolarRay = 33196, // OmegaMP5->player, 5.0s cast, range 5 circle tankbuster
-        P5SolarRaySecond = 31489, // OmegaMP5->player, no cast, range 5 circle tankbuster second hit
-        RunMiDeltaVersion = 31624, // OmegaMP5->self, 5.0s cast, range 100 circle, raidwide
-        //_Ability_PeripheralSynthesis = 31628, // 3D6C->self, no cast, single-target
-        //_Ability_ArchivePeripheral = 32630, // 394D->self, no cast, single-target
-        //_Ability_Explosion = 31482, // 3D5D/3D5E->location, 3.0s cast, range 3 circle
-        //_Ability_UnmitigatedExplosion = 31483, // 3D5E/3D5D->location, 3.0s cast, range 100 circle
-        //_Ability_HyperPulse = 31600, // RightArmUnit/LeftArmUnit->self, 2.5s cast, range 100 width 8 rect
-        //_Ability_HyperPulse = 31601, // RightArmUnit/LeftArmUnit->self, no cast, range 100 width 8 rect
-        //_Ability_Hello, World = 31627, // Helper->self, no cast, range 100 circle
-        //_Ability_OversampledWaveCannon = 31639, // 394D->self, 10.0s cast, single-target
+        P5SolarRayM = 33196, // BossP5->player, 5.0s cast, range 5 circle tankbuster
+        P5SolarRayF = 33197, // BossP5->player, 5.0s cast, range 5 circle tankbuster (after changing model)
+        P5SolarRayMSecond = 31489, // BossP5->player, no cast, range 5 circle tankbuster second hit
+        P5SolarRayFSecond = 31490, // BossP5->player, no cast, range 5 circle tankbuster second hit (after changing model)
+
+        RunMiDeltaVersion = 31624, // BossP5->self, 5.0s cast, range 100 circle, raidwide
+        PeripheralSynthesis = 31628, // BeetleHelper->self, no cast, single-target, visual (spawn rocket punches)
+        ArchivePeripheral = 32630, // FinalHelper->self, no cast, single-target, visual (show rotating units)
+        DeltaExplosion = 31482, // RocketPunch1/RocketPunch2->location, 3.0s cast, range 3 circle puddle
+        DeltaUnmitigatedExplosion = 31483, // RocketPunch1/RocketPunch2->location, 3.0s cast, range 100 circle wipe if puddles are not overlapped correctly
+        DeltaHyperPulseFirst = 31600, // RightArmUnit/LeftArmUnit->self, 2.5s cast, range 100 width 8 rect, rotating aoe baited on closest target
+        DeltaHyperPulseRest = 31601, // RightArmUnit/LeftArmUnit->self, no cast, range 100 width 8 rect
+        DeltaOversampledWaveCannonR = 31638, // FinalHelper->self, 10.0s cast, single-target, visual (monitors cleaving right side)
+        DeltaOversampledWaveCannonL = 31639, // FinalHelper->self, 10.0s cast, single-target, visual (monitors cleaving left side)
+        SwivelCannonR = 31636, // BeetleHelper->self, 10.0s cast, range 60 210-degree cone
+        SwivelCannonL = 31637, // BeetleHelper->self, 10.0s cast, range 60 210-degree cone
+        HelloWorldWipe = 31627, // Helper->self, no cast, range 100 circle, wipe when near/distant fail
+        HelloNearWorld = 31625, // Helper->player, no cast, range 8 circle, initial hit
+        HelloNearWorldJump = 31626, // Helper->player, no cast, range 4 circle, jump to closest
+        HelloDistantWorld = 33040, // Helper->player, no cast, range 8 circle, initial hit
+        HelloDistantWorldJump = 33041, // Helper->player, no cast, range 4 circle, jump to farthest
+
+        RunMiSigmaVersion = 32788, // BossP5->self, 5.0s cast, range 100 circle, raidwide
+        SigmaSubjectSimulationF = 32559, // BossP5->self, no cast, single-target, visual (prepare to change model to F)
+        SigmaProgramLoop = 31640, // BeetleHelper->self, no cast, single-target, visual (apply looper debuffs)
+        SigmaHyperPulse = 31602, // RightArmUnit->self, no cast, range 100 width 6 rect
+        SigmaWaveCannon = 31603, // FinalHelper->self, 8.0s cast, single-target, visual (proteans)
+        SigmaWaveCannonAOE = 31604, // Helper->self, no cast, range 100 ?-degree cone
+        SigmaAnimationSwap = 32560, // BossP5->self, no cast, single-target, visual (M->F)
+        StorageViolation2 = 31493, // Helper->self, no cast, range 3 circle tower (2-man)
+        RearLasersFirst = 31631, // RearPowerUnit->self, 3.0s cast, range 50 width 12 rect
+        RearLasersRest = 31632, // RearPowerUnit->self, no cast, range 50 width 12 rect
+
+        RunMiOmegaVersion = 32789, // BossP5->self, 5.0s cast, range 100 circle, raidwide
+        OmegaDiffuseWaveCannonFront = 31643, // FinalHelper->self, 8.0s cast, single-target, visual (first set of cones, front/back)
+        OmegaDiffuseWaveCannonSides = 31644, // FinalHelper->self, 8.0s cast, single-target, visual (first set of cones, left/right)
+        OmegaDiffuseWaveCannonRepeatFront = 31607, // FinalHelper->self, no cast, single-target, visual (second set of cones, front/back)
+        OmegaDiffuseWaveCannonRepeatSides = 31608, // FinalHelper->self, no cast, single-target, visual (second set of cones, left/right)
+        OmegaDiffuseWaveCannonAOE = 31609, // Helper->self, 1.0s cast, range 100 120-degree cone
+        OmegaBlaster = 32374, // BeetleHelper->self, 11.9s cast, single-target, visual (tethers)
+        OmegaBlasterVisual = 31641, // BeetleHelper->self, no cast, single-target, ???
+        OmegaBlasterAOE = 32373, // Helper->player, no cast, range 15 circle aoe
+
+        BlindFaith = 31623, // BossP5->self, 10.0s cast, single-target, visual (enrage)
+        BlindFaithSuccess = 32626, // Helper->self, 1.2s cast, range 100 circle, raidwide with knockback
+        BlindFaithFail = 32627, // Helper->self, 1.2s cast, range 100 circle, enrage
+
+        // p6
+        P6CosmoMemory = 31649, // BossP6->self, 6.0s cast, range 100 circle, raidwide requiring lb3
+        AutoAttackP6 = 31747, // BossP6->self, no cast, single-target, visual (auto attacks at main target and farthest target)
+        FlashGale = 32223, // Helper->players, no cast, range 5 circle
+        CosmoArrow = 31650, // BossP6->self, 6.0s cast, single-target, visual (exasquares)
+        CosmoArrowFirst = 31651, // Helper->self, 8.0s cast, range 40 width 10 rect
+        CosmoArrowRest = 31652, // Helper->self, no cast, range 100 width 5 rect
+        CosmoArrowInhale = 32337, // Helper->self, 5.5s cast, single-target, visual (exasquare advance?)
+        CosmoDive = 31654, // BossP6->self, 5.6s cast, single-target, visual (2 tankbusters on closest + stack on furthest)
+        CosmoDiveTankbuster = 31655, // Helper->players, no cast, range 8 circle (tankbuster)
+        CosmoDiveStack = 31656, // Helper->players, no cast, range 6 circle 6-man stack
+        UnlimitedWaveCannon = 31660, // BossP6->self, 5.0s cast, single-target, visual (exaflares + puddles)
+        P6WaveCannonExaflareFirst = 31661, // Helper->self, 12.0s cast, range 8 circle
+        P6WaveCannonExaflareRest = 31662, // Helper->self, no cast, range 8 circle
+        P6WaveCannonPuddle = 31663, // Helper->self, 3.0s cast, range 6 circle baited puddle
+        P6WaveCannonProtean = 31657, // BossP6->self, 10.9s cast, single-target, visual (proteans + wild charge)
+        P6WaveCannonWildCharge = 31658, // BossP6->self, no cast, range 100 width 8 rect wild charge
+        P6WaveCannonProteanAOE = 31659, // Helper->self, no cast, range 100 width 8 rect
+        CosmoMeteor = 31664, // BossP6->self, 5.0s cast, single-target, visual (big puddles + meteors/comets spawn)
+        CosmoMeteorAOE = 31666, // Helper->self, 4.0s cast, range 10 circle puddle
+        CosmoMeteorSpread = 32699, // Helper->player, no cast, range 5 circle spread
+        CosmoMeteorCometEnrage = 31669, // CosmoComet->self, no cast, range 100 circle, wipe if comets not killed in time
+        CosmoMeteorStack = 31667, // Helper->players, no cast, range 6 circle 5-man stack
+        CosmoMeteorFlare = 31668, // Helper->players, no cast, range 100 circle with ? falloff
+        CosmoMeteorVisualEnd = 31665, // BossP6->self, no cast, single-target, visual (?)
+        MagicNumber = 31670, // BossP6->self, 5.0s cast, range 100 circle, raidwide requiring LB
+        RunMi = 31648, // BossP6->self, 16.0s cast, range 100 circle, enrage
     };
 
     public enum SID : uint
@@ -178,6 +251,7 @@
         RemoteGlitch = 3428, // none->player, extra=0x0
         SniperCannonFodder = 3425, // none->player, extra=0x0
         HighPoweredSniperCannonFodder = 3426, // none->player, extra=0x0
+        Invincibility = 671, // none->OmegaM, extra=0x0
 
         // hello world: all 'prep' statuses are replaced with actual statuses on expiration
         HWPrepStack = 3436, // none->player, extra=0x0 - 'synchronization code smell', stack preparation
@@ -200,8 +274,12 @@
         HWImmuneDefamation = 3431, // none->player, extra=0x0 - 'overflow debugger', replaces defamation after resolve
         HWImmuneRedRot = 3432, // none->player, extra=0x0 - 'underflow debugger', replaces red rot after resolve
         HWImmuneBlueRot = 3433, // none->player, extra=0x0 - 'performance debugger', replaces blue rot after resolve
+
         OversampledWaveCannonLoadingR = 3452, // none->player, extra=0x0, cleaves right side
         OversampledWaveCannonLoadingL = 3453, // none->player, extra=0x0, cleaves left side
+        HelloNearWorld = 3442, // none->player, extra=0x0
+        HelloDistantWorld = 3443, // none->player, extra=0x0
+        QuickeningDynamis = 3444, // Helper->player, extra=0x1/0x2/0x3
     };
 
     public enum IconID : uint
@@ -214,6 +292,9 @@
         PartySynergyCross = 419, // player
         Spotlight = 100, // player
         OptimizedMeteor = 346, // player
+        RotateCW = 156, // LeftArmUnit/RightArmUnit
+        RotateCCW = 157, // LeftArmUnit/RightArmUnit
+        SigmaWaveCannon = 244, // player
     };
 
     public enum TetherID : uint
@@ -225,5 +306,6 @@
         HWPrepRemoteTether = 201, // player->player - tether broken by moving away (preparation)
         HWLocalTether = 224, // player->player - tether broken by moving close
         HWRemoteTether = 225, // player->player - tether broken by moving away
+        SigmaHyperPulse = 17, // RightArmUnit->player
     };
 }

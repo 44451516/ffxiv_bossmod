@@ -108,11 +108,11 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE54NeverCryWolf
             {
                 case AID.AgeOfEndlessFrostFirstCW:
                     _increment = -40.Degrees();
-                    _nextActivation = spell.FinishAt;
+                    _nextActivation = spell.NPCFinishAt;
                     break;
                 case AID.AgeOfEndlessFrostFirstCCW:
                     _increment = 40.Degrees();
-                    _nextActivation = spell.FinishAt;
+                    _nextActivation = spell.NPCFinishAt;
                     break;
                 case AID.AgeOfEndlessFrostFirstAOE:
                     NumCasts = 0;
@@ -184,9 +184,10 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE54NeverCryWolf
         }
     }
 
+    [ModuleInfo(CFCID = 778, DynamicEventID = 25)]
     public class CE54NeverCryWolf : BossModule
     {
-        private List<Actor> _adds = new();
+        private IReadOnlyList<Actor> _adds;
 
         public CE54NeverCryWolf(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(-830, 190), 24))
         {

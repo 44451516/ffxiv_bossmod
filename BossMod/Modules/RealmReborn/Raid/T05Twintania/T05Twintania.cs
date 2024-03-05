@@ -141,12 +141,13 @@ namespace BossMod.RealmReborn.Raid.T05Twintania
         }
     }
 
+    [ModuleInfo(CFCID = 97, NameID = 1482)]
     public class T05Twintania : BossModule
     {
         public const float NeurolinkRadius = 2;
 
-        public List<Actor> ScourgeOfMeracydia;
-        public List<Actor> Neurolinks;
+        public IReadOnlyList<Actor> ScourgeOfMeracydia;
+        public IReadOnlyList<Actor> Neurolinks;
 
         public T05Twintania(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-3, -6.5f), 31))
         {

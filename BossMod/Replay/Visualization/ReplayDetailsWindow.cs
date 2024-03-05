@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using BossMod.ReplayAnalysis;
 
 namespace BossMod.ReplayVisualization
 {
@@ -39,9 +38,7 @@ namespace BossMod.ReplayVisualization
             _player.AdvanceTo(_first, _mgr.Update);
             _config = new(Service.Config, _player.WorldState);
             _events = new(data, MoveTo);
-            var replays = new List<Replay>();
-            replays.Add(data);
-            _analysis = new AnalysisManager(replays);
+            _analysis = new([data]);
         }
 
         protected override void Dispose(bool disposing)
@@ -66,7 +63,10 @@ namespace BossMod.ReplayVisualization
                 _mgr.ActiveModule.Draw(_azimuth / 180 * MathF.PI, _povSlot, null, true, true);
                 var drawTimerPost = DateTime.Now;
 
-                ImGui.TextUnformatted($"Current state: {_mgr.ActiveModule.StateMachine.ActiveState?.ID:X}, Time since pull: {_mgr.ActiveModule.StateMachine.TimeSinceActivation:f3}, Draw time: {(drawTimerPost - drawTimerPre).TotalMilliseconds:f3}ms, Components: {string.Join(", ", _mgr.ActiveModule.Components.Select(c => c.GetType().Name))}");
+                var compList = string.Join(", ", _mgr.ActiveModule.Components.Select(c => c.GetType().Name));
+                var playerOffset = (_mgr.WorldState.Party.Player()?.Position ?? _mgr.ActiveModule.Bounds.Center) - _mgr.ActiveModule.Bounds.Center;
+                var playerOffString = $"{playerOffset} [R={playerOffset.Length():f3}, dir={Angle.FromDirection(playerOffset)}]";
+                ImGui.TextUnformatted($"Current state: {_mgr.ActiveModule.StateMachine.ActiveState?.ID:X}, Time since pull: {_mgr.ActiveModule.StateMachine.TimeSinceActivation:f3}, Draw time: {(drawTimerPost - drawTimerPre).TotalMilliseconds:f3}ms, Components: {compList}, Player offset: {playerOffString}");
 
                 if (ImGui.CollapsingHeader("Plan execution"))
                 {
@@ -354,6 +354,7 @@ namespace BossMod.ReplayVisualization
             {
                 _hints.Clear();
                 _hints.FillPotentialTargets(_mgr.WorldState, _pfTank);
+                _hints.FillForcedTarget(_mgr.ActiveModule, _mgr.WorldState, player);
                 _hints.FillPlannedActions(_mgr.ActiveModule, _povSlot, player);
                 _mgr.ActiveModule.CalculateAIHints(_povSlot, player, Service.Config.Get<PartyRolesConfig>()[_mgr.WorldState.Party.ContentIDs[_povSlot]], _hints);
                 _hints.Normalize();

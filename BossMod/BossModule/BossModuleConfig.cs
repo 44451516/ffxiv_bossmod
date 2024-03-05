@@ -60,5 +60,8 @@
 
         [PropertyDisplay("总是显示所有活着的队伍成员")]
         public bool ShowIrrelevantPlayers = false;
+
+        [PropertyDisplay("Show outlines and shadows on various radar markings")]
+        public bool ShowOutlinesAndShadows = false;
     }
 }

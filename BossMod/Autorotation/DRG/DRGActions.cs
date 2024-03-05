@@ -45,17 +45,7 @@ namespace BossMod.DRG
             // targeting for aoe
             if (_state.Unlocked(AID.DoomSpike))
             {
-                var bestAOETarget = initial;
-                var bestAOECount = NumTargetsHitByAOEGCD(initial.Actor);
-                foreach (var candidate in Autorot.Hints.PriorityTargets.Where(e => e != initial && e.Actor.Position.InCircle(Player.Position, 10)))
-                {
-                    var candidateAOECount = NumTargetsHitByAOEGCD(candidate.Actor);
-                    if (candidateAOECount > bestAOECount)
-                    {
-                        bestAOETarget = candidate;
-                        bestAOECount = candidateAOECount;
-                    }
-                }
+                (var bestAOETarget, var bestAOECount) = FindBetterTargetBy(initial, 10, e => NumTargetsHitByAOEGCD(e.Actor));
 
                 if (bestAOECount >= 3)
                     return new(bestAOETarget, 3);
@@ -112,8 +102,8 @@ namespace BossMod.DRG
                 return new();
 
             ActionID res = new();
-            if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
-                res = Rotation.GetNextBestOGCD(_state, _strategy, deadline - _state.OGCDSlotLength);
+            //if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
+            //res = Rotation.GetNextBestOGCD(_state, _strategy, deadline - _state.OGCDSlotLength);
             if (!res && _state.CanWeave(deadline)) // second/only ogcd slot
                 res = Rotation.GetNextBestOGCD(_state, _strategy, deadline);
 
@@ -138,6 +128,7 @@ namespace BossMod.DRG
             _state.LanceChargeLeft = StatusDetails(Player, SID.LanceCharge, Player.InstanceID).Left;
             _state.RightEyeLeft = StatusDetails(Player, SID.RightEye, Player.InstanceID).Left;
             _state.TrueNorthLeft = StatusDetails(Player, SID.TrueNorth, Player.InstanceID).Left;
+            _state.LifeSurgeLeft = StatusDetails(Player, SID.LifeSurge, Player.InstanceID).Left;
 
             _state.TargetChaosThrustLeft = StatusDetails(Autorot.PrimaryTarget, _state.ExpectedChaoticSpring, Player.InstanceID).Left;
         }

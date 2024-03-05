@@ -113,10 +113,10 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE42FromBeyondTheGrave
                     _dualcast = true;
                     break;
                 case AID.SoulPurgeCircle:
-                    SetupImminentAOEs(_shapeCircle, _shapeDonut, caster.Position, spell.FinishAt);
+                    SetupImminentAOEs(_shapeCircle, _shapeDonut, caster.Position, spell.NPCFinishAt);
                     break;
                 case AID.SoulPurgeDonut:
-                    SetupImminentAOEs(_shapeDonut, _shapeCircle, caster.Position, spell.FinishAt);
+                    SetupImminentAOEs(_shapeDonut, _shapeCircle, caster.Position, spell.NPCFinishAt);
                     break;
             }
         }
@@ -193,6 +193,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE42FromBeyondTheGrave
         }
     }
 
+    [ModuleInfo(CFCID = 778, DynamicEventID = 20)]
     public class CE42FromBeyondTheGrave : BossModule
     {
         public CE42FromBeyondTheGrave(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-60, 800), 30)) { }

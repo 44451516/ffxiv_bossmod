@@ -43,6 +43,7 @@ namespace BossMod.RealmReborn.Dungeon.D08Qarn.D083Adjudicator
         }
     }
 
+    [ModuleInfo(CFCID = 9, NameID = 1570)]
     public class D083Adjudicator : BossModule
     {
         public D083Adjudicator(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(238, 0), 20)) { }
@@ -55,7 +56,7 @@ namespace BossMod.RealmReborn.Dungeon.D08Qarn.D083Adjudicator
                 e.Priority = (OID)e.Actor.OID switch
                 {
                     OID.MythrilVerge => 3,
-                    OID.SunJuror => WorldState.Actors.Where(other => (OID)other.OID is OID.Platform1 or OID.Platform2 or OID.Platform3).InRadius(e.Actor.Position, 1).Any() ? 2 : -1,
+                    OID.SunJuror => WorldState.Actors.Where(other => (OID)other.OID is OID.Platform1 or OID.Platform2 or OID.Platform3).InRadius(e.Actor.Position, 1).Any() ? 2 : AIHints.Enemy.PriorityForbidAI,
                     OID.Boss => 1,
                     _ => 0
                 };

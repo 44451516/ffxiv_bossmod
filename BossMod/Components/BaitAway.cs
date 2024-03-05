@@ -125,8 +125,14 @@ namespace BossMod.Components
         {
             base.DrawArenaForeground(module, pcSlot, pc, arena);
             if (DrawTethers)
+            {
                 foreach (var b in ActiveBaits)
+                {
+                    if (arena.Config.ShowOutlinesAndShadows)
+                        arena.AddLine(b.Source.Position, b.Target.Position, 0xFF000000, 2);
                     arena.AddLine(b.Source.Position, b.Target.Position, ArenaColor.Danger);
+                }
+            }
         }
 
         public override void OnTethered(BossModule module, Actor source, ActorTetherInfo tether)
@@ -182,6 +188,35 @@ namespace BossMod.Components
         {
             if (spell.Action == WatchedAction && module.WorldState.Actors.Find(spell.TargetID) is var target && target != null)
                 CurrentBaits.Add(new(caster, target, Shape));
+        }
+
+        public override void OnCastFinished(BossModule module, Actor caster, ActorCastInfo spell)
+        {
+            if (spell.Action == WatchedAction)
+                CurrentBaits.RemoveAll(b => b.Source == caster);
+        }
+    }
+
+    // a variation of BaitAwayCast for charges that end at target
+    public class BaitAwayChargeCast : GenericBaitAway
+    {
+        public float HalfWidth;
+
+        public BaitAwayChargeCast(ActionID aid, float halfWidth) : base(aid)
+        {
+            HalfWidth = halfWidth;
+        }
+
+        public override void Update(BossModule module)
+        {
+            foreach (var b in CurrentBaits)
+                ((AOEShapeRect)b.Shape).LengthFront = (b.Target.Position - b.Source.Position).Length();
+        }
+
+        public override void OnCastStarted(BossModule module, Actor caster, ActorCastInfo spell)
+        {
+            if (spell.Action == WatchedAction && module.WorldState.Actors.Find(spell.TargetID) is var target && target != null)
+                CurrentBaits.Add(new(caster, target, new AOEShapeRect(0, HalfWidth)));
         }
 
         public override void OnCastFinished(BossModule module, Actor caster, ActorCastInfo spell)

@@ -2,6 +2,7 @@
 {
     public enum ReplayLogFormat
     {
+
         [PropertyDisplay("压缩二进制")]
         BinaryCompressed,
 

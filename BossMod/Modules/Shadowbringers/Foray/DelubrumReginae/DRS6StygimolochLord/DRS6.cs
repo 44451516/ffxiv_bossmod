@@ -33,11 +33,12 @@ namespace BossMod.Shadowbringers.Foray.DelubrumReginae.DRS6StygimolochLord
     }
 
     // TODO: ManaFlame component - show reflect hints
+    [ModuleInfo(CFCID = 761, NameID = 9759)]
     public class DRS6 : BossModule
     {
-        private List<Actor> _monks;
-        private List<Actor> _ballsEarth;
-        private List<Actor> _ballsFire;
+        private IReadOnlyList<Actor> _monks;
+        private IReadOnlyList<Actor> _ballsEarth;
+        private IReadOnlyList<Actor> _ballsFire;
 
         public DRS6(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-416, -184), 40))
         {

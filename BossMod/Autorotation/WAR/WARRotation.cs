@@ -41,8 +41,8 @@ namespace BossMod.WAR
             {
                 Automatic = 0, // spend gauge either under raid buffs or if next downtime is soon (so that next raid buff window won't cover at least 4 GCDs)
 
-                [PropertyDisplay("Spend all gauge ASAP", 0x8000ff00)]
-                Spend = 1, // spend all gauge asap, don't bother conserving
+                [PropertyDisplay("Spend gauge freely", 0x8000ff00)]
+                Spend = 1, // spend all gauge, don't bother conserving - but still ensure that ST is properly maintained
 
                 [PropertyDisplay("Conserve unless under raid buffs", 0x8000ffff)]
                 ConserveIfNoBuffs = 2, // spend under raid buffs, conserve otherwise (even if downtime is imminent)
@@ -61,6 +61,12 @@ namespace BossMod.WAR
 
                 [PropertyDisplay("Use combo, unless it can't be finished before downtime and unless gauge and/or ST would overcap", 0x80c0c000)]
                 ComboFitBeforeDowntime = 7, // useful on late phases before downtime
+
+                [PropertyDisplay("Use combo until second-last step, then spend gauge", 0x80400080)]
+                PenultimateComboThenSpend = 8, // useful for ensuring ST extension is used right before long downtime
+
+                [PropertyDisplay("Force gauge spender if possible, even if ST is not up/running out soon", 0x8000ffc0)]
+                ForceSpend = 9, // useful right after downtime
             }
 
             public enum InfuriateUse : uint
@@ -72,6 +78,12 @@ namespace BossMod.WAR
 
                 [PropertyDisplay("Force unless NC active", 0x8000ff00)]
                 ForceIfNoNC = 2, // force use (if NC is not already active), even if gauge is overcapped
+
+                [PropertyDisplay("Use normally, but not during IR", 0x8000ffff)]
+                AutoUnlessIR = 3, // avoid overcap etc, but do not use if IR is active - useful before downtimes
+
+                [PropertyDisplay("Force use if charges are about to overcap (unless NC is already active), even if it would overcap gauge", 0x8000ff80)]
+                ForceIfChargesCapping = 4, // force use if at full charges
             }
 
             public enum PotionUse : uint
@@ -228,12 +240,13 @@ namespace BossMod.WAR
         public static bool ShouldSpendGauge(State state, Strategy strategy, bool aoe) => strategy.GaugeStrategy switch
         {
             Strategy.GaugeUse.Automatic or Strategy.GaugeUse.TomahawkIfNotInMelee => (state.RaidBuffsLeft > state.GCD || strategy.FightEndIn <= strategy.RaidBuffsIn + 10) && state.SurgingTempestLeft > state.GCD,
-            Strategy.GaugeUse.Spend => true,
+            Strategy.GaugeUse.Spend or Strategy.GaugeUse.ForceSpend => true,
             Strategy.GaugeUse.ConserveIfNoBuffs => state.RaidBuffsLeft > state.GCD,
             Strategy.GaugeUse.Conserve => false,
             Strategy.GaugeUse.ForceExtendST => false,
             Strategy.GaugeUse.ForceSPCombo => false,
             Strategy.GaugeUse.ComboFitBeforeDowntime => state.SurgingTempestLeft > state.GCD && strategy.FightEndIn <= state.GCD + 2.5f * ((aoe ? GetAOEComboLength(state.ComboLastMove) : GetSTComboLength(state.ComboLastMove)) - 1),
+            Strategy.GaugeUse.PenultimateComboThenSpend => state.ComboLastMove is AID.Maim or AID.Overpower,
             _ => true
         };
 
@@ -246,6 +259,9 @@ namespace BossMod.WAR
 
                 case Strategy.InfuriateUse.ForceIfNoNC:
                     return state.NascentChaosLeft <= state.GCD;
+
+                case Strategy.InfuriateUse.ForceIfChargesCapping:
+                    return state.NascentChaosLeft <= state.GCD && state.CD(CDGroup.Infuriate) <= state.AnimationLock;
 
                 default:
                     if (!state.TargetingEnemy)
@@ -260,6 +276,9 @@ namespace BossMod.WAR
                     // different logic before IR and after IR
                     if (state.Unlocked(AID.InnerRelease))
                     {
+                        if (strategy.InfuriateStrategy == Strategy.InfuriateUse.AutoUnlessIR && state.InnerReleaseLeft > state.GCD)
+                            return false;
+
                         // with IR, main purpose of infuriate is to generate gauge to burn in spend mode
                         if (ShouldSpendGauge(state, strategy, aoe))
                             return true;
@@ -427,6 +446,13 @@ namespace BossMod.WAR
             // forced SP combo
             if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceSPCombo)
                 return GetNextSTComboAction(state.ComboLastMove, AID.StormPath);
+            // forced combo until penultimate step
+            if (strategy.GaugeStrategy == Strategy.GaugeUse.PenultimateComboThenSpend && state.ComboLastMove != AID.Maim && state.ComboLastMove != AID.Overpower && (state.ComboLastMove != AID.HeavySwing || state.Gauge <= 90))
+                return aoe ? AID.Overpower : state.ComboLastMove == AID.HeavySwing ? AID.Maim : AID.HeavySwing;
+            // forced gauge spender
+            bool canUseFC = state.Gauge >= 50 || state.InnerReleaseStacks > 0 && state.Unlocked(AID.InnerRelease);
+            if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceSpend && canUseFC)
+                return GetNextFCAction(state, aoe);
 
             // forbid automatic PR when out of melee range, to avoid fucking up player positioning when avoiding mechanics
             float primalRendWindow = (strategy.PrimalRendUse == Strategy.OffensiveAbilityUse.Delay || state.RangeToTarget > 3) ? 0 : MathF.Min(state.PrimalRendLeft, strategy.PositionLockIn);
@@ -480,12 +506,12 @@ namespace BossMod.WAR
             // TODO: what if we have really high gauge and low ST? is it worth it to delay ST application to avoid overcapping gauge?
             if (!aoe)
             {
-                if (state.Unlocked(AID.StormEye) && state.SurgingTempestLeft <= state.GCD + 2.5f * (GetSTComboLength(state.ComboLastMove) - 1))
+                if (state.Unlocked(AID.StormEye) && state.SurgingTempestLeft <= state.GCD + 2.5f * GetSTComboLength(state.ComboLastMove))
                     return GetNextSTComboAction(state.ComboLastMove, AID.StormEye);
             }
             else
             {
-                if (state.Unlocked(TraitID.MasteringTheBeast) && state.SurgingTempestLeft <= state.GCD + (state.ComboLastMove != AID.Overpower ? 2.5f : 0))
+                if (state.Unlocked(TraitID.MasteringTheBeast) && state.SurgingTempestLeft <= state.GCD + 2.5f * (state.ComboLastMove != AID.Overpower ? 2 : 1))
                     return GetNextAOEComboAction(state.ComboLastMove);
             }
 
@@ -515,11 +541,11 @@ namespace BossMod.WAR
             // ok at this point, we just want to spend gauge - either because we're using greedy strategy, or something prevented us from casting combo
             if (primalRendWindow > state.GCD)
                 return AID.PrimalRend;
-            if (state.Gauge >= 50 || state.InnerReleaseStacks > 0 && state.Unlocked(AID.InnerRelease))
+            if (canUseFC)
                 return GetNextFCAction(state, aoe);
 
             // TODO: reconsider min time left...
-            return GetNextUnlockedComboAction(state, gcdDelay + 12.5f, aoe);
+            return GetNextUnlockedComboAction(state, strategy.GaugeStrategy == Strategy.GaugeUse.ForceSpend ? 0 : gcdDelay + 12.5f, aoe);
         }
 
         // window-end is either GCD or GCD - time-for-second-ogcd; we are allowed to use ogcds only if their animation lock would complete before window-end

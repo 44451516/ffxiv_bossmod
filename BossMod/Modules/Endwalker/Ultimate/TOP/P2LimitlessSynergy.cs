@@ -27,7 +27,7 @@ namespace BossMod.Endwalker.Ultimate.TOP
         private DateTime _activation;
         private BitMask _forbiddenStack;
 
-        public P2BeyondDefense() : base(6, 5, 6, alwaysShowSpreads: true) { }
+        public P2BeyondDefense() : base(6, 5, 3, alwaysShowSpreads: true) { }
 
         public override void Update(BossModule module)
         {
@@ -64,7 +64,7 @@ namespace BossMod.Endwalker.Ultimate.TOP
                 case AID.BeyondDefense:
                     _source = caster;
                     CurMechanic = Mechanic.Spread;
-                    _activation = spell.FinishAt.AddSeconds(0.2f);
+                    _activation = spell.NPCFinishAt.AddSeconds(0.2f);
                     break;
             }
         }
@@ -89,5 +89,34 @@ namespace BossMod.Endwalker.Ultimate.TOP
     class P2CosmoMemory : Components.CastCounter
     {
         public P2CosmoMemory() : base(ActionID.MakeSpell(AID.CosmoMemoryAOE)) { }
+    }
+
+    class P2OptimizedPassageOfArms : BossComponent
+    {
+        public Actor? _invincible;
+
+        public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+        {
+            if (_invincible != null)
+            {
+                var e = hints.PotentialTargets.FirstOrDefault(e => e.Actor == _invincible);
+                if (e != null)
+                {
+                    e.Priority = AIHints.Enemy.PriorityForbidFully;
+                }
+            }
+        }
+
+        public override void OnStatusGain(BossModule module, Actor actor, ActorStatus status)
+        {
+            if ((SID)status.ID == SID.Invincibility && (OID)actor.OID == OID.OmegaM)
+                _invincible = actor;
+        }
+
+        public override void OnStatusLose(BossModule module, Actor actor, ActorStatus status)
+        {
+            if ((SID)status.ID == SID.Invincibility && _invincible == actor)
+                _invincible = null;
+        }
     }
 }

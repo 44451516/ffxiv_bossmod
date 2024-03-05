@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BossMod.RealmReborn.Raid.T01Caduceus
 {
@@ -11,7 +9,7 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
         private Platforms? _platforms;
         private HoodSwing? _hoodSwing;
         private CloneMerge? _clone;
-        private List<Actor> _slimes = new();
+        private IReadOnlyList<Actor> _slimes = ActorEnumeration.EmptyList;
 
         public override void Init(BossModule module)
         {
@@ -101,7 +99,7 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
                     {
                         e.Priority = 1; // this is a baseline; depending on whether we want to prioritize clone vs boss, clone's priority changes
                         if (cloneSpawningSoon && e.Actor.FindStatus(SID.SteelScales) != null)
-                            e.Priority = -1; // stop dps until stack can be dropped
+                            e.Priority = AIHints.Enemy.PriorityForbidAI; // stop dps until stack can be dropped
                     }
                     else
                     {
@@ -128,9 +126,9 @@ namespace BossMod.RealmReborn.Raid.T01Caduceus
                     // for now, let kiter damage it until 20%
                     var predictedHP = (int)e.Actor.HP.Cur + module.WorldState.PendingEffects.PendingHPDifference(e.Actor.InstanceID);
                     e.Priority =
-                        //predictedHP > 0.7f * e.Actor.HP.Max ? (actor.Role is Role.Ranged or Role.Melee ? 3 : -1) :
-                        predictedHP > 0.2f * e.Actor.HP.Max ? (e.Actor.TargetID == actor.InstanceID ? 3 : -1) :
-                        -1;
+                        //predictedHP > 0.7f * e.Actor.HP.Max ? (actor.Role is Role.Ranged or Role.Melee ? 3 : AIHints.Enemy.PriorityForbidAI) :
+                        predictedHP > 0.2f * e.Actor.HP.Max ? (e.Actor.TargetID == actor.InstanceID ? 3 : AIHints.Enemy.PriorityForbidAI) :
+                        AIHints.Enemy.PriorityForbidAI;
                     e.ShouldBeTanked = false;
                     e.ForbidDOTs = true;
                 }

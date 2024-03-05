@@ -29,6 +29,7 @@ namespace BossMod.RealmReborn.Trial.T08ThornmarchH
         MograinOfDeathAOE = 29192, // Helper->player, 6.0s cast, range 6 circle spread
 
         PomHoly = 29211, // FurryfootKupliKipp->self, 5.0s cast, raidwide
+        PomCure = 29212, // FurryfootKupliKipp->PuksiPikoTheShaggysong, 3,0s cast, single-target
         MoggledayNightFever = 29213, // PuksiPikoTheShaggysong->self, 5.0s cast, range 30 120-degree cone aoe
 
         MoogleThrust = 29214, // PuknaPakoTheTailturner->player, 5.0s cast, single-target, tankbuster
@@ -158,7 +159,7 @@ namespace BossMod.RealmReborn.Trial.T08ThornmarchH
         }
     }
 
-    [ModuleInfo(PrimaryActorOID = (uint)OID.WhiskerwallKupdiKoop)]
+    [ModuleInfo(PrimaryActorOID = (uint)OID.WhiskerwallKupdiKoop, CFCID = 66, NameID = 725)]
     public class T08ThornmarchH : BossModule
     {
         public T08ThornmarchH(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(0, 0), 21)) { }

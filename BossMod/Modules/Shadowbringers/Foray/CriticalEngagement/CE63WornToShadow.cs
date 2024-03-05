@@ -70,7 +70,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE63WornToShadow
         public override void OnCastStarted(BossModule module, Actor caster, ActorCastInfo spell)
         {
             if (spell.Action == WatchedAction && _sources.FindIndex(e => e.source == caster) is var index && index >= 0)
-                _sources[index] = (caster, caster.Position, spell.FinishAt);
+                _sources[index] = (caster, caster.Position, spell.NPCFinishAt);
         }
 
         public override void OnCastFinished(BossModule module, Actor caster, ActorCastInfo spell)
@@ -108,12 +108,12 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE63WornToShadow
         public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             if (_bossAOE != null)
-                yield return new(_bossAOE, module.PrimaryActor.Position, module.PrimaryActor.CastInfo!.Rotation, module.PrimaryActor.CastInfo.FinishAt);
+                yield return new(_bossAOE, module.PrimaryActor.Position, module.PrimaryActor.CastInfo!.Rotation, module.PrimaryActor.CastInfo.NPCFinishAt);
 
             if (_addActivation != default)
                 foreach (var add in _addAOEs)
                     if (add.shape != null)
-                        yield return new(add.shape, add.caster.Position, add.caster.CastInfo?.Rotation ?? add.caster.Rotation, add.caster.CastInfo?.FinishAt ?? _addActivation);
+                        yield return new(add.shape, add.caster.Position, add.caster.CastInfo?.Rotation ?? add.caster.Rotation, add.caster.CastInfo?.NPCFinishAt ?? _addActivation);
         }
 
         public override void OnCastStarted(BossModule module, Actor caster, ActorCastInfo spell)
@@ -177,6 +177,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE63WornToShadow
         }
     }
 
+    [ModuleInfo(CFCID = 778, DynamicEventID = 28)]
     public class CE63WornToShadow : BossModule
     {
         public CE63WornToShadow(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-480, -690), 30)) { }

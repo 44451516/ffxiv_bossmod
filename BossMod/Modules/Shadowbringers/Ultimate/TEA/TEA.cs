@@ -84,10 +84,10 @@ namespace BossMod.Shadowbringers.Ultimate.TEA
         public P3DivineJudgmentRaidwide() : base(ActionID.MakeSpell(AID.DivineJudgmentRaidwide)) { }
     }
 
-    [ModuleInfo(PrimaryActorOID = (uint)OID.BossP1)]
+    [ModuleInfo(PrimaryActorOID = (uint)OID.BossP1, CFCID = 694)]
     public class TEA : BossModule
     {
-        private List<Actor> _liquidHand;
+        private IReadOnlyList<Actor> _liquidHand;
         public Actor? BossP1() => PrimaryActor.IsDestroyed ? null : PrimaryActor;
         public Actor? LiquidHand() => _liquidHand.FirstOrDefault();
 
@@ -97,7 +97,7 @@ namespace BossMod.Shadowbringers.Ultimate.TEA
         public Actor? CruiseChaser() => _cruiseChaser;
 
         private Actor? _alexPrime;
-        private List<Actor> _trueHeart;
+        private IReadOnlyList<Actor> _trueHeart;
         public Actor? AlexPrime() => _alexPrime;
         public Actor? TrueHeart() => _trueHeart.FirstOrDefault();
 

@@ -107,7 +107,7 @@
         public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             if (Casters.Count > 0)
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(module.Bounds.Center, module.Bounds.HalfSize - Distance), Casters[0].CastInfo!.FinishAt);
+                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(module.Bounds.Center, module.Bounds.HalfSize - Distance), Casters[0].CastInfo!.NPCFinishAt);
         }
     }
 
@@ -130,6 +130,7 @@
         }
     }
 
+    [ModuleInfo(CFCID = 830, NameID = 2137)]
     public class T04PortaDecumana1 : BossModule
     {
         public T04PortaDecumana1(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-772, -600), 20)) { }

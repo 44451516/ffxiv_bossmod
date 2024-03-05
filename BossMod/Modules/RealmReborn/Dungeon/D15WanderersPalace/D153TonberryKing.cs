@@ -32,6 +32,7 @@
         }
     }
 
+    [ModuleInfo(CFCID = 10, NameID = 1547)]
     public class D153TonberryKing : BossModule
     {
         public D153TonberryKing(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(73, -435), 30)) { }
@@ -44,7 +45,7 @@
             {
                 e.Priority = (OID)e.Actor.OID switch
                 {
-                    //OID.Tonberry => a.HP.Cur > 1 && rancorStacks < 3 ? 0 : -1, // note: we don't bother with them - let tank aoe them when they reach center and invuln high stacks...
+                    //OID.Tonberry => a.HP.Cur > 1 && rancorStacks < 3 ? 0 : AIHints.Enemy.PriorityForbidAI, // note: we don't bother with them - let tank aoe them when they reach center and invuln high stacks...
                     OID.Boss => 1,
                     _ => 0
                 };

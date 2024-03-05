@@ -17,6 +17,7 @@ namespace BossMod.Components
             public bool Active(BossModule module) => ForcedEnd > module.WorldState.CurrentTime || PendingMoves.Count > 0;
         }
 
+        public int NumActiveForcedMarches { get; private set; }
         public Dictionary<ulong, PlayerState> State = new(); // key = instance ID
         public float MovementSpeed = 6; // default movement speed, can be overridden if necessary
         public float ActivationLimit = float.MaxValue; // do not show pending moves that activate later than this limit
@@ -35,6 +36,8 @@ namespace BossMod.Components
         {
             foreach (var m in ForcedMovements(module, pc))
             {
+                if (arena.Config.ShowOutlinesAndShadows)
+                    arena.AddLine(m.from, m.to, 0xFF000000, 2);
                 arena.AddLine(m.from, m.to, ArenaColor.Danger);
                 arena.Actor(m.to, m.dir, ArenaColor.Danger);
             }
@@ -48,6 +51,18 @@ namespace BossMod.Components
         }
 
         public bool HasForcedMovements(BossModule module, Actor player) => State.GetValueOrDefault(player.InstanceID)?.Active(module) ?? false;
+
+        public void ActivateForcedMovement(Actor player, DateTime expiration)
+        {
+            State.GetOrAdd(player.InstanceID).ForcedEnd = expiration;
+            ++NumActiveForcedMarches;
+        }
+
+        public void DeactivateForcedMovement(Actor player)
+        {
+            State.GetOrAdd(player.InstanceID).ForcedEnd = default;
+            --NumActiveForcedMarches;
+        }
 
         public IEnumerable<(WPos from, WPos to, Angle dir)> ForcedMovements(BossModule module, Actor player)
         {
@@ -80,7 +95,6 @@ namespace BossMod.Components
     // typical forced march is driven by statuses
     public class StatusDrivenForcedMarch : GenericForcedMarch
     {
-        public int NumActiveForcedMarches { get; private set; } // TODO: should it be in base class instead?
         public float Duration;
         public uint[] Statuses; // 5 elements: fwd, left, back, right, forced
 
@@ -95,8 +109,7 @@ namespace BossMod.Components
             var statusKind = Array.IndexOf(Statuses, status.ID);
             if (statusKind == 4)
             {
-                State.GetOrAdd(actor.InstanceID).ForcedEnd = status.ExpireAt;
-                ++NumActiveForcedMarches;
+                ActivateForcedMovement(actor, status.ExpireAt);
             }
             else if (statusKind >= 0)
             {
@@ -109,8 +122,7 @@ namespace BossMod.Components
             var statusKind = Array.IndexOf(Statuses, status.ID);
             if (statusKind == 4)
             {
-                State.GetOrAdd(actor.InstanceID).ForcedEnd = default;
-                --NumActiveForcedMarches;
+                DeactivateForcedMovement(actor);
             }
             else if (statusKind >= 0)
             {

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
 {
@@ -19,8 +20,8 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
         SpiteWave = 20124, // Boss->self, 3.0s cast, single-target, visual (stack + puddles)
         HatefulMiasma = 20125, // Helper->players, 5.0s cast, range 6 circle stack
         PoisonedWords = 20126, // Helper->location, 5.0s cast, range 6 circle puddles
-        TalonedGaze = 20127, // Boss->self, 4.0s cast, single-target, visual (front/back > sides)
-        // TODO: taloned wings
+        TalonedGaze = 20127, // Boss->self, 4.0s cast, single-target, visual (front/back then sides)
+        TalonedWings = 20128, // Boss->self, 4,0s cast, single-target, visual, (sides then front/back)
         CoffinNails = 20129, // Helper->self, 4.7s cast, range 60 90-degree cone aoe
         Stab = 20130, // Boss->player, 4.0s cast, single-target, tankbuster
         GripOfPoison = 20131, // Boss->self, 4.0s cast, range 60 circle, raidwide
@@ -43,7 +44,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
 
     class GraspingRancor : Components.LocationTargetedAOEs
     {
-        private List<Actor> _hands = new();
+        private IReadOnlyList<Actor> _hands = ActorEnumeration.EmptyList;
 
         public GraspingRancor() : base(ActionID.MakeSpell(AID.PurifyingLight), 12)
         {
@@ -61,7 +62,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
             base.AddHints(module, slot, actor, hints, movementHints);
             if (Casters.Count > 0)
             {
-                var hand = _hands.Find(h => h.Tether.Target == actor.InstanceID);
+                var hand = _hands.FirstOrDefault(h => h.Tether.Target == actor.InstanceID);
                 if (hand != null)
                 {
                     bool shouldBeFrozen = Shape.Check(hand.Position, Casters[0].CastInfo!.LocXZ);
@@ -73,7 +74,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
 
         public override void DrawArenaForeground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
         {
-            var hand = _hands.Find(h => h.Tether.Target == pc.InstanceID);
+            var hand = _hands.FirstOrDefault(h => h.Tether.Target == pc.InstanceID);
             if (hand != null)
             {
                 bool isFrozen = hand.Tether.ID == (uint)TetherID.Frozen;
@@ -91,6 +92,16 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
     class PoisonedWords : Components.LocationTargetedAOEs
     {
         public PoisonedWords() : base(ActionID.MakeSpell(AID.PoisonedWords), 6) { }
+    }
+
+    class TalonedGaze : Components.CastHint
+    {
+        public TalonedGaze() : base(ActionID.MakeSpell(AID.TalonedGaze), "AOE front/back --> sides") { }
+    }
+
+    class TalonedWings : Components.CastHint
+    {
+        public TalonedWings() : base(ActionID.MakeSpell(AID.TalonedWings), "AOE sides --> front/back") { }
     }
 
     class CoffinNails : Components.SelfTargetedAOEs
@@ -121,6 +132,8 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
                 .ActivateOnEnter<GraspingRancor>()
                 .ActivateOnEnter<HatefulMiasma>()
                 .ActivateOnEnter<PoisonedWords>()
+                .ActivateOnEnter<TalonedGaze>()
+                .ActivateOnEnter<TalonedWings>()
                 .ActivateOnEnter<CoffinNails>()
                 .ActivateOnEnter<Stab>()
                 .ActivateOnEnter<GripOfPoison>()
@@ -128,6 +141,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE21FinalFurlong
         }
     }
 
+    [ModuleInfo(CFCID = 735, DynamicEventID = 6)]
     public class CE21FinalFurlong : BossModule
     {
         public CE21FinalFurlong(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(644, 228), 27)) { }

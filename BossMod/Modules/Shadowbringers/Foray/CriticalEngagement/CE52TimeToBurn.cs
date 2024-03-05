@@ -41,7 +41,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE52TimeToBurn
     {
         private DateTime _bombsActivation;
         private DateTime _eruptionStart; // timestamp of StartTime cast start
-        private List<Actor> _bombs = new();
+        private IReadOnlyList<Actor> _bombs = ActorEnumeration.EmptyList;
         private List<Actor> _cycloneCasters = new();
         private List<(WPos pos, TimeSpan delay)> _clocks = new();
         private List<WPos> _eruptionSafeSpots = new();
@@ -60,7 +60,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE52TimeToBurn
             else if (_cycloneCasters.Count > 0)
             {
                 foreach (var c in _cycloneCasters)
-                    yield return new(_shapeCyclone, c.Position, c.CastInfo!.Rotation, c.CastInfo.FinishAt);
+                    yield return new(_shapeCyclone, c.Position, c.CastInfo!.Rotation, c.CastInfo.NPCFinishAt);
             }
             else if (_eruptionStart != default)
             {
@@ -167,6 +167,7 @@ namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE52TimeToBurn
         }
     }
 
+    [ModuleInfo(CFCID = 778, DynamicEventID = 26)]
     public class CE52TimeToBurn : BossModule
     {
         public CE52TimeToBurn(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsSquare(new(-550, 0), 30)) { }

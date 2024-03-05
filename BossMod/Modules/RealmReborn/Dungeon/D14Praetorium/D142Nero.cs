@@ -38,7 +38,7 @@
         public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
         {
             if (Casters.Count > 0)
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(module.Bounds.Center, module.Bounds.HalfSize - Distance), Casters[0].CastInfo!.FinishAt);
+                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(module.Bounds.Center, module.Bounds.HalfSize - Distance), Casters[0].CastInfo!.NPCFinishAt);
         }
     }
 
@@ -71,6 +71,7 @@
         }
     }
 
+    [ModuleInfo(CFCID = 16, NameID = 2135)]
     public class D142Nero : BossModule
     {
         public D142Nero(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-164, 0), 20)) { }

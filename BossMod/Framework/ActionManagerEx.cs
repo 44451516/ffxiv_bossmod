@@ -129,12 +129,16 @@ namespace BossMod
         private delegate void ProcessPacketEffectResultDelegate(uint targetID, byte* packet, byte replaying);
         private Hook<ProcessPacketEffectResultDelegate> _processPacketEffectResultHook;
         private Hook<ProcessPacketEffectResultDelegate> _processPacketEffectResultBasicHook;
-        public AutorotationConfig mAutorotationConfig;
+
+        // it's a static function of StatusManager really
+        private delegate bool CancelStatusDelegate(uint statusId, uint sourceId);
+        private CancelStatusDelegate _cancelStatusFunc;
+
         public ActionManagerEx()
         {
             InputOverride = new();
             Config = Service.Config.Get<ActionManagerConfig>();
-            mAutorotationConfig = Service.Config.Get<AutorotationConfig>();
+
             _inst = ActionManager.Instance();
             Service.Log($"[AMEx] ActionManager singleton address = 0x{(ulong)_inst:X}");
 
@@ -145,46 +149,39 @@ namespace BossMod
             var faceTargetAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 81 FE FB 1C 00 00 74 ?? 81 FE 53 5F 00 00 74 ?? 81 FE 6F 73 00 00");
             _faceTargetFunc = Marshal.GetDelegateForFunctionPointer<FaceTargetDelegate>(faceTargetAddress);
             Service.Log($"[AMEx] FaceTarget address = 0x{faceTargetAddress:X}");
-            if (mAutorotationConfig.ActionManagerExHookEnabled == false)
-            {
-                _updateHook = Service.Hook.HookFromSignature<UpdateDelegate>("48 8B C4 48 89 58 20 57 48 81 EC", UpdateDetour);
-                _updateHook.Enable();
-                Service.Log($"[AMEx] Update address = 0x{_updateHook.Address:X}");
 
-                _useActionLocationHook = Service.Hook.HookFromSignature<UseActionLocationDelegate>("E8 ?? ?? ?? ?? 3C 01 0F 85 ?? ?? ?? ?? EB 46", UseActionLocationDetour);
-                _useActionLocationHook.Enable();
-                Service.Log($"[AMEx] UseActionLocation address = 0x{_useActionLocationHook.Address:X}");
+            _updateHook = Service.Hook.HookFromSignature<UpdateDelegate>("48 8B C4 48 89 58 20 57 48 81 EC", UpdateDetour);
+            _updateHook.Enable();
+            Service.Log($"[AMEx] Update address = 0x{_updateHook.Address:X}");
 
-                _processPacketActionEffectHook = Service.Hook.HookFromSignature<ProcessPacketActionEffectDelegate>("E8 ?? ?? ?? ?? 48 8B 4C 24 68 48 33 CC E8 ?? ?? ?? ?? 4C 8D 5C 24 70 49 8B 5B 20 49 8B 73 28 49 8B E3 5F C3", ProcessPacketActionEffectDetour);
-                _processPacketActionEffectHook.Enable();
-                Service.Log($"[AMEx] ProcessPacketActionEffect address = 0x{_processPacketActionEffectHook.Address:X}");
+            _useActionLocationHook = Service.Hook.HookFromSignature<UseActionLocationDelegate>("E8 ?? ?? ?? ?? 3C 01 0F 85 ?? ?? ?? ?? EB 46", UseActionLocationDetour);
+            _useActionLocationHook.Enable();
+            Service.Log($"[AMEx] UseActionLocation address = 0x{_useActionLocationHook.Address:X}");
 
-                _processPacketEffectResultHook = Service.Hook.HookFromSignature<ProcessPacketEffectResultDelegate>("48 8B C4 44 88 40 18 89 48 08", ProcessPacketEffectResultDetour);
-                _processPacketEffectResultHook.Enable();
-                Service.Log($"[AMEx] ProcessPacketEffectResult address = 0x{_processPacketEffectResultHook.Address:X}");
+            _processPacketActionEffectHook = Service.Hook.HookFromSignature<ProcessPacketActionEffectDelegate>("E8 ?? ?? ?? ?? 48 8B 4C 24 68 48 33 CC E8 ?? ?? ?? ?? 4C 8D 5C 24 70 49 8B 5B 20 49 8B 73 28 49 8B E3 5F C3", ProcessPacketActionEffectDetour);
+            _processPacketActionEffectHook.Enable();
+            Service.Log($"[AMEx] ProcessPacketActionEffect address = 0x{_processPacketActionEffectHook.Address:X}");
 
-                _processPacketEffectResultBasicHook = Service.Hook.HookFromSignature<ProcessPacketEffectResultDelegate>("40 53 41 54 41 55 48 83 EC 40", ProcessPacketEffectResultBasicDetour);
-                _processPacketEffectResultBasicHook.Enable();
-                
-                Service.Log($"[AMEx] ProcessPacketEffectResultBasic address = 0x{_processPacketEffectResultBasicHook.Address:X}");
-            }
-          
-            
-            
-            
-            
+            _processPacketEffectResultHook = Service.Hook.HookFromSignature<ProcessPacketEffectResultDelegate>("48 8B C4 44 88 40 18 89 48 08", ProcessPacketEffectResultDetour);
+            _processPacketEffectResultHook.Enable();
+            Service.Log($"[AMEx] ProcessPacketEffectResult address = 0x{_processPacketEffectResultHook.Address:X}");
+
+            _processPacketEffectResultBasicHook = Service.Hook.HookFromSignature<ProcessPacketEffectResultDelegate>("40 53 41 54 41 55 48 83 EC 40", ProcessPacketEffectResultBasicDetour);
+            _processPacketEffectResultBasicHook.Enable();
+            Service.Log($"[AMEx] ProcessPacketEffectResultBasic address = 0x{_processPacketEffectResultBasicHook.Address:X}");
+
+            var cancelStatusAddress = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 75 2C 48 8B 07");
+            _cancelStatusFunc = Marshal.GetDelegateForFunctionPointer<CancelStatusDelegate>(cancelStatusAddress);
+            Service.Log($"[AMEx] CancelStatus address = 0x{cancelStatusAddress:X}");
         }
 
         public void Dispose()
         {
-            if (mAutorotationConfig.ActionManagerExHookEnabled == false)
-            {
-                _processPacketEffectResultBasicHook.Dispose();
-                _processPacketEffectResultHook.Dispose();
-                _processPacketActionEffectHook.Dispose();
-                _useActionLocationHook.Dispose();
-                _updateHook.Dispose();
-            }
+            _processPacketEffectResultBasicHook.Dispose();
+            _processPacketEffectResultHook.Dispose();
+            _processPacketActionEffectHook.Dispose();
+            _useActionLocationHook.Dispose();
+            _updateHook.Dispose();
             InputOverride.Dispose();
         }
 
@@ -247,6 +244,16 @@ namespace BossMod
         public bool UseActionRaw(ActionID action, ulong targetID = GameObject.InvalidGameObjectId, Vector3 targetPos = new(), uint itemLocation = 0)
         {
             return UseActionLocationDetour(_inst, action.Type, action.ID, targetID, &targetPos, itemLocation);
+        }
+
+        // does all the sanity checks (that status is on actor, is a buff that can be canceled, etc.)
+        // on success, the status manager is updated immediately, meaning that no rate limiting is needed
+        // if sourceId is not specified, removes first status with matching id
+        public bool CancelStatus(uint statusId, uint sourceId = GameObject.InvalidGameObjectId)
+        {
+            var res = _cancelStatusFunc(statusId, sourceId);
+            Service.Log($"[AMEx] Canceling status {statusId} from {sourceId:X} -> {res}");
+            return res;
         }
 
         private void UpdateDetour(ActionManager* self)
@@ -370,6 +377,7 @@ namespace BossMod
 
         private void ProcessPacketActionEffectDetour(uint casterID, FFXIVClientStructs.FFXIV.Client.Game.Character.BattleChara* casterObj, Vector3* targetPos, Network.ServerIPC.ActionEffectHeader* header, ulong* effects, ulong* targets)
         {
+            var packetAnimLock = header->animationLockTime;
             if (ActionEffectReceived != null)
             {
                 // note: there's a slight difference with dispatching event from here rather than from packet processing (ActionEffectN) functions
@@ -423,9 +431,18 @@ namespace BossMod
                     float adjDelay = animLockDelay;
                     if (adjDelay > AnimationLockDelayMax)
                     {
-                        animLockReduction = Math.Min(adjDelay - AnimationLockDelayMax, currAnimLock);
-                        adjDelay -= animLockReduction;
-                        Utils.WriteField(_inst, 8, currAnimLock - animLockReduction);
+                        // sanity check for plugin conflicts
+                        if (header->animationLockTime != packetAnimLock || packetAnimLock % 0.01 is >= 0.0005f and <= 0.0095f)
+                        {
+                            Service.Log($"[AMEx] Unexpected animation lock {packetAnimLock:f} -> {header->animationLockTime:f}, disabling anim lock tweak feature");
+                            Config.RemoveAnimationLockDelay = false;
+                        }
+                        else
+                        {
+                            animLockReduction = Math.Min(adjDelay - AnimationLockDelayMax, currAnimLock);
+                            adjDelay -= animLockReduction;
+                            Utils.WriteField(_inst, 8, currAnimLock - animLockReduction);
+                        }
                     }
                     AnimationLockDelayAverage = adjDelay * (1 - AnimationLockDelaySmoothing) + AnimationLockDelayAverage * AnimationLockDelaySmoothing;
                 }

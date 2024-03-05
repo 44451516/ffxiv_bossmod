@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Authors></Authors>
     <Company></Company>
-    <Version>0.0.1.0</Version>
+    <Version>0.0.6.5</Version>
     <Description>Boss mod.</Description>
     <Copyright></Copyright>
     <PackageProjectUrl></PackageProjectUrl>
@@ -18,7 +18,7 @@
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <OutputPath>E:\Games\FFVIX\Dalamud6.0_API9\XIVLauncher\devPlugins\BossMod\</OutputPath>
+    <OutputPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\devPlugins\BossMod\</OutputPath>
   </PropertyGroup>
 
      <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">

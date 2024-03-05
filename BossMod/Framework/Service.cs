@@ -2,6 +2,7 @@
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
+using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using System;
 
@@ -24,6 +25,9 @@ namespace BossMod
         [PluginService] public static ICondition Condition { get; private set; }
         [PluginService] public static ITargetManager TargetManager { get; private set; }
         [PluginService] public static IFramework Framework { get; private set; }
+        [PluginService] public static ITextureProvider Texture { get; private set; }
+        [PluginService] public static ICommandManager CommandManager { get; private set; }
+        [PluginService] public static DalamudPluginInterface PluginInterface { get; private set; }
 #pragma warning restore CS8618
 
         public static Action<string>? LogHandler = null;

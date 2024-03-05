@@ -1,6 +1,4 @@
-﻿#if DEBUG // disabling for release for now, since this boss module is loaded in unexpected instances - it uses generic ARR helper OID; think of a better solution...
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace BossMod.RealmReborn.Raid.T04Gauntlet
@@ -14,6 +12,8 @@ namespace BossMod.RealmReborn.Raid.T04Gauntlet
         SpinnerRook = 0x7E3, // R0.500, spawn during fight
         ClockworkDreadnaught = 0x7E4, // R3.000, spawn during fight
         DriveCylinder = 0x1B2, // R0.500, x1
+        TerminalEnd = 0x1E86FA,
+        TerminalStart = 0x1E86F9,
     };
 
     public enum AID : uint
@@ -44,7 +44,7 @@ namespace BossMod.RealmReborn.Raid.T04Gauntlet
         public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor)
         {
             foreach (var c in ((T04Gauntlet)module).Rooks.Where(a => a.CastInfo?.TargetID == actor.InstanceID))
-                yield return new(_shape, c.Position, c.CastInfo!.Rotation, c.CastInfo.FinishAt);
+                yield return new(_shape, c.Position, c.CastInfo!.Rotation, c.CastInfo.NPCFinishAt);
         }
     }
 
@@ -61,7 +61,7 @@ namespace BossMod.RealmReborn.Raid.T04Gauntlet
         {
             _module = module;
             SimplePhase(0, SinglePhase, "Gauntlet")
-                .Raw.Update = () => module.PrimaryActor.IsDestroyed;
+                .Raw.Update = () => module.Enemies(OID.TerminalStart).Any(e => e.IsTargetable) || module.Enemies(OID.TerminalEnd).Any(e => e.IsTargetable) || module.Enemies(OID.TerminalStart) != null || module.Enemies(OID.TerminalEnd) != null;
         }
 
         private void SinglePhase(uint id)
@@ -78,16 +78,15 @@ namespace BossMod.RealmReborn.Raid.T04Gauntlet
         }
     }
 
-    // helper actor is destroyed immediately on combat end (be it a wipe or a kill), and is not recreated immediately after wipe (only after interacting with terminal), making it ideal for wipe checks
-    [ModuleInfo(PrimaryActorOID = (uint)OID.DriveCylinder)]
+    [ModuleInfo(PrimaryActorOID = (uint)OID.TerminalStart, CFCID = 96)]
     public class T04Gauntlet : BossModule
     {
-        public List<Actor> P1Bugs;
-        public List<Actor> Bugs;
-        public List<Actor> Soldiers;
-        public List<Actor> Knights;
-        public List<Actor> Rooks;
-        public List<Actor> Dreadnaughts;
+        public IReadOnlyList<Actor> P1Bugs;
+        public IReadOnlyList<Actor> Bugs;
+        public IReadOnlyList<Actor> Soldiers;
+        public IReadOnlyList<Actor> Knights;
+        public IReadOnlyList<Actor> Rooks;
+        public IReadOnlyList<Actor> Dreadnaughts;
 
         public T04Gauntlet(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(0, 0), 25))
         {
@@ -119,7 +118,7 @@ namespace BossMod.RealmReborn.Raid.T04Gauntlet
             }
         }
 
-        protected override bool CheckPull() => P1Bugs.Any(a => a.IsTargetable && a.InCombat);
+        protected override bool CheckPull() => !Enemies(OID.TerminalStart).Any(a => a.IsTargetable) && Enemies(OID.TerminalStart) != null;
 
         protected override void DrawEnemies(int pcSlot, Actor pc)
         {
@@ -138,5 +137,3 @@ namespace BossMod.RealmReborn.Raid.T04Gauntlet
         }
     }
 }
-
-#endif
