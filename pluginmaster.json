@@ -3,9 +3,9 @@
         "Author":  "veyn",
         "Name":  "Boss Mod",
         "InternalName":  "BossMod",
-        "AssemblyVersion":  "0.0.0.949",
-        "Description":  "2023_12_11_6.45cn_01",
-        "Changelog": "2023_12_11_6.45cn_01",
+        "AssemblyVersion":  "0.0.6.5",
+        "Description":  "2020305_6.50cn_01",
+        "Changelog": "2020305_6.50cn_01_以后将在API9分支更新",
         "ApplicableVersion":  "any",    
         "RepoUrl":  "https://github.com/awgil/ffxiv_bossmod",
         "DalamudApiLevel":  8,
@@ -20,8 +20,8 @@
         "IsHide":  "False",
         "IsTestingExclusive":  "False",
         "LastUpdate":  "1658532627",
-        "DownloadLinkInstall":  "https://github.com/44451516/ffxiv_bossmod/raw/cn2/release/BossMod/latest.zip",
-        "DownloadLinkTesting":  "https://github.com/44451516/ffxiv_bossmod/raw/cn2/release/BossMod/latest.zip",
-        "DownloadLinkUpdate":  "https://github.com/44451516/ffxiv_bossmod/raw/cn2/release/BossMod/latest.zip"
+        "DownloadLinkInstall":  "https://github.com/44451516/ffxiv_bossmod/raw/API9/release/BossMod/latest.zip",
+        "DownloadLinkTesting":  "https://github.com/44451516/ffxiv_bossmod/raw/API9/release/BossMod/latest.zip",
+        "DownloadLinkUpdate":  "https://github.com/44451516/ffxiv_bossmod/raw/API9/release/BossMod/latest.zip"
     }
 ]
