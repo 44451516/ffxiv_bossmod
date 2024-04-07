@@ -3,10 +3,11 @@
         "Author":  "veyn",
         "Name":  "Boss Mod",
         "InternalName":  "BossMod",
-        "AssemblyVersion": "0.0.6.5",
-        "Description":  "2024_03_05_6.50cn",
+        "AssemblyVersion": "0.0.6.51",
+        "Description":  "2024_04_07_6.50cn",
         "ApplicableVersion":  "any",    
         "RepoUrl":  "https://github.com/awgil/ffxiv_bossmod",
+        "Changelog": "以后去CN分支谢谢亲！",
         "DalamudApiLevel":  9,
         "LoadPriority":  0,
         "ImageUrls":  [

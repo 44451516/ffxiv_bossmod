@@ -1,13 +1,11 @@
-﻿namespace BossMod
-{
-    [ConfigDisplay(Parent = typeof(AutorotationConfig))]
-    class BRDConfig : ConfigNode
-    {
-     
-        [PropertyDisplay("在强力射击（单体）或连珠箭（群体）上执行最优循环")]
-        public bool FullRotation = true;
+﻿namespace BossMod;
 
-        [PropertyDisplay("智能定位光阴神的礼赞凯歌（如果友方，则目标，否则鼠标悬停，否则选择有可解除减益的随机队伍成员，否则选择自己）")]
-        public bool SmartWardensPaeanTarget = true;
-    }
+[ConfigDisplay(Parent = typeof(AutorotationConfig))]
+class BRDConfig : ConfigNode
+{
+    [PropertyDisplay("Execute optimal rotations on Heavy Shot (ST) or Quick Nock (AOE)")]
+    public bool FullRotation = true;
+
+    [PropertyDisplay("Smart targeting for Warden's Paean (target if friendly, otherwise mouseover if friendly, otherwise random party member with esunable debuff if available, otherwise self)")]
+    public bool SmartWardensPaeanTarget = true;
 }

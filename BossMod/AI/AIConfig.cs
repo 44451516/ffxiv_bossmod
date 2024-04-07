@@ -6,13 +6,14 @@
         [PropertyDisplay("启用AI")]
         public bool Enabled = false;
         
-        [PropertyDisplay("Draw UI")]
+        [PropertyDisplay("画 UI")]
         public bool DrawUI = true;
 
-        [PropertyDisplay("Follow Leader")]
+        [PropertyDisplay("跟随队长")]
         public bool FollowLeader = true;
 
-        [PropertyDisplay("Focus Target Leader")]
+        // [PropertyDisplay("Focus Target Leader")]
+        [PropertyDisplay("焦点目标设置为队长")]
         public bool FocusTargetLeader = true;
 
         [PropertyDisplay("向其他窗口广播按键")]

@@ -14,5 +14,16 @@
 
         [PropertyDisplay("格式化录像 logs")]
         public ReplayLogFormat WorldLogFormat = ReplayLogFormat.BinaryCompressed;
+
+
+        [PropertyDisplay("删除前保留的最大录像次数")]
+        [PropertySlider(0, 1000)]
+        public int MaxReplays = 0;
+
+        [PropertyDisplay("Auto record replays on duty start")]
+        public bool AutoRecord = false;
+
+        [PropertyDisplay("Auto stop replays on duty end")]
+        public bool AutoStop = false;
     }
 }
