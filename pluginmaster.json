@@ -4,9 +4,9 @@
         "Name":  "Boss Mod",
         "InternalName":  "BossMod",
         "AssemblyVersion": "0.0.6.51",
-        "Description":  "2024_04_07_6.50cn",
+        "Description":  "2024_04_07_UPDATE",
         "ApplicableVersion":  "any",    
-        "RepoUrl":  "https://github.com/awgil/ffxiv_bossmod",
+        "RepoUrl":  "https://github.com/44451516/ffxiv_bossmod",
         "Changelog": "以后去CN分支谢谢亲！",
         "DalamudApiLevel":  9,
         "LoadPriority":  0,
@@ -20,8 +20,8 @@
         "IsHide":  "False",
         "IsTestingExclusive":  "False",
         "LastUpdate":  "1658532627",
-        "DownloadLinkInstall":  "https://github.com/44451516/ffxiv_bossmod/raw/API9/release/BossMod/latest.zip",
-        "DownloadLinkTesting":  "https://github.com/44451516/ffxiv_bossmod/raw/API9/release/BossMod/latest.zip",
-        "DownloadLinkUpdate":  "https://github.com/44451516/ffxiv_bossmod/raw/API9/release/BossMod/latest.zip"
+        "DownloadLinkInstall":  "https://github.com/44451516/ffxiv_bossmod/raw/CN/release/BossMod/latest.zip",
+        "DownloadLinkTesting":  "https://github.com/44451516/ffxiv_bossmod/raw/CN/release/BossMod/latest.zip",
+        "DownloadLinkUpdate":  "https://github.com/44451516/ffxiv_bossmod/raw/CN/release/BossMod/latest.zip"
     }
 ]
