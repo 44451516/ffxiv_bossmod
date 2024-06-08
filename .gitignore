@@ -4,3 +4,8 @@ bin/
 *.user
 logs/
 .idea/
+release/FFXIVClientStructs.dll
+release/FFXIVClientStructs.pdb
+release/FFXIVClientStructs.xml
+release/InteropGenerator.Runtime.dll
+release/InteropGenerator.Runtime.pdb

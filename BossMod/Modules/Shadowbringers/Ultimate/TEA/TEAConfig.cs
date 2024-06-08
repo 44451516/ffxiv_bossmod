@@ -1,4 +1,6 @@
-﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
+﻿using BossMod.Modules.Shadowbringers;
+
+namespace BossMod.Shadowbringers.Ultimate.TEA;
 
 [ConfigDisplay(Order = 0x200, Parent = typeof(ShadowbringersConfig))]
 public class TEAConfig() : CooldownPlanningConfigNode(80)
