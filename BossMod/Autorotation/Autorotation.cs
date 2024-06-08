@@ -22,6 +22,7 @@ sealed class Autorotation : IDisposable
 
     private static readonly ActionID IDSprintGeneral = new(ActionType.General, 4);
 
+
     public unsafe Autorotation(BossModuleManager bossmods)
     {
         Bossmods = bossmods;
@@ -32,12 +33,18 @@ sealed class Autorotation : IDisposable
             WorldState.Client.ActionRequested.Subscribe(OnActionRequested),
             WorldState.Actors.CastEvent.Subscribe(OnCastEvent)
         );
-        ActionManagerEx.Instance!.FilterActionRequest += FilterActionRequest;
+        if (Config.ActionManagerExHookEnabled == false)
+        {
+            ActionManagerEx.Instance!.FilterActionRequest += FilterActionRequest;
+        }
     }
 
     public void Dispose()
     {
-        ActionManagerEx.Instance!.FilterActionRequest -= FilterActionRequest;
+        if (Config.ActionManagerExHookEnabled == false)
+        {
+            ActionManagerEx.Instance!.FilterActionRequest -= FilterActionRequest;
+        }
         _subscriptions.Dispose();
         _ui.Dispose();
         ClassActions?.Dispose();
