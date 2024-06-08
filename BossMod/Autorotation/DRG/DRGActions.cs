@@ -7,14 +7,13 @@ class Actions : CommonActions
     public const int AutoActionST = AutoActionFirstCustom + 0;
     public const int AutoActionAOE = AutoActionFirstCustom + 1;
 
-    private DRGConfig _config;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
+    private readonly ConfigListener<DRGConfig> _config;
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<DRGConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
 
@@ -26,13 +25,13 @@ class Actions : CommonActions
         SupportedSpell(AID.DoomSpike).TransformAction = SupportedSpell(AID.DraconianFury).TransformAction = () => ActionID.MakeSpell(_state.BestDoomSpike);
         SupportedSpell(AID.Geirskogul).TransformAction = SupportedSpell(AID.Nastrond).TransformAction = () => ActionID.MakeSpell(_state.BestGeirskogul);
 
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _config = Service.Config.GetAndSubscribe<DRGConfig>(OnConfigModified);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigModified;
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
@@ -80,24 +79,24 @@ class Actions : CommonActions
     protected override void QueueAIActions()
     {
         if (_state.Unlocked(AID.SecondWind))
-            SimulateManualActionForAI(ActionID.MakeSpell(AID.SecondWind), Player, Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.5f);
+            SimulateManualActionForAI(ActionID.MakeSpell(AID.SecondWind), Player, Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.5f);
         if (_state.Unlocked(AID.Bloodbath))
-            SimulateManualActionForAI(ActionID.MakeSpell(AID.Bloodbath), Player, Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.8f);
+            SimulateManualActionForAI(ActionID.MakeSpell(AID.Bloodbath), Player, Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.8f);
         // TODO: true north...
     }
 
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
         var aid = Rotation.GetNextBestGCD(_state, _strategy);
         return MakeResult(aid, Autorot.PrimaryTarget);
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         ActionID res = new();
         //if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
@@ -131,16 +130,25 @@ class Actions : CommonActions
         _state.TargetChaosThrustLeft = StatusDetails(Autorot.PrimaryTarget, _state.ExpectedChaoticSpring, Player.InstanceID).Left;
     }
 
-    private void OnConfigModified()
+    private void OnConfigModified(DRGConfig config)
     {
         // placeholders
-        SupportedSpell(AID.TrueThrust).PlaceholderForAuto = SupportedSpell(AID.RaidenThrust).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
-        SupportedSpell(AID.DoomSpike).PlaceholderForAuto = SupportedSpell(AID.DraconianFury).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
+        SupportedSpell(AID.TrueThrust).PlaceholderForAuto = SupportedSpell(AID.RaidenThrust).PlaceholderForAuto = config.FullRotation ? AutoActionST : AutoActionNone;
+        SupportedSpell(AID.DoomSpike).PlaceholderForAuto = SupportedSpell(AID.DraconianFury).PlaceholderForAuto = config.FullRotation ? AutoActionAOE : AutoActionNone;
 
         // combo replacement
 
         // smart targets
-        SupportedSpell(AID.DragonSight).TransformTarget = _config.SmartDragonSightTarget ? SmartTargetDragonSight : null;
+        SupportedSpell(AID.DragonSight).TransformTarget = config.SmartDragonSightTarget ? SmartTargetDragonSight : null;
+
+        // elusive jump aiming
+        SupportedSpell(AID.ElusiveJump).TransformAngle = config.ElusiveJump switch
+        {
+            DRGConfig.ElusiveJumpBehavior.CharacterForward => () => Player.Rotation + 180.Degrees(),
+            DRGConfig.ElusiveJumpBehavior.CameraBackward => () => Camera.Instance!.CameraAzimuth.Radians() + 180.Degrees(),
+            DRGConfig.ElusiveJumpBehavior.CameraForward => () => Camera.Instance!.CameraAzimuth.Radians(),
+            _ => null
+        };
     }
 
     private bool WithoutDOT(Actor a) => Rotation.RefreshDOT(_state, StatusDetails(a, SID.ChaosThrust, Player.InstanceID).Left);

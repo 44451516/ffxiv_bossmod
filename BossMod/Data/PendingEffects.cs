@@ -7,9 +7,9 @@
 // TODO: refactor:
 // - move out of worldstate, it has no business being here; things like replays handle this better anyway
 // - handle things we care about (hp, statuses, knockbacks) independently, taking into account how game handles all that stuff (no ER for buff reapplication or instant buffs, no ER for 100% overheals or holmgang 'overkills', etc etc)
-public class PendingEffects
+public sealed class PendingEffects
 {
-    public class Entry
+    public sealed class Entry
     {
         public DateTime Timestamp;
         public ulong Source;
@@ -46,7 +46,7 @@ public class PendingEffects
         }
     }
 
-    private List<Entry> _entries = new(); // implicitly sorted by timestamp/global sequence?
+    private readonly List<Entry> _entries = []; // implicitly sorted by timestamp/global sequence?
     public IReadOnlyList<Entry> Entries => _entries;
 
     public void AddEntry(DateTime ts, ulong source, ActorCastEvent ev)
@@ -102,7 +102,8 @@ public class PendingEffects
     public void RemoveExpired(DateTime ts)
     {
         var minRemaining = ts.AddSeconds(-3);
-        _entries.RemoveAll(e => {
+        _entries.RemoveAll(e =>
+        {
             bool expired = e.Timestamp < minRemaining;
             // note: this can happen if we misjudge and assume event required confirmation, but get none
             //if (expired)

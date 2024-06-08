@@ -10,48 +10,25 @@ public enum OID : uint
 public enum AID : uint
 {
     AutoAttack = 872, // 27CA->player, no cast, single-target
-    Rake = 15611, // 27CA->player, 3,0s cast, single-target
-    LumenInfinitum = 16818, // 27CA->self, 3,7s cast, range 40 width 5 rect
-    TyphoonWingA = 15615, // 27CA->self, 5,0s cast, single-target
-    TyphoonWingB = 15614, // 27CA->self, 5,0s cast, single-target
-    TyphoonWingC = 15617, // 27CA->self, 7,0s cast, single-target
-    TyphoonWingD = 15618, // 27CA->self, 7,0s cast, single-target
-    TyphoonWing = 15616, // 233C->self, 5,0s cast, range 25 60-degree cone
-    TyphoonWing2 = 17153, // 233C->self, 7,0s cast, range 25 60-degree cone
-    CycloneWing = 15612, // 27CA->self, 3,0s cast, single-target
-    CycloneWing2 = 15613, // 233C->self, 4,0s cast, range 40 circle
-    HurricaneWing = 15619, // 233C->self, 5,0s cast, range 10 circle
-};
-
-class Rake : Components.SingleTargetDelayableCast
-{
-    public Rake() : base(ActionID.MakeSpell(AID.Rake)) { }
+    Rake = 15611, // 27CA->player, 3.0s cast, single-target
+    LumenInfinitum = 16818, // 27CA->self, 3.7s cast, range 40 width 5 rect
+    TyphoonWingA = 15615, // 27CA->self, 5.0s cast, single-target
+    TyphoonWingB = 15614, // 27CA->self, 5.0s cast, single-target
+    TyphoonWingC = 15617, // 27CA->self, 7.0s cast, single-target
+    TyphoonWingD = 15618, // 27CA->self, 7.0s cast, single-target
+    TyphoonWing = 15616, // 233C->self, 5.0s cast, range 25 60-degree cone
+    TyphoonWing2 = 17153, // 233C->self, 7.0s cast, range 25 60-degree cone
+    CycloneWing = 15612, // 27CA->self, 3.0s cast, single-target
+    CycloneWing2 = 15613, // 233C->self, 4.0s cast, range 40 circle
+    HurricaneWing = 15619, // 233C->self, 5.0s cast, range 10 circle
 }
 
-class CycloneWing : Components.RaidwideCast
-{
-    public CycloneWing() : base(ActionID.MakeSpell(AID.CycloneWing2)) { }
-}
-
-class LumenInfinitum : Components.SelfTargetedAOEs
-{
-    public LumenInfinitum() : base(ActionID.MakeSpell(AID.LumenInfinitum), new AOEShapeRect(40, 2.5f)) { }
-}
-
-class HurricaneWing : Components.SelfTargetedAOEs
-{
-    public HurricaneWing() : base(ActionID.MakeSpell(AID.HurricaneWing), new AOEShapeCircle(10)) { }
-}
-
-class TyphoonWing : Components.SelfTargetedAOEs
-{
-    public TyphoonWing() : base(ActionID.MakeSpell(AID.TyphoonWing), new AOEShapeCone(25, 30.Degrees())) { }
-}
-
-class TyphoonWing2 : Components.SelfTargetedAOEs
-{
-    public TyphoonWing2() : base(ActionID.MakeSpell(AID.TyphoonWing2), new AOEShapeCone(25, 30.Degrees())) { }
-}
+class Rake(BossModule module) : Components.SingleTargetDelayableCast(module, ActionID.MakeSpell(AID.Rake));
+class CycloneWing(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.CycloneWing2));
+class LumenInfinitum(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LumenInfinitum), new AOEShapeRect(40, 2.5f));
+class HurricaneWing(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.HurricaneWing), new AOEShapeCircle(10));
+class TyphoonWing(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.TyphoonWing), new AOEShapeCone(25, 30.Degrees()));
+class TyphoonWing2(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.TyphoonWing2), new AOEShapeCone(25, 30.Degrees()));
 
 class D051ForgivenCrueltyStates : StateMachineBuilder
 {
@@ -68,7 +45,4 @@ class D051ForgivenCrueltyStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 659, NameID = 8260)]
-public class D051ForgivenCruelty : BossModule
-{
-    public D051ForgivenCruelty(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(188, -170), 20)) { }
-}
+public class D051ForgivenCruelty(WorldState ws, Actor primary) : BossModule(ws, primary, new(188, -170), new ArenaBoundsCircle(20));

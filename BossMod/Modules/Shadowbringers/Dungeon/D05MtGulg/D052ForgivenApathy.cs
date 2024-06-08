@@ -17,26 +17,17 @@ public enum AID : uint
     RavenousBite = 16812, // 28EF->player, no cast, single-target
     AetherialPull = 16242, // 28F0->self, no cast, single-target
     AetherialPull2 = 16243, // 233C->self, no cast, range 50 circle, pull 50 between hitboxes, can most likely be ignored
-    EarthShaker = 16244, // 28F0->self, 5,0s cast, single-target
-    EarthShaker2 = 16245, // 233C->self, 5,0s cast, range 60 60-degree cone
-    Sanctification = 16814, // 28F2->self, 5,0s cast, range 12 90-degree cone
-    PunitiveLight = 16815, // 28F2->self, 5,0s cast, range 20 circle
-};
-
-class PunitiveLight : Components.CastInterruptHint
-{ //Note: this attack is a r20 circle, not drawing it because it is too big and the damage not all that high even if interrupt/stun fails
-    public PunitiveLight() : base(ActionID.MakeSpell(AID.PunitiveLight), true, true, "Raidwide", true) { }
+    EarthShaker = 16244, // 28F0->self, 5.0s cast, single-target
+    EarthShaker2 = 16245, // 233C->self, 5.0s cast, range 60 60-degree cone
+    Sanctification = 16814, // 28F2->self, 5.0s cast, range 12 90-degree cone
+    PunitiveLight = 16815, // 28F2->self, 5.0s cast, range 20 circle
 }
 
-class Sanctification : Components.SelfTargetedAOEs
-{
-    public Sanctification() : base(ActionID.MakeSpell(AID.Sanctification), new AOEShapeCone(12, 45.Degrees())) { }
-}
+//Note: this attack is a r20 circle, not drawing it because it is too big and the damage not all that high even if interrupt/stun fails
+class PunitiveLight(BossModule module) : Components.CastInterruptHint(module, ActionID.MakeSpell(AID.PunitiveLight), true, true, "Raidwide", true);
 
-class EarthShaker : Components.SelfTargetedAOEs
-{
-    public EarthShaker() : base(ActionID.MakeSpell(AID.EarthShaker2), new AOEShapeCone(60, 30.Degrees())) { }
-}
+class Sanctification(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Sanctification), new AOEShapeCone(12, 45.Degrees()));
+class EarthShaker(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.EarthShaker2), new AOEShapeCone(60, 30.Degrees()));
 
 class D052ForgivenApathyStates : StateMachineBuilder
 {
@@ -50,16 +41,9 @@ class D052ForgivenApathyStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 659, NameID = 8267)]
-public class D052ForgivenApathy : BossModule
+public class D052ForgivenApathy(WorldState ws, Actor primary)
+    : BossModule(ws, primary, primary.Position.X > -100 ? new(5, -198.5f) : new(-187.5f, -118), primary.Position.X > -100 ? new ArenaBoundsRect(8, 17, 105.Degrees()) : new ArenaBoundsRect(12, 21, 120.Degrees()))
 {
-    public D052ForgivenApathy(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(0, 0), 0)) { }
-    protected override void UpdateModule()
-    {
-        if (PrimaryActor.Position.AlmostEqual(new(-11, -193), 1))
-            Arena.Bounds = new ArenaBoundsRect(new(5, -198.5f), 8, 17, 105.Degrees());
-        if (PrimaryActor.Position.AlmostEqual(new(-204, -106), 1))
-            Arena.Bounds = new ArenaBoundsRect(new(-187.5f, -118), 12, 21, 120.Degrees());
-    }
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
         Arena.Actor(PrimaryActor, ArenaColor.Enemy);

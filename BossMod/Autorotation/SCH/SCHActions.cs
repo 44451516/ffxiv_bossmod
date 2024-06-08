@@ -5,15 +5,14 @@ namespace BossMod.SCH;
 // TODO: this is shit, like all healer modules...
 class Actions : HealerActions
 {
-    private SCHConfig _config;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
     private bool _allowDelayingNextGCD;
+    private readonly ConfigListener<SCHConfig> _config;
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<SCHConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
 
@@ -22,14 +21,13 @@ class Actions : HealerActions
         SupportedSpell(AID.Bio1).TransformAction = SupportedSpell(AID.Bio2).TransformAction = SupportedSpell(AID.Biolysis).TransformAction = () => ActionID.MakeSpell(_state.BestBio);
         SupportedSpell(AID.ArtOfWar1).TransformAction = SupportedSpell(AID.ArtOfWar2).TransformAction = () => ActionID.MakeSpell(_state.BestArtOfWar);
 
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _config = Service.Config.GetAndSubscribe<SCHConfig>(OnConfigModified);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigModified;
-        base.Dispose();
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
@@ -65,11 +63,11 @@ class Actions : HealerActions
     {
     }
 
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         // TODO: rework, implement non-ai...
         if (_state.Unlocked(AID.SummonSelene) && _state.Fairy == null)
-            return MakeResult(_config.PreferSelene ? AID.SummonSelene : AID.SummonEos, Player);
+            return MakeResult(_config.Data.PreferSelene ? AID.SummonSelene : AID.SummonEos, Player);
 
         // AI: aoe heals > st heals > esuna > damage
         // i don't really think 'rotation/actions' split is particularly good fit for healers AI...
@@ -98,18 +96,18 @@ class Actions : HealerActions
         if (_state.CurMP > 3000 && Autorot.PrimaryTarget != null)
             return MakeResult(Rotation.GetNextBestDamageGCD(_state, _strategy), Autorot.PrimaryTarget);
 
-        return new(); // chill
+        return default; // chill
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         if (deadline < float.MaxValue && _allowDelayingNextGCD)
             deadline += 0.4f + _state.AnimationLockDelay;
 
-        NextAction res = new();
+        ActionQueue.Entry res = default;
         if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
             res = GetNextBestOGCD(deadline - _state.OGCDSlotLength);
         if (!res.Action && _state.CanWeave(deadline)) // second/only ogcd slot
@@ -117,7 +115,7 @@ class Actions : HealerActions
         return res;
     }
 
-    private NextAction GetNextBestOGCD(float deadline)
+    private ActionQueue.Entry GetNextBestOGCD(float deadline)
     {
         // TODO: L52+
         // TODO: fey illumination
@@ -150,7 +148,7 @@ class Actions : HealerActions
         if (_state.CurMP <= 7000 && _state.Unlocked(AID.LucidDreaming) && _state.CanWeave(CDGroup.LucidDreaming, 0.6f, deadline))
             return MakeResult(AID.LucidDreaming, Player);
 
-        return new();
+        return default;
     }
 
     protected override void OnActionSucceeded(ActorCastEvent ev)
@@ -176,7 +174,7 @@ class Actions : HealerActions
 
     private bool WithoutDOT(Actor a) => Rotation.RefreshDOT(_state, StatusDetails(a, _state.ExpectedBio, Player.InstanceID).Left);
 
-    private void OnConfigModified()
+    private void OnConfigModified(SCHConfig config)
     {
         // placeholders
         //SupportedSpell(AID.Ruin1).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
@@ -186,6 +184,6 @@ class Actions : HealerActions
         SupportedSpell(AID.Physick).TransformTarget = SupportedSpell(AID.Adloquium).TransformTarget = SupportedSpell(AID.Lustrate).TransformTarget
             = SupportedSpell(AID.DeploymentTactics).TransformTarget = SupportedSpell(AID.Excogitation).TransformTarget = SupportedSpell(AID.Aetherpact).TransformTarget
             = SupportedSpell(AID.Resurrection).TransformTarget = SupportedSpell(AID.Esuna).TransformTarget = SupportedSpell(AID.Rescue).TransformTarget
-            = _config.MouseoverFriendly ? SmartTargetFriendly : null;
+            = config.MouseoverFriendly ? SmartTargetFriendly : null;
     }
 }

@@ -6,42 +6,48 @@ public enum Waymark : byte
 }
 
 // waymark positions in world; part of the world state structure
-public class WaymarkState
+public sealed class WaymarkState
 {
-    private Vector3?[] _positions = new Vector3?[8]; // null if unset
+    private BitMask _setMarkers;
+    private readonly Vector3[] _positions = new Vector3[(int)Waymark.Count];
+
+    public Vector3? this[int wm]
+    {
+        get => _setMarkers[wm] ? _positions[wm] : null;
+        private set
+        {
+            _setMarkers[wm] = value != null;
+            _positions[wm] = value ?? default;
+        }
+    }
 
     public Vector3? this[Waymark wm]
     {
-        get => _positions[(int)wm];
-        private set => _positions[(int)wm] = value;
+        get => this[(int)wm];
+        private set => this[(int)wm] = value;
     }
 
     public IEnumerable<WorldState.Operation> CompareToInitial()
     {
-        for (int i = 0; i < _positions.Length; ++i)
-            if (_positions[i] != null)
-                yield return new OpWaymarkChange() { ID = (Waymark)i, Pos = _positions[i] };
+        foreach (var i in _setMarkers.SetBits())
+            yield return new OpWaymarkChange((Waymark)i, _positions[i]);
     }
 
     // implementation of operations
-    public event Action<OpWaymarkChange>? Changed;
-    public class OpWaymarkChange : WorldState.Operation
+    public Event<OpWaymarkChange> Changed = new();
+    public sealed record class OpWaymarkChange(Waymark ID, Vector3? Pos) : WorldState.Operation
     {
-        public Waymark ID;
-        public Vector3? Pos;
-
         protected override void Exec(WorldState ws)
         {
             ws.Waymarks[ID] = Pos;
-            ws.Waymarks.Changed?.Invoke(this);
+            ws.Waymarks.Changed.Fire(this);
         }
-
         public override void Write(ReplayRecorder.Output output)
         {
             if (Pos != null)
-                WriteTag(output, "WAY+").Emit((byte)ID).Emit(Pos.Value);
+                output.EmitFourCC("WAY+"u8).Emit((byte)ID).Emit(Pos.Value);
             else
-                WriteTag(output, "WAY-").Emit((byte)ID);
+                output.EmitFourCC("WAY-"u8).Emit((byte)ID);
         }
     }
 }

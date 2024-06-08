@@ -4,7 +4,7 @@ namespace BossMod;
 
 public class BossModulePlanWindow : UIWindow
 {
-    private BossModuleManager _mgr;
+    private readonly BossModuleManager _mgr;
 
     public BossModulePlanWindow(BossModuleManager mgr) : base("Cooldown plan", false, new(400, 400))
     {
@@ -15,9 +15,9 @@ public class BossModulePlanWindow : UIWindow
 
     public override void PreOpenCheck()
     {
-        IsOpen = _mgr.WindowConfig.EnableTimerWindow && _mgr.ActiveModule?.PlanConfig != null;
+        IsOpen = _mgr.Config.EnableTimerWindow && _mgr.ActiveModule?.PlanConfig != null;
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
-        if (_mgr.WindowConfig.Lock)
+        if (_mgr.Config.Lock)
             Flags |= ImGuiWindowFlags.NoMove;
     }
 
@@ -28,7 +28,7 @@ public class BossModulePlanWindow : UIWindow
 
         if (ImGui.Button("Show timeline"))
         {
-            new StateMachineWindow(_mgr.ActiveModule);
+            _ = new StateMachineWindow(_mgr.ActiveModule);
         }
         ImGui.SameLine();
         _mgr.ActiveModule.PlanConfig?.DrawSelectionUI(_mgr.ActiveModule.Raid.Player()?.Class ?? Class.None, _mgr.ActiveModule.StateMachine, _mgr.ActiveModule.Info);

@@ -3,7 +3,7 @@
 namespace BossMod;
 
 // extra utilities for healers
-abstract class HealerActions : CommonActions
+abstract class HealerActions(Autorotation autorot, Actor player, uint[] unlockData, Dictionary<ActionID, ActionDefinition> supportedActions) : CommonActions(autorot, player, unlockData, supportedActions)
 {
     public struct PartyMemberState
     {
@@ -15,16 +15,7 @@ abstract class HealerActions : CommonActions
     }
 
     protected bool AllowProtect { get; private set; }
-    protected PartyMemberState[] PartyMemberStates { get; private set; } = new PartyMemberState[PartyState.MaxPartySize];
-
-    protected HealerActions(Autorotation autorot, Actor player, uint[] unlockData, Dictionary<ActionID, ActionDefinition> supportedActions)
-        : base(autorot, player, unlockData, supportedActions)
-    {
-    }
-
-    public override void Dispose()
-    {
-    }
+    protected readonly PartyMemberState[] PartyMemberStates = new PartyMemberState[PartyState.MaxPartySize];
 
     protected override void UpdateInternalState(int autoAction)
     {
@@ -39,16 +30,16 @@ abstract class HealerActions : CommonActions
             var actor = Autorot.WorldState.Party[i];
             ref var state = ref PartyMemberStates[i];
             state.HaveRemovableDebuffs = false;
-            if (actor == null || actor.IsDead || actor.HP.Max == 0)
+            if (actor == null || actor.IsDead || actor.HPMP.MaxHP == 0)
             {
                 state.PredictedHPCur = state.PredictedHPDeficit = 0;
                 state.PredictedHPRatio = 1;
             }
             else
             {
-                state.PredictedHPCur = (int)actor.HP.Cur + Autorot.WorldState.PendingEffects.PendingHPDifference(actor.InstanceID);
-                state.PredictedHPDeficit = (int)actor.HP.Max - state.PredictedHPCur;
-                state.PredictedHPRatio = (float)state.PredictedHPCur / actor.HP.Max;
+                state.PredictedHPCur = (int)actor.HPMP.CurHP + Autorot.WorldState.PendingEffects.PendingHPDifference(actor.InstanceID);
+                state.PredictedHPDeficit = (int)actor.HPMP.MaxHP - state.PredictedHPCur;
+                state.PredictedHPRatio = (float)state.PredictedHPCur / actor.HPMP.MaxHP;
                 bool actorValidForEsuna = actor.IsTargetable && !incomingEsunas[i];
                 foreach (var s in actor.Statuses)
                 {
@@ -209,7 +200,7 @@ abstract class HealerActions : CommonActions
             case (uint)WHM.AID.Cure3:
                 res = ws.Party.WithSlot().InRadius((ws.Actors.Find(a.CastInfo.TargetID) ?? a).Position, 20).Mask();
                 break;
-        };
+        }
         return res;
     }
 

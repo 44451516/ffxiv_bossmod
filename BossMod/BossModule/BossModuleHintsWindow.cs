@@ -4,7 +4,7 @@ namespace BossMod;
 
 public class BossModuleHintsWindow : UIWindow
 {
-    private BossModuleManager _mgr;
+    private readonly BossModuleManager _mgr;
 
     public BossModuleHintsWindow(BossModuleManager mgr) : base("Boss module hints", false, new(400, 100))
     {
@@ -14,9 +14,9 @@ public class BossModuleHintsWindow : UIWindow
 
     public override void PreOpenCheck()
     {
-        IsOpen = _mgr.WindowConfig.HintsInSeparateWindow && _mgr.ActiveModule != null;
+        IsOpen = _mgr.Config.HintsInSeparateWindow && _mgr.ActiveModule != null;
         Flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
-        if (_mgr.WindowConfig.Lock)
+        if (_mgr.Config.Lock)
             Flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoInputs;
     }
 
@@ -24,7 +24,7 @@ public class BossModuleHintsWindow : UIWindow
     {
         try
         {
-            _mgr.ActiveModule?.Draw(0, PartyState.PlayerSlot, null, true, false);
+            _mgr.ActiveModule?.Draw(0, PartyState.PlayerSlot, true, false);
         }
         catch (Exception ex)
         {

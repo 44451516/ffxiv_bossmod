@@ -1,5 +1,11 @@
 ﻿namespace BossMod.Shadowbringers.Foray.Duel.Duel5Menenius;
 
+public enum OID : uint
+{
+    Boss = 0x31C4,
+    Helper = 0x233C,
+}
+
 public enum AID : uint
 {
     AutoAttack = 6497,
@@ -9,8 +15,9 @@ public enum AID : uint
     ActivateBlueMine = 23888,
     DetonateBlueMine = 23890,
     ActivateRedMine = 23889,
-    DetonateRedMine = 0x5D41,
+    DetonateRedMine = 23891,
     IndiscriminateDetonation = 23892,
+    Explosion = 23873,
     GigaTempest = 23875,
     GigaTempestLargeStart = 0x5D44,
     GigaTempestLargeMove = 0x5D46,
@@ -30,7 +37,7 @@ public enum AID : uint
     ReactiveMunition = 23894,
     SenseWeakness = 23893,
     MagitekImpetus = 23899,
-};
+}
 
 public enum SID : uint
 {
@@ -39,4 +46,4 @@ public enum SID : uint
     LeftFace = 0x50F,
     RightFace = 0x510,
     AccelerationBomb = 0x430,
-};
+}

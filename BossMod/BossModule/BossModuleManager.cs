@@ -1,27 +1,28 @@
 ﻿namespace BossMod;
 
 // class that creates and manages instances of proper boss modules in response to world state changes
-public class BossModuleManager : IDisposable
+public sealed class BossModuleManager : IDisposable
 {
-    public WorldState WorldState { get; init; }
-    public RaidCooldowns RaidCooldowns { get; init; }
-    public BossModuleConfig WindowConfig { get; init; }
+    public readonly WorldState WorldState;
+    public readonly RaidCooldowns RaidCooldowns;
+    public readonly BossModuleConfig Config = Service.Config.Get<BossModuleConfig>();
+    private readonly EventSubscriptions _subsciptions;
 
-    private bool _running = false;
-    private bool _activeModuleOverridden = false;
-
-    private List<BossModule> _loadedModules = new();
+    private readonly List<BossModule> _loadedModules = [];
     public IReadOnlyList<BossModule> LoadedModules => _loadedModules;
+    public Event<BossModule> ModuleLoaded = new();
+    public Event<BossModule> ModuleUnloaded = new();
 
     // drawn module among loaded modules; this can be changed explicitly if needed
     // usually we don't have multiple concurrently active modules, since this prevents meaningful cd planning, raid cooldown tracking, etc.
     // but it can theoretically happen e.g. around checkpoints and in typically trivial outdoor content
-    // TODO: reconsider...
     private BossModule? _activeModule;
+    private bool _activeModuleOverridden;
     public BossModule? ActiveModule
     {
         get => _activeModule;
-        set {
+        set
+        {
             Service.Log($"[BMM] Active module override: from {_activeModule?.GetType().FullName ?? "<n/a>"} (manual-override={_activeModuleOverridden}) to {value?.GetType().FullName ?? "<n/a>"}");
             _activeModule = value;
             _activeModuleOverridden = true;
@@ -31,38 +32,30 @@ public class BossModuleManager : IDisposable
     public BossModuleManager(WorldState ws)
     {
         WorldState = ws;
-        WindowConfig = Service.Config.Get<BossModuleConfig>();
         RaidCooldowns = new(ws);
+        _subsciptions = new
+        (
+            WorldState.Actors.Added.Subscribe(ActorAdded),
+            Config.Modified.ExecuteAndSubscribe(ConfigChanged)
+        );
 
-        WindowConfig.Modified += ConfigChanged;
-
-        if (WindowConfig.Enable)
-        {
-            Startup();
-        }
+        foreach (var a in WorldState.Actors)
+            ActorAdded(a);
     }
 
     public void Dispose()
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
+        _activeModule = null;
+        foreach (var m in _loadedModules)
+            m.Dispose();
+        _loadedModules.Clear();
 
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            Shutdown();
-            WindowConfig.Modified -= ConfigChanged;
-            RaidCooldowns.Dispose();
-        }
+        _subsciptions.Dispose();
+        RaidCooldowns.Dispose();
     }
 
     public void Update()
     {
-        if (!_running)
-            return;
-
         // update all loaded modules, handle activation/deactivation
         int bestPriority = 0;
         BossModule? bestModule = null;
@@ -70,7 +63,7 @@ public class BossModuleManager : IDisposable
         for (int i = 0; i < _loadedModules.Count; ++i)
         {
             var m = _loadedModules[i];
-            m.StateMachine.PrepullTimer = WorldState.Client.CountdownRemaining ?? 10000;
+            m.StateMachine.PrepullTimer = Math.Max(WorldState.Client.CountdownRemaining ?? 10000, 0.001f);
             bool wasActive = m.StateMachine.ActiveState != null;
             bool allowUpdate = wasActive || !_loadedModules.Any(other => other.StateMachine.ActiveState != null && other.GetType() == m.GetType()); // hack: forbid activating multiple modules of the same type
             bool isActive;
@@ -118,50 +111,18 @@ public class BossModuleManager : IDisposable
         }
     }
 
-    protected virtual void OnModuleLoaded(BossModule module) { Service.Log($"[BMM] Boss module '{module.GetType()}' for actor {module.PrimaryActor.InstanceID:X} ({module.PrimaryActor.OID:X}) '{module.PrimaryActor.Name}' loaded"); }
-    protected virtual void OnModuleUnloaded(BossModule module) { Service.Log($"[BMM] Boss module '{module.GetType()}' for actor {module.PrimaryActor.InstanceID:X} unloaded"); }
-
-    private void Startup()
-    {
-        if (_running)
-            return;
-
-        Service.Log("[BMM] Starting up...");
-        _running = true;
-
-        if (WindowConfig.ShowDemo)
-            _loadedModules.Add(CreateDemoModule());
-
-        WorldState.Actors.Added += ActorAdded;
-        foreach (var a in WorldState.Actors)
-            ActorAdded(a);
-    }
-
-    private void Shutdown()
-    {
-        if (!_running)
-            return;
-
-        Service.Log("[BMM] Shutting down...");
-        _running = false;
-        WorldState.Actors.Added -= ActorAdded;
-
-        _activeModule = null;
-        foreach (var m in _loadedModules)
-            m.Dispose();
-        _loadedModules.Clear();
-    }
-
     private void LoadModule(BossModule m)
     {
         _loadedModules.Add(m);
-        OnModuleLoaded(m);
+        Service.Log($"[BMM] Boss module '{m.GetType()}' loaded for actor {m.PrimaryActor}");
+        ModuleLoaded.Fire(m);
     }
 
     private void UnloadModule(int index)
     {
         var m = _loadedModules[index];
-        OnModuleUnloaded(m);
+        Service.Log($"[BMM] Boss module '{m.GetType()}' unloaded for actor {m.PrimaryActor}");
+        ModuleUnloaded.Fire(m);
         if (_activeModule == m)
         {
             _activeModule = null;
@@ -171,7 +132,7 @@ public class BossModuleManager : IDisposable
         _loadedModules.RemoveAt(index);
     }
 
-    private int ModuleDisplayPriority(BossModule? m)
+    private static int ModuleDisplayPriority(BossModule? m)
     {
         if (m == null)
             return 0;
@@ -184,14 +145,11 @@ public class BossModuleManager : IDisposable
         return 1;
     }
 
-    private BossModule CreateDemoModule()
-    {
-        return new DemoModule(WorldState, new(0, 0, -1, "", 0, ActorType.None, Class.None, 0, new()));
-    }
+    private DemoModule CreateDemoModule() => new(WorldState, new(0, 0, -1, "", 0, ActorType.None, Class.None, 0, new()));
 
     private void ActorAdded(Actor actor)
     {
-        var m = ModuleRegistry.CreateModuleForActor(WorldState, actor, WindowConfig.MinMaturity);
+        var m = ModuleRegistry.CreateModuleForActor(WorldState, actor, Config.MinMaturity);
         if (m != null)
         {
             LoadModule(m);
@@ -200,16 +158,10 @@ public class BossModuleManager : IDisposable
 
     private void ConfigChanged()
     {
-        if (WindowConfig.Enable)
-            Startup();
-        else
-            Shutdown();
-
         int demoIndex = _loadedModules.FindIndex(m => m is DemoModule);
-        bool showDemo = WindowConfig.Enable && WindowConfig.ShowDemo;
-        if (showDemo && demoIndex < 0)
+        if (Config.ShowDemo && demoIndex < 0)
             LoadModule(CreateDemoModule());
-        else if (!showDemo && demoIndex >= 0)
+        else if (!Config.ShowDemo && demoIndex >= 0)
             UnloadModule(demoIndex);
     }
 }

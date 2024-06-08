@@ -1,49 +1,39 @@
 ﻿using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
 namespace BossMod;
 
-class MainDebugWindow : UIWindow
+class MainDebugWindow(WorldState ws, Autorotation autorot) : UIWindow("Boss mod debug UI", false, new(300, 200))
 {
-    private WorldState _ws;
-    private Autorotation _autorot;
-    private DebugObjects _debugObjects = new();
-    private DebugParty _debugParty = new();
-    private DebugGraphics _debugGraphics = new();
-    private DebugAction _debugAction;
-    private DebugHate _debugHate = new();
-    private DebugInput _debugInput;
-    private DebugAutorotation _debugAutorot;
-    private DebugClassDefinitions _debugClassDefinitions;
-    private DebugAddon _debugAddon = new();
-    private DebugTiming _debugTiming = new();
-    private DebugCollision _debugCollision = new();
-    private DebugVfx _debugVfx = new();
-
-    public MainDebugWindow(WorldState ws, Autorotation autorot) : base("Boss mod debug UI", false, new(300, 200))
-    {
-        _ws = ws;
-        _autorot = autorot;
-        _debugAction = new(ws);
-        _debugInput = new(autorot);
-        _debugAutorot = new(autorot);
-        _debugClassDefinitions = new(ws);
-    }
+    private readonly DebugObjects _debugObjects = new();
+    private readonly DebugParty _debugParty = new();
+    private readonly DebugGraphics _debugGraphics = new();
+    private readonly DebugAction _debugAction = new(ws);
+    private readonly DebugHate _debugHate = new();
+    private readonly DebugInput _debugInput = new(autorot);
+    private readonly DebugAutorotation _debugAutorot = new(autorot);
+    private readonly DebugClassDefinitions _debugClassDefinitions = new(ws);
+    private readonly DebugAddon _debugAddon = new();
+    private readonly DebugTiming _debugTiming = new();
+    private readonly DebugVfx _debugVfx = new();
 
     protected override void Dispose(bool disposing)
     {
+        _debugAction.Dispose();
         _debugInput.Dispose();
         _debugClassDefinitions.Dispose();
         _debugAddon.Dispose();
-        _debugCollision.Dispose();
         _debugVfx.Dispose();
+        base.Dispose(disposing);
     }
 
     public unsafe override void Draw()
     {
+        var playerCID = UIState.Instance()->PlayerState.ContentId;
         var player = Service.ClientState.LocalPlayer;
-        ImGui.TextUnformatted($"Current zone: {_ws.CurrentZone}, player=0x{(ulong)Utils.GameObjectInternal(player):X}, playerCID={Service.ClientState.LocalContentId:X}, pos = {Utils.Vec3String(player?.Position ?? new Vector3())}");
+        ImGui.TextUnformatted($"Current zone: {ws.CurrentZone}, player=0x{(ulong)Utils.GameObjectInternal(player):X}, playerCID={playerCID:X}, pos = {Utils.Vec3String(player?.Position ?? new Vector3())}");
         ImGui.TextUnformatted($"ID scramble: {Network.IDScramble.Delta} = {*Network.IDScramble.OffsetAdjusted} - {*Network.IDScramble.OffsetBaseFixed} - {*Network.IDScramble.OffsetBaseChanging}");
         ImGui.TextUnformatted($"Player mode: {Utils.CharacterInternal(player)->Mode}");
 
@@ -79,7 +69,11 @@ class MainDebugWindow : UIWindow
         }
         if (ImGui.CollapsingHeader("Party (custom)"))
         {
-            _debugParty.DrawPartyCustom();
+            _debugParty.DrawPartyCustom(false);
+        }
+        if (ImGui.CollapsingHeader("Party (duty recorder)"))
+        {
+            _debugParty.DrawPartyCustom(true);
         }
         if (ImGui.CollapsingHeader("Autorotation"))
         {
@@ -103,7 +97,7 @@ class MainDebugWindow : UIWindow
         }
         if (ImGui.CollapsingHeader("Action manager ex"))
         {
-            _debugAction.DrawActionManagerEx();
+            _debugAction.DrawActionManagerExtensions();
         }
         if (ImGui.CollapsingHeader("Actions"))
         {
@@ -145,10 +139,6 @@ class MainDebugWindow : UIWindow
         {
             DrawWindowSystem();
         }
-        if (ImGui.CollapsingHeader("Collision"))
-        {
-            _debugCollision.Draw();
-        }
         if (ImGui.CollapsingHeader("VFX"))
         {
             _debugVfx.Draw();
@@ -161,7 +151,7 @@ class MainDebugWindow : UIWindow
 
     private void DrawStatuses()
     {
-        foreach (var elem in _ws.Actors)
+        foreach (var elem in ws.Actors)
         {
             var obj = (elem.InstanceID >> 32) == 0 ? Service.ObjectTable.SearchById((uint)elem.InstanceID) : null;
             if (ImGui.TreeNode(Utils.ObjectString(obj!)))
@@ -191,19 +181,26 @@ class MainDebugWindow : UIWindow
         ImGui.TableSetupColumn("Position");
         ImGui.TableSetupColumn("Rotation");
         ImGui.TableHeadersRow();
-        foreach (var elem in _ws.Actors)
+        foreach (var elem in ws.Actors)
         {
             if (elem.CastInfo == null || elem.Type != ActorType.Enemy)
                 continue;
 
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(Utils.ObjectString(elem.InstanceID));
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(Utils.ObjectString(elem.CastInfo.TargetID));
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(elem.CastInfo.Action.ToString());
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(Utils.CastTimeString(elem.CastInfo, _ws.CurrentTime));
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(Utils.Vec3String(elem.CastInfo.Location));
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(elem.Position.ToString());
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(elem.CastInfo.Rotation.ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(Utils.ObjectString(elem.InstanceID));
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(Utils.ObjectString(elem.CastInfo.TargetID));
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(elem.CastInfo.Action.ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(Utils.CastTimeString(elem.CastInfo, ws.CurrentTime));
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(Utils.Vec3String(elem.CastInfo.Location));
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(elem.Position.ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(elem.CastInfo.Rotation.ToString());
         }
         ImGui.EndTable();
     }
@@ -241,7 +238,7 @@ class MainDebugWindow : UIWindow
         var dist = selfToObj.Length();
         var angle = Angle.FromDirection(new(selfToObj.XZ())) - refAngle;
         var visHalf = Angle.Asin(obj->HitboxRadius / dist);
-        ImGui.TextUnformatted($"{kind}: #{obj->ObjectIndex} {Utils.ObjectString(obj->ObjectID)} {obj->DataID}:{obj->GetNpcID()}, hb={obj->HitboxRadius} ({visHalf}), dist={dist}, angle={angle} ({Math.Max(0, angle.Abs().Rad - visHalf.Rad).Radians()})");
+        ImGui.TextUnformatted($"{kind}: #{obj->ObjectIndex} {Utils.ObjectString(obj->EntityId)} {obj->BaseId}:{obj->GetNameId()}, hb={obj->HitboxRadius} ({visHalf}), dist={dist}, angle={angle} ({Math.Max(0, angle.Abs().Rad - visHalf.Rad).Radians()})");
     }
 
     private unsafe void DrawPlayerAttributes()
@@ -251,7 +248,7 @@ class MainDebugWindow : UIWindow
             Utils.WriteField((void*)Service.Condition.Address, (int)Dalamud.Game.ClientState.Conditions.ConditionFlag.OnFreeTrial, false);
         }
 
-        var uiState = FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance();
+        var uiState = UIState.Instance();
         ImGui.BeginTable("attrs", 2);
         ImGui.TableSetupColumn("Index");
         ImGui.TableSetupColumn("Value");
@@ -259,18 +256,20 @@ class MainDebugWindow : UIWindow
         for (int i = 0; i < 74; ++i)
         {
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(i.ToString());
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(uiState->PlayerState.Attributes[i].ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(i.ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(uiState->PlayerState.Attributes[i].ToString());
         }
         ImGui.EndTable();
     }
 
     private unsafe void DrawCountdown()
     {
-        var agent = Countdown.Instance;
-        ImGui.TextUnformatted($"Active: {agent->Active != 0}");
-        ImGui.TextUnformatted($"Initiator: {Utils.ObjectString(agent->Initiator)}");
-        ImGui.TextUnformatted($"Time left: {agent->Timer:f3}");
+        var agent = AgentCountDownSettingDialog.Instance();
+        ImGui.TextUnformatted($"Active: {agent->Active} (showing cd={agent->ShowingCountdown})");
+        ImGui.TextUnformatted($"Initiator: {Utils.ObjectString(agent->InitiatorId)}");
+        ImGui.TextUnformatted($"Time left: {agent->TimeRemaining:f3}");
     }
 
     private void DrawWindowSystem()
@@ -285,7 +284,7 @@ class MainDebugWindow : UIWindow
     private unsafe void DrawLimitBreak()
     {
         var lb = LimitBreakController.Instance();
-        ImGui.TextUnformatted($"Value: {lb->CurrentValue}/{lb->BarValue & 0xFFFF} ({lb->BarCount} bars)");
-        ImGui.TextUnformatted($"Unks: uE={(lb->BarValue >> 16) & 0xFF}, uF={lb->BarValue >> 24}");
+        ImGui.TextUnformatted($"Value: {lb->CurrentUnits}/{lb->BarUnits} ({lb->BarCount} bars)");
+        ImGui.TextUnformatted($"PVP: {lb->IsPvP}");
     }
 }

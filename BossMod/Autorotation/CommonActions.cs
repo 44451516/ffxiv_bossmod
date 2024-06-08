@@ -9,54 +9,17 @@ abstract class CommonActions : IDisposable
     public const int AutoActionAIFight = 2;
     public const int AutoActionFirstCustom = 3;
 
-    public enum ActionSource { Automatic, Planned, Manual, Emergency }
+    public record struct Targeting(AIHints.Enemy Target, float PreferredRange = 3, Positional PreferredPosition = Positional.Any, bool PreferTanking = false);
 
-    public struct NextAction
+    public class SupportedAction(ActionDefinition definition, bool isGT)
     {
-        public ActionID Action;
-        public Actor? Target;
-        public Vector3 TargetPos;
-        public ActionSource Source;
-
-        public NextAction(ActionID action, Actor? target, Vector3 targetPos, ActionSource source)
-        {
-            Action = action;
-            Target = target;
-            TargetPos = targetPos;
-            Source = source;
-        }
-    }
-
-    public struct Targeting
-    {
-        public AIHints.Enemy? Target;
-        public float PreferredRange;
-        public Positional PreferredPosition;
-        public bool PreferTanking;
-
-        public Targeting(AIHints.Enemy target, float range = 3, Positional pos = Positional.Any, bool preferTanking = false)
-        {
-            Target = target;
-            PreferredRange = range;
-            PreferredPosition = pos;
-            PreferTanking = preferTanking;
-        }
-    }
-
-    public class SupportedAction
-    {
-        public ActionDefinition Definition;
-        public bool IsGT;
+        public ActionDefinition Definition = definition;
+        public bool IsGT = isGT;
         public Func<Actor?, bool>? Condition;
         public int PlaceholderForAuto; // if set, attempting to execute this action would instead initiate auto-strategy
         public Func<ActionID>? TransformAction;
         public Func<Actor?, Actor?>? TransformTarget;
-
-        public SupportedAction(ActionDefinition definition, bool isGT)
-        {
-            Definition = definition;
-            IsGT = isGT;
-        }
+        public Func<Angle?>? TransformAngle;
 
         public bool Allowed(Actor player, Actor target)
         {
@@ -72,15 +35,15 @@ abstract class CommonActions : IDisposable
     }
 
     public Actor Player { get; init; }
-    public Dictionary<ActionID, SupportedAction> SupportedActions { get; init; } = new();
+    public Dictionary<ActionID, SupportedAction> SupportedActions { get; init; } = [];
     public int AutoAction { get; private set; }
     public float MaxCastTime { get; private set; }
     protected Autorotation Autorot;
     private DateTime _playerCombatStart;
     private DateTime _autoActionExpire;
     private bool _forceExpireAtCountdownCancel;
-    private QuestLockCheck _lock;
-    private ManualActionOverride _mq;
+    private readonly QuestLockCheck _lock;
+    private readonly ManualActionOverride _mq;
 
     public SupportedAction SupportedSpell<AID>(AID aid) where AID : Enum => SupportedActions[ActionID.MakeSpell(aid)];
 
@@ -97,6 +60,14 @@ abstract class CommonActions : IDisposable
         _lock = new(unlockData);
         _mq = new(autorot.WorldState);
     }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing) { }
 
     // this is called after worldstate update
     public void Update()
@@ -139,15 +110,9 @@ abstract class CommonActions : IDisposable
             QueueAIActions();
     }
 
-    public unsafe bool HaveItemInInventory(uint id)
-    {
-        return FFXIVClientStructs.FFXIV.Client.Game.InventoryManager.Instance()->GetInventoryItemCount(id % 1000000, id >= 1000000, false, false) > 0;
-    }
+    public unsafe bool HaveItemInInventory(uint id) => FFXIVGame.InventoryManager.Instance()->GetInventoryItemCount(id % 1000000, id >= 1000000, false, false) > 0;
 
-    public float StatusDuration(DateTime expireAt)
-    {
-        return Math.Max((float)(expireAt - Autorot.WorldState.CurrentTime).TotalSeconds, 0.0f);
-    }
+    public float StatusDuration(DateTime expireAt) => Math.Max((float)(expireAt - Autorot.WorldState.CurrentTime).TotalSeconds, 0.0f);
 
     // this also checks pending statuses
     // note that we check pending statuses first - otherwise we get the same problem with double refresh if we try to refresh early (we find old status even though we have pending one)
@@ -159,34 +124,29 @@ abstract class CommonActions : IDisposable
         if (pending != null)
             return (pendingDuration, pending.Value);
         var status = actor.FindStatus(sid, sourceID);
-        if (status != null)
-            return (StatusDuration(status.Value.ExpireAt), status.Value.Extra & 0xFF);
-        return (0, 0);
+        return status != null ? (StatusDuration(status.Value.ExpireAt), status.Value.Extra & 0xFF) : (0, 0);
     }
     public (float Left, int Stacks) StatusDetails<SID>(Actor? actor, SID sid, ulong sourceID, float pendingDuration = 1000) where SID : Enum => StatusDetails(actor, (uint)(object)sid, sourceID, pendingDuration);
 
     // check whether specified status is a damage buff
-    public bool IsDamageBuff(uint statusID)
+    // see https://i.redd.it/xrtgpras94881.png
+    // TODO: AST card buffs?, enemy debuffs?, single-target buffs (DRG dragon sight, DNC devilment)
+    public bool IsDamageBuff(uint statusID) => statusID switch
     {
-        // see https://i.redd.it/xrtgpras94881.png
-        // TODO: AST card buffs?, enemy debuffs?, single-target buffs (DRG dragon sight, DNC devilment)
-        return statusID switch
-        {
-            49 => true, // medicated
-            141 => true, // BRD battle voice
-            //638 => true, // NIN trick attack - note that this is a debuff on enemy
-            786 => true, // DRG battle litany
-            1185 => true, // MNK brotherhood
-            //1221 => true, // SCH chain stratagem - note that this is a debuff on enemy
-            1297 => true, // RDM embolden
-            1822 => true, // DNC technical finish
-            1878 => true, // AST divination
-            2599 => true, // RPR arcane circle
-            2703 => true, // SMN searing light
-            2964 => true, // BRD radiant finale
-            _ => false
-        };
-    }
+        49 => true, // medicated
+        141 => true, // BRD battle voice
+        //638 => true, // NIN trick attack - note that this is a debuff on enemy
+        786 => true, // DRG battle litany
+        1185 => true, // MNK brotherhood
+        //1221 => true, // SCH chain stratagem - note that this is a debuff on enemy
+        1297 => true, // RDM embolden
+        1822 => true, // DNC technical finish
+        1878 => true, // AST divination
+        2599 => true, // RPR arcane circle
+        2703 => true, // SMN searing light
+        2964 => true, // BRD radiant finale
+        _ => false
+    };
 
     public void UpdateAutoAction(int autoAction, float maxCastTime, bool isUserRequested)
     {
@@ -237,7 +197,7 @@ abstract class CommonActions : IDisposable
         {
             if (forcedGTPos != null)
             {
-                _mq.Push(action, null, forcedGTPos.Value, supportedAction.Definition, supportedAction.Condition);
+                _mq.Push(action, null, forcedGTPos.Value, null, supportedAction.Definition, supportedAction.Condition);
                 return true;
             }
 
@@ -249,7 +209,7 @@ abstract class CommonActions : IDisposable
                 var pos = ActionManagerEx.Instance!.GetWorldPosUnderCursor();
                 if (pos == null)
                     return false; // same as manual...
-                _mq.Push(action, null, pos.Value, supportedAction.Definition, supportedAction.Condition);
+                _mq.Push(action, null, pos.Value, null, supportedAction.Definition, supportedAction.Condition);
                 return true;
             }
         }
@@ -258,55 +218,58 @@ abstract class CommonActions : IDisposable
         {
             target = supportedAction.TransformTarget(target);
         }
-        _mq.Push(action, target, new(), supportedAction.Definition, supportedAction.Condition);
+
+        Angle? angleOverride = supportedAction.TransformAngle?.Invoke();
+        _mq.Push(action, target, new(), angleOverride, supportedAction.Definition, supportedAction.Condition);
         return true;
     }
 
-    public NextAction CalculateNextAction()
+    public ActionQueue.Entry CalculateNextAction()
     {
         // check emergency mode
         var mqEmergency = _mq.PeekEmergency();
         if (mqEmergency != null)
-            return new(mqEmergency.Action, mqEmergency.Target, mqEmergency.TargetPos, ActionSource.Emergency);
+            return new(mqEmergency.Action, mqEmergency.Target, mqEmergency.TargetPos, mqEmergency.FacingAngle, ActionQueue.Priority.ManualEmergency);
 
         var effAnimLock = Autorot.EffAnimLock;
         var animLockDelay = Autorot.AnimLockDelay;
 
         // see if we have any GCD (queued or automatic)
         var mqGCD = _mq.PeekGCD();
-        var nextGCD = mqGCD != null ? new NextAction(mqGCD.Action, mqGCD.Target, mqGCD.TargetPos, ActionSource.Manual) : AutoAction != AutoActionNone ? CalculateAutomaticGCD() : new();
+        var nextGCD = mqGCD != null ? new(mqGCD.Action, mqGCD.Target, mqGCD.TargetPos, mqGCD.FacingAngle, ActionQueue.Priority.ManualGCD) : AutoAction != AutoActionNone ? CalculateAutomaticGCD() : default;
         float ogcdDeadline = nextGCD.Action ? Autorot.WorldState.Client.Cooldowns[CommonDefinitions.GCDGroup].Remaining : float.MaxValue;
         //Log($"{nextGCD.Action} = {ogcdDeadline}");
 
         // search for any oGCDs that we can execute without delaying GCD
         var mqOGCD = _mq.PeekOGCD(effAnimLock, animLockDelay, ogcdDeadline);
         if (mqOGCD != null)
-            return new(mqOGCD.Action, mqOGCD.Target, mqOGCD.TargetPos, ActionSource.Manual);
+            return new(mqOGCD.Action, mqOGCD.Target, mqOGCD.TargetPos, mqOGCD.FacingAngle, ActionQueue.Priority.ManualOGCD);
 
         // see if there is anything high-priority from cooldown plan to be executed
         var cpActionHigh = Autorot.Hints.PlannedActions.FirstOrDefault(x => !x.lowPriority && CanExecutePlannedAction(x.action, x.target, effAnimLock, animLockDelay, ogcdDeadline));
         if (cpActionHigh.action)
-            return new(cpActionHigh.action, cpActionHigh.target, new(), ActionSource.Planned);
+            return new(cpActionHigh.action, cpActionHigh.target, new(), null, ActionQueue.Priority.Medium);
 
         // note: we intentionally don't check that automatic oGCD really does not clip GCD - we provide utilities that allow module checking that, but also allow overriding if needed
-        var nextOGCD = AutoAction != AutoActionNone ? CalculateAutomaticOGCD(ogcdDeadline) : new();
+        var nextOGCD = AutoAction != AutoActionNone ? CalculateAutomaticOGCD(ogcdDeadline) : default;
         if (nextOGCD.Action)
             return nextOGCD;
 
         // finally see whether there are any low-priority planned actions
         var cpActionLow = Autorot.Hints.PlannedActions.FirstOrDefault(x => x.lowPriority && CanExecutePlannedAction(x.action, x.target, effAnimLock, animLockDelay, ogcdDeadline));
         if (cpActionLow.action)
-            return new(cpActionLow.action, cpActionLow.target, new(), ActionSource.Planned);
+            return new(cpActionLow.action, cpActionLow.target, new(), null, ActionQueue.Priority.Low);
 
+        // no ogcds, execute gcd instead
         return nextGCD;
     }
 
-    public void NotifyActionExecuted(ClientActionRequest request)
+    public void NotifyActionExecuted(in ClientActionRequest request)
     {
         Log($"Exec #{request.SourceSequence} {request.Action} @ {request.TargetID:X} [{GetState()}]");
         _mq.Pop(request.Action);
         Autorot.Bossmods.ActiveModule?.PlanExecution?.NotifyActionExecuted(Autorot.Bossmods.ActiveModule.StateMachine, request.Action);
-        OnActionExecuted(request);
+        OnActionExecuted(in request);
     }
 
     public void NotifyActionSucceeded(ActorCastEvent ev)
@@ -315,35 +278,34 @@ abstract class CommonActions : IDisposable
         OnActionSucceeded(ev);
     }
 
-    public abstract void Dispose();
     public abstract CommonRotation.PlayerState GetState();
     public abstract CommonRotation.Strategy GetStrategy();
     public virtual Targeting SelectBetterTarget(AIHints.Enemy initial) => new(initial);
     public virtual void FillStatusesToCancel(List<(uint statusId, ulong sourceId)> list) { }
     protected abstract void UpdateInternalState(int autoAction);
     protected abstract void QueueAIActions();
-    protected abstract NextAction CalculateAutomaticGCD();
-    protected abstract NextAction CalculateAutomaticOGCD(float deadline);
-    protected virtual void OnActionExecuted(ClientActionRequest request) { }
+    protected abstract ActionQueue.Entry CalculateAutomaticGCD();
+    protected abstract ActionQueue.Entry CalculateAutomaticOGCD(float deadline);
+    protected virtual void OnActionExecuted(in ClientActionRequest request) { }
     protected virtual void OnActionSucceeded(ActorCastEvent ev) { }
 
-    protected NextAction MakeResult(ActionID action, Actor? target)
+    protected ActionQueue.Entry MakeResult(ActionID action, Actor? target)
     {
         var data = action ? SupportedActions[action] : null;
         if (data == null)
-            return new();
+            return default;
         if (data.Definition.Range == 0)
             target = Player; // override range-0 actions to always target player
-        return target != null && data.Allowed(Player, target) ? new(action, target, new(), ActionSource.Automatic) : new();
+        return target != null && data.Allowed(Player, target) ? new(action, target, new(), null, (data.Definition.CooldownGroup == CommonDefinitions.GCDGroup ? ActionQueue.Priority.High : ActionQueue.Priority.Low) + 500) : default;
     }
-    protected NextAction MakeResult<AID>(AID aid, Actor? target) where AID : Enum => MakeResult(ActionID.MakeSpell(aid), target);
+    protected ActionQueue.Entry MakeResult<AID>(AID aid, Actor? target) where AID : Enum => MakeResult(ActionID.MakeSpell(aid), target);
 
     protected void SimulateManualActionForAI(ActionID action, Actor? target, bool enable)
     {
         if (enable)
         {
             var data = SupportedActions[action];
-            _mq.Push(action, target, new(), data.Definition, data.Condition, true);
+            _mq.Push(action, target, new(), null, data.Definition, data.Condition, true);
         }
         else
         {
@@ -359,11 +321,11 @@ abstract class CommonActions : IDisposable
         var am = ActionManagerEx.Instance!;
         s.Level = Player.Level;
         s.UnlockProgress = _lock.Progress();
-        s.CurMP = Player.CurMP;
+        s.CurMP = Player.HPMP.CurMP;
         s.TargetingEnemy = Autorot.PrimaryTarget != null && Autorot.PrimaryTarget.Type is ActorType.Enemy or ActorType.Part && !Autorot.PrimaryTarget.IsAlly;
         s.RangeToTarget = Autorot.PrimaryTarget != null ? (Autorot.PrimaryTarget.Position - Player.Position).Length() - Autorot.PrimaryTarget.HitboxRadius - Player.HitboxRadius : float.MaxValue;
         s.AnimationLock = am.EffectiveAnimationLock;
-        s.AnimationLockDelay = am.EffectiveAnimationLockDelay;
+        s.AnimationLockDelay = am.AnimationLockDelayEstimate;
         s.ComboTimeLeft = am.ComboTimeLeft;
         s.ComboLastAction = am.ComboLastMove;
         s.LimitBreakLevel = Autorot.WorldState.Party.LimitBreakMax > 0 ? Autorot.WorldState.Party.LimitBreakCur / Autorot.WorldState.Party.LimitBreakMax : 0;
@@ -418,30 +380,15 @@ abstract class CommonActions : IDisposable
 
     // smart targeting utility: return target (if friendly) or mouseover (if friendly) or null (otherwise)
     protected Actor? SmartTargetFriendly(Actor? primaryTarget)
-    {
-        if (primaryTarget?.Type is ActorType.Player or ActorType.Chocobo)
-            return primaryTarget;
-
-        if (Autorot.SecondaryTarget?.Type is ActorType.Player or ActorType.Chocobo)
-            return Autorot.SecondaryTarget;
-
-        return null;
-    }
+        => primaryTarget?.Type is ActorType.Player or ActorType.Chocobo ? primaryTarget : Autorot.SecondaryTarget?.Type is ActorType.Player or ActorType.Chocobo ? Autorot.SecondaryTarget : null;
 
     // smart targeting utility: return mouseover (if hostile and allowed) or target (otherwise)
     protected Actor? SmartTargetHostile(Actor? primaryTarget)
-    {
-        if (Autorot.SecondaryTarget?.Type == ActorType.Enemy && !Autorot.SecondaryTarget.IsAlly)
-            return Autorot.SecondaryTarget;
-
-        return primaryTarget;
-    }
+        => Autorot.SecondaryTarget?.Type == ActorType.Enemy && !Autorot.SecondaryTarget.IsAlly ? Autorot.SecondaryTarget : primaryTarget;
 
     // smart targeting utility: return target (if friendly) or mouseover (if friendly) or other tank (if available) or null (otherwise)
     protected Actor? SmartTargetCoTank(Actor? primaryTarget)
-    {
-        return SmartTargetFriendly(primaryTarget) ?? Autorot.WorldState.Party.WithoutSlot().Exclude(Player).FirstOrDefault(a => a.Role == Role.Tank);
-    }
+        => SmartTargetFriendly(primaryTarget) ?? Autorot.WorldState.Party.WithoutSlot().Exclude(Player).FirstOrDefault(a => a.Role == Role.Tank);
 
     protected void Log(string message)
     {
@@ -460,21 +407,19 @@ abstract class CommonActions : IDisposable
             && definition.Allowed(Player, target);
     }
 
-    private float CombatTimer()
-    {
-        if (_playerCombatStart != default)
-            return (float)(Autorot.WorldState.CurrentTime - _playerCombatStart).TotalSeconds;
-        return -Math.Max(0.001f, Autorot.WorldState.Client.CountdownRemaining ?? float.MaxValue);
-    }
+    private float CombatTimer() => _playerCombatStart != default
+            ? (float)(Autorot.WorldState.CurrentTime - _playerCombatStart).TotalSeconds
+            : -Math.Max(0.001f, Autorot.WorldState.Client.CountdownRemaining ?? float.MaxValue);
 
     protected (AIHints.Enemy Target, int Priority) FindBetterTargetBy(AIHints.Enemy initial, float maxDistanceFromPlayer, Func<AIHints.Enemy, int> prioFunc)
     {
         var bestTarget = initial;
         var bestPrio = prioFunc(bestTarget);
-        foreach(var enemy in Autorot.Hints.PriorityTargets.Where(x => x != initial && x.Actor.Position.InCircle(Player.Position, maxDistanceFromPlayer + x.Actor.HitboxRadius)))
+        foreach (var enemy in Autorot.Hints.PriorityTargets.Where(x => x != initial && x.Actor.Position.InCircle(Player.Position, maxDistanceFromPlayer + x.Actor.HitboxRadius)))
         {
             var newPrio = prioFunc(enemy);
-            if (newPrio > bestPrio) {
+            if (newPrio > bestPrio)
+            {
                 bestPrio = newPrio;
                 bestTarget = enemy;
             }

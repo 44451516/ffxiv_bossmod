@@ -1,68 +1,62 @@
 ﻿namespace BossMod;
 
-public struct ClientActionRequest
+public record struct ClientActionRequest
+(
+    ActionID Action,
+    ulong TargetID,
+    Vector3 TargetPos,
+    uint SourceSequence,
+    float InitialAnimationLock,
+    float InitialCastTimeElapsed,
+    float InitialCastTimeTotal,
+    float InitialRecastElapsed,
+    float InitialRecastTotal
+)
 {
-    public ActionID Action;
-    public ulong TargetID;
-    public Vector3 TargetPos;
-    public uint SourceSequence;
-    public float InitialAnimationLock;
-    public float InitialCastTimeElapsed;
-    public float InitialCastTimeTotal;
-    public float InitialRecastElapsed;
-    public float InitialRecastTotal;
+    public override readonly string ToString() => $"#{SourceSequence} {Action} @ {TargetID:X8} {TargetPos:f3}";
 }
 
-public struct ClientActionReject
+public record struct ClientActionReject(ActionID Action, uint SourceSequence, float RecastElapsed, float RecastTotal, uint LogMessageID)
 {
-    public ActionID Action;
-    public uint SourceSequence;
-    public float RecastElapsed;
-    public float RecastTotal;
-    public uint LogMessageID;
+    public override readonly string ToString() => $"#{SourceSequence} {Action} ({LogMessageID})";
 }
 
-public struct Cooldown : IEquatable<Cooldown>
+public record struct Cooldown(float Elapsed, float Total)
 {
-    public float Elapsed;
-    public float Total;
+    public readonly float Remaining => Total - Elapsed;
 
-    public float Remaining => Total - Elapsed;
-
-    public static bool operator ==(Cooldown l, Cooldown r) => l.Elapsed == r.Elapsed && l.Total == r.Total;
-    public static bool operator !=(Cooldown l, Cooldown r) => l.Elapsed != r.Elapsed || l.Total != r.Total;
-    public override bool Equals(object? obj) => obj is Cooldown && this == (Cooldown)obj;
-    public override int GetHashCode() => Elapsed.GetHashCode() ^ Total.GetHashCode();
-    public override string ToString() => $"{Elapsed:f3}/{Total:f3}";
-    public bool Equals(Cooldown other) => this == other;
+    public override readonly string ToString() => $"{Elapsed:f3}/{Total:f3}";
 }
 
 // client-specific state and events (action requests, gauge, etc)
 // this is generally not available for non-player party members, but we can try to guess
-public class ClientState
+public sealed class ClientState
 {
+    public readonly record struct Fate(uint ID, Vector3 Center, float Radius);
+
     public const int NumCooldownGroups = 82;
 
     public float? CountdownRemaining;
-    public Cooldown[] Cooldowns = new Cooldown[NumCooldownGroups];
-    public ActionID[] DutyActions = new ActionID[2];
-    public byte[] BozjaHolster = new byte[(int)BozjaHolsterID.Count]; // number of copies in holster per item
+    public readonly Cooldown[] Cooldowns = new Cooldown[NumCooldownGroups];
+    public readonly ActionID[] DutyActions = new ActionID[2];
+    public readonly byte[] BozjaHolster = new byte[(int)BozjaHolsterID.Count]; // number of copies in holster per item
+    public Fate ActiveFate;
 
     public IEnumerable<WorldState.Operation> CompareToInitial()
     {
         if (CountdownRemaining != null)
-            yield return new OpCountdownChange() { Value = CountdownRemaining };
+            yield return new OpCountdownChange(CountdownRemaining);
 
-        var cooldowns = Cooldowns.Select((v, i) => (i, v)).Where(iv => iv.Item2.Total > 0).ToList();
+        var cooldowns = Cooldowns.Select((v, i) => (i, v)).Where(iv => iv.v.Total > 0).ToList();
         if (cooldowns.Count > 0)
-            yield return new OpCooldown() { Cooldowns = cooldowns };
+            yield return new OpCooldown(false, cooldowns);
 
         if (DutyActions.Any(a => a))
-            yield return new OpDutyActionsChange() { Slot0 = DutyActions[0], Slot1 = DutyActions[1] };
+            yield return new OpDutyActionsChange(DutyActions[0], DutyActions[1]);
 
-        var bozjaHolster = BozjaHolster.Select((v, i) => ((BozjaHolsterID)i, v)).Where(iv => iv.Item2 > 0).ToList();
+        var bozjaHolster = BozjaHolster.Select((v, i) => ((BozjaHolsterID)i, v)).Where(iv => iv.v > 0).ToList();
         if (BozjaHolster.Any(count => count != 0))
-            yield return new OpBozjaHolsterChange() { Contents = bozjaHolster };
+            yield return new OpBozjaHolsterChange(bozjaHolster);
     }
 
     public void Tick(float dt)
@@ -80,17 +74,11 @@ public class ClientState
     }
 
     // implementation of operations
-    public event Action<OpActionRequest>? ActionRequested;
-    public class OpActionRequest : WorldState.Operation
+    public Event<OpActionRequest> ActionRequested = new();
+    public sealed record class OpActionRequest(ClientActionRequest Request) : WorldState.Operation
     {
-        public ClientActionRequest Request;
-
-        protected override void Exec(WorldState ws)
-        {
-            ws.Client.ActionRequested?.Invoke(this);
-        }
-
-        public override void Write(ReplayRecorder.Output output) => WriteTag(output, "CLAR")
+        protected override void Exec(WorldState ws) => ws.Client.ActionRequested.Fire(this);
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLAR"u8)
             .Emit(Request.Action)
             .EmitActor(Request.TargetID)
             .Emit(Request.TargetPos)
@@ -100,61 +88,48 @@ public class ClientState
             .EmitFloatPair(Request.InitialRecastElapsed, Request.InitialRecastTotal);
     }
 
-    public event Action<OpActionReject>? ActionRejected;
-    public class OpActionReject : WorldState.Operation
+    public Event<OpActionReject> ActionRejected = new();
+    public sealed record class OpActionReject(ClientActionReject Value) : WorldState.Operation
     {
-        public ClientActionReject Value;
-
-        protected override void Exec(WorldState ws)
-        {
-            ws.Client.ActionRejected?.Invoke(this);
-        }
-
-        public override void Write(ReplayRecorder.Output output) => WriteTag(output, "CLRJ")
+        protected override void Exec(WorldState ws) => ws.Client.ActionRejected.Fire(this);
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLRJ"u8)
             .Emit(Value.Action)
             .Emit(Value.SourceSequence)
             .EmitFloatPair(Value.RecastElapsed, Value.RecastTotal)
             .Emit(Value.LogMessageID);
     }
 
-    public event Action<OpCountdownChange>? CountdownChanged;
-    public class OpCountdownChange : WorldState.Operation
+    public Event<OpCountdownChange> CountdownChanged = new();
+    public sealed record class OpCountdownChange(float? Value) : WorldState.Operation
     {
-        public float? Value;
-
         protected override void Exec(WorldState ws)
         {
             ws.Client.CountdownRemaining = Value;
-            ws.Client.CountdownChanged?.Invoke(this);
+            ws.Client.CountdownChanged.Fire(this);
         }
-
         public override void Write(ReplayRecorder.Output output)
         {
             if (Value != null)
-                WriteTag(output, "CDN+").Emit(Value.Value);
+                output.EmitFourCC("CDN+"u8).Emit(Value.Value);
             else
-                WriteTag(output, "CDN-");
+                output.EmitFourCC("CDN-"u8);
         }
     }
 
-    public event Action<OpCooldown>? CooldownsChanged;
-    public class OpCooldown : WorldState.Operation
+    public Event<OpCooldown> CooldownsChanged = new();
+    public sealed record class OpCooldown(bool Reset, List<(int group, Cooldown value)> Cooldowns) : WorldState.Operation
     {
-        public bool Reset;
-        public List<(int group, Cooldown value)> Cooldowns = new();
-
         protected override void Exec(WorldState ws)
         {
             if (Reset)
                 Array.Fill(ws.Client.Cooldowns, default);
             foreach (var cd in Cooldowns)
                 ws.Client.Cooldowns[cd.group] = cd.value;
-            ws.Client.CooldownsChanged?.Invoke(this);
+            ws.Client.CooldownsChanged.Fire(this);
         }
-
         public override void Write(ReplayRecorder.Output output)
         {
-            WriteTag(output, "CLCD");
+            output.EmitFourCC("CLCD"u8);
             output.Emit(Reset);
             output.Emit((byte)Cooldowns.Count);
             foreach (var e in Cooldowns)
@@ -162,41 +137,45 @@ public class ClientState
         }
     }
 
-    public event Action<OpDutyActionsChange>? DutyActionsChanged;
-    public class OpDutyActionsChange : WorldState.Operation
+    public Event<OpDutyActionsChange> DutyActionsChanged = new();
+    public sealed record class OpDutyActionsChange(ActionID Slot0, ActionID Slot1) : WorldState.Operation
     {
-        public ActionID Slot0;
-        public ActionID Slot1;
-
         protected override void Exec(WorldState ws)
         {
             ws.Client.DutyActions[0] = Slot0;
             ws.Client.DutyActions[1] = Slot1;
-            ws.Client.DutyActionsChanged?.Invoke(this);
+            ws.Client.DutyActionsChanged.Fire(this);
         }
-
-        public override void Write(ReplayRecorder.Output output) => WriteTag(output, "CLDA").Emit(Slot0).Emit(Slot1);
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLDA"u8).Emit(Slot0).Emit(Slot1);
     }
 
-    public event Action<OpBozjaHolsterChange>? BozjaHolsterChanged;
-    public class OpBozjaHolsterChange : WorldState.Operation
+    public Event<OpBozjaHolsterChange> BozjaHolsterChanged = new();
+    public sealed record class OpBozjaHolsterChange(List<(BozjaHolsterID entry, byte count)> Contents) : WorldState.Operation
     {
-        public List<(BozjaHolsterID entry, byte count)> Contents = new();
-
         protected override void Exec(WorldState ws)
         {
             Array.Fill(ws.Client.BozjaHolster, (byte)0);
             foreach (var e in Contents)
                 ws.Client.BozjaHolster[(int)e.entry] = e.count;
-            ws.Client.BozjaHolsterChanged?.Invoke(this);
+            ws.Client.BozjaHolsterChanged.Fire(this);
         }
-
         public override void Write(ReplayRecorder.Output output)
         {
-            WriteTag(output, "CLBH");
+            output.EmitFourCC("CLBH"u8);
             output.Emit((byte)Contents.Count);
             foreach (var e in Contents)
                 output.Emit((byte)e.entry).Emit(e.count);
         }
+    }
+
+    public Event<OpActiveFateChange> ActiveFateChanged = new();
+    public sealed record class OpActiveFateChange(Fate Value) : WorldState.Operation
+    {
+        protected override void Exec(WorldState ws)
+        {
+            ws.Client.ActiveFate = Value;
+            ws.Client.ActiveFateChanged.Fire(this);
+        }
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLAF"u8).Emit(Value.ID).Emit(Value.Center).Emit(Value.Radius, "f3");
     }
 }

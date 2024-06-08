@@ -8,9 +8,9 @@ public class MapVisualizer
     public int GoalPriority;
     public WPos StartPos;
     public float ScreenPixelSize = 10;
-    public List<(WPos center, float ir, float or, Angle dir, Angle halfWidth)> Sectors = new();
-    public List<(WPos origin, float lenF, float lenB, float halfWidth, Angle dir)> Rects = new();
-    public List<(WPos origin, WPos dest)> Lines = new();
+    public List<(WPos center, float ir, float or, Angle dir, Angle halfWidth)> Sectors = [];
+    public List<(WPos origin, float lenF, float lenB, float halfWidth, Angle dir)> Rects = [];
+    public List<(WPos origin, WPos dest)> Lines = [];
 
     private ThetaStar _pathfind;
 
@@ -205,5 +205,10 @@ public class MapVisualizer
         }
     }
 
-    private ThetaStar BuildPathfind() => new(Map, GoalPriority, StartPos, 1.0f / 6);
+    private ThetaStar BuildPathfind()
+    {
+        var res = new ThetaStar();
+        res.Start(Map, GoalPriority, StartPos, 1.0f / 6);
+        return res;
+    }
 }

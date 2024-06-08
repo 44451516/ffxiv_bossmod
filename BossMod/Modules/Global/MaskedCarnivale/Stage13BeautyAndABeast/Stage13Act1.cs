@@ -4,22 +4,19 @@ public enum OID : uint
 {
     Boss = 0x26F5, //R=1.4
     Vodoriga = 0x26F6, //R=1.2
-};
+}
 
 public enum AID : uint
 {
     Attack = 6497, // Boss/Vodoriga->player, no cast, single-target
-    Mow = 14879, // Boss->self, 3,0s cast, range 6+R 120-degree cone
-};
-
-class Mow : Components.SelfTargetedAOEs
-{
-    public Mow() : base(ActionID.MakeSpell(AID.Mow), new AOEShapeCone(7.4f, 60.Degrees())) { }
+    Mow = 14879, // Boss->self, 3.0s cast, range 6+R 120-degree cone
 }
 
-class Hints : BossComponent
+class Mow(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Mow), new AOEShapeCone(7.4f, 60.Degrees()));
+
+class Hints(BossModule module) : BossComponent(module)
 {
-    public override void AddGlobalHints(BossModule module, GlobalHints hints)
+    public override void AddGlobalHints(GlobalHints hints)
     {
         hints.Add("The first act is trivial, almost anything will work.\nFor act 2 having Flying Sardine is recommended.");
     }
@@ -39,7 +36,7 @@ class Stage13Act1States : StateMachineBuilder
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 623, NameID = 8104, SortOrder = 1)]
 public class Stage13Act1 : BossModule
 {
-    public Stage13Act1(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(100, 100), 25))
+    public Stage13Act1(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
     {
         ActivateComponent<Hints>();
     }

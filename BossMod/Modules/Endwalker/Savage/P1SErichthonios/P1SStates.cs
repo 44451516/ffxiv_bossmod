@@ -32,9 +32,11 @@ class P1SStates : StateMachineBuilder
 
         ShiningCells(id + 0x300000, 11.2f);
 
-        Dictionary<AID, (uint seqID, Action<uint> buildState)> fork = new();
-        fork[AID.AetherialShackles] = (1, Fork1);
-        fork[AID.ShacklesOfTime] = (2, Fork2);
+        Dictionary<AID, (uint seqID, Action<uint> buildState)> fork = new()
+        {
+            [AID.AetherialShackles] = (1, Fork1),
+            [AID.ShacklesOfTime] = (2, Fork2)
+        };
         CastStartFork(id + 0x310000, fork, 6.2f, "Shackles+Aetherchains -or- ShacklesOfTime+Knockback"); // first branch delay = 7.8
     }
 
@@ -195,16 +197,16 @@ class P1SStates : StateMachineBuilder
 
     private void ShiningCells(uint id, float delay)
     {
-        var s = Cast(id, AID.ShiningCells, delay, 7, "Cells")
+        Cast(id, AID.ShiningCells, delay, 7, "Cells")
+            .OnExit(() => Module.Arena.Bounds = new ArenaBoundsCircle(Module.Bounds.Radius))
             .SetHint(StateMachine.StateHint.Raidwide);
-        s.Raw.Exit.Add(() => Module.Arena.Bounds = new ArenaBoundsCircle(Module.Arena.Bounds.Center, Module.Arena.Bounds.HalfSize));
     }
 
     private void SlamShut(uint id, float delay)
     {
-        var s = Cast(id, AID.SlamShut, delay, 7, "SlamShut")
+        Cast(id, AID.SlamShut, delay, 7, "SlamShut")
+            .OnExit(() => Module.Arena.Bounds = new ArenaBoundsSquare(Module.Bounds.Radius))
             .SetHint(StateMachine.StateHint.Raidwide);
-        s.Raw.Exit.Add(() => Module.Arena.Bounds = new ArenaBoundsSquare(Module.Arena.Bounds.Center, Module.Arena.Bounds.HalfSize));
     }
 
     private void Fork1(uint id)

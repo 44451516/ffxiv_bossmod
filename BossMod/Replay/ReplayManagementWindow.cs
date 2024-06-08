@@ -6,14 +6,15 @@ namespace BossMod;
 
 public class ReplayManagementWindow : UIWindow
 {
-    private WorldState _ws;
-    private DirectoryInfo _logDir;
-    private ReplayManagementConfig _config;
-    private ReplayManager _manager;
+    private readonly WorldState _ws;
+    private readonly DirectoryInfo _logDir;
+    private readonly ReplayManagementConfig _config;
+    private readonly ReplayManager _manager;
+    private readonly EventSubscriptions _subscriptions;
     private ReplayRecorder? _recorder;
     private string _message = "";
 
-    private static string _windowID = "###Replay recorder";
+    private const string _windowID = "###Replay recorder";
 
     public ReplayManagementWindow(WorldState ws, DirectoryInfo logDir) : base(_windowID, false, new(300, 200))
     {
@@ -21,22 +22,24 @@ public class ReplayManagementWindow : UIWindow
         _logDir = logDir;
         _config = Service.Config.Get<ReplayManagementConfig>();
         _manager = new(logDir.FullName);
+        _subscriptions = new
+        (
+            _config.Modified.ExecuteAndSubscribe(() => IsOpen = _config.ShowUI),
+            _ws.CurrentZoneChanged.Subscribe(op => UpdateAutoRecord(op.CFCID))
+        );
 
-        _ws.CurrentZoneChanged += OnZoneChanged;
-        _config.Modified += OnConfigChanged;
         if (!UpdateAutoRecord(_ws.CurrentCFCID))
             UpdateTitle();
 
         RespectCloseHotkey = false;
-        IsOpen = _config.ShowUI;
     }
 
     protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigChanged;
-        _ws.CurrentZoneChanged -= OnZoneChanged;
         _recorder?.Dispose();
+        _subscriptions.Dispose();
         _manager.Dispose();
+        base.Dispose(disposing);
     }
 
     public void SetVisible(bool vis)
@@ -44,7 +47,7 @@ public class ReplayManagementWindow : UIWindow
         if (_config.ShowUI != vis)
         {
             _config.ShowUI = vis;
-            _config.NotifyModified();
+            _config.Modified.Fire();
         }
     }
 
@@ -69,7 +72,7 @@ public class ReplayManagementWindow : UIWindow
             ImGui.SameLine();
             if (ImGui.Button("Add log marker") && _message.Length > 0)
             {
-                _ws.Execute(new WorldState.OpUserMarker() { Text = _message });
+                _ws.Execute(new WorldState.OpUserMarker(_message));
                 _message = "";
             }
         }
@@ -125,7 +128,7 @@ public class ReplayManagementWindow : UIWindow
         SetVisible(false);
     }
 
-    private void UpdateTitle() =>  WindowName = $"Replay recording: {(_recorder != null ? "in progress..." : "idle")}{_windowID}";
+    private void UpdateTitle() => WindowName = $"Replay recording: {(_recorder != null ? "in progress..." : "idle")}{_windowID}";
 
     private bool UpdateAutoRecord(uint cfcId)
     {
@@ -144,14 +147,11 @@ public class ReplayManagementWindow : UIWindow
         return false;
     }
 
-    private void OnConfigChanged() => IsOpen = _config.ShowUI;
-    private void OnZoneChanged(WorldState.OpZoneChange op) => UpdateAutoRecord(op.CFCID);
-
     private unsafe string GetPrefix()
     {
         string? prefix = null;
         if (_ws.CurrentCFCID != 0)
-            prefix ??= Service.LuminaRow<ContentFinderCondition>(_ws.CurrentCFCID)?.Name.ToString();
+            prefix = Service.LuminaRow<ContentFinderCondition>(_ws.CurrentCFCID)?.Name.ToString();
         if (_ws.CurrentZone != 0)
             prefix ??= Service.LuminaRow<TerritoryType>(_ws.CurrentZone)?.PlaceName.Value?.NameNoArticle.ToString();
         prefix ??= "World";
@@ -159,7 +159,7 @@ public class ReplayManagementWindow : UIWindow
 
         var player = _ws.Party.Player();
         if (player != null)
-            prefix += $"_{player.Class}{player.Level}_{player.Name.Replace(" ", null)}";
+            prefix += $"_{player.Class}{player.Level}_{player.Name.Replace(" ", null, StringComparison.Ordinal)}";
 
         var cf = FFXIVClientStructs.FFXIV.Client.Game.UI.ContentsFinder.Instance();
         if (cf->IsUnrestrictedParty)

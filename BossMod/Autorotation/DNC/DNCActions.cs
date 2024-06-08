@@ -7,16 +7,15 @@ class Actions : CommonActions
     public const int AutoActionST = AutoActionFirstCustom + 0;
     public const int AutoActionAOE = AutoActionFirstCustom + 1;
 
-    private DNCConfig _config;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
+    private readonly ConfigListener<DNCConfig> _config;
 
-    private bool _predictedTechFinish = false; // TODO: find a way to remove that
+    private bool _predictedTechFinish; // TODO: find a way to remove that
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<DNCConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
 
@@ -24,41 +23,41 @@ class Actions : CommonActions
         SupportedSpell(AID.TechnicalStep).TransformAction = () => ActionID.MakeSpell(_state.BestTechStep);
         SupportedSpell(AID.Improvisation).TransformAction = () => ActionID.MakeSpell(_state.BestImprov);
 
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _config = Service.Config.GetAndSubscribe<DNCConfig>(OnConfigModified);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigModified;
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
 
     public override CommonRotation.Strategy GetStrategy() => _strategy;
 
-    private void OnConfigModified()
+    private void OnConfigModified(DNCConfig config)
     {
-        SupportedSpell(AID.Cascade).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
-        SupportedSpell(AID.Windmill).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
+        SupportedSpell(AID.Cascade).PlaceholderForAuto = config.FullRotation ? AutoActionST : AutoActionNone;
+        SupportedSpell(AID.Windmill).PlaceholderForAuto = config.FullRotation ? AutoActionAOE : AutoActionNone;
 
-        _strategy.PauseDuringImprov = _config.PauseDuringImprov;
-        _strategy.AutoPartner = _config.AutoPartner;
+        _strategy.PauseDuringImprov = config.PauseDuringImprov;
+        _strategy.AutoPartner = config.AutoPartner;
     }
 
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         if (AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         var aid = Rotation.GetNextBestGCD(_state, _strategy);
         return MakeResult(aid, Autorot.PrimaryTarget);
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         if (_strategy.AutoPartner
             && _state.Unlocked(AID.ClosedPosition)
@@ -105,7 +104,7 @@ class Actions : CommonActions
             SimulateManualActionForAI(
                 ActionID.MakeSpell(AID.CuringWaltz),
                 Player,
-                Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.75f
+                Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.75f
             );
         }
         if (_state.Unlocked(AID.SecondWind))
@@ -113,7 +112,7 @@ class Actions : CommonActions
             SimulateManualActionForAI(
                 ActionID.MakeSpell(AID.SecondWind),
                 Player,
-                Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.5f
+                Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.5f
             );
         }
     }
@@ -134,7 +133,7 @@ class Actions : CommonActions
         _strategy.ApplyStrategyOverrides(
             Autorot
                 .Bossmods.ActiveModule?.PlanExecution
-                ?.ActiveStrategyOverrides(Autorot.Bossmods.ActiveModule.StateMachine) ?? new uint[0]
+                ?.ActiveStrategyOverrides(Autorot.Bossmods.ActiveModule.StateMachine) ?? []
         );
     }
 
@@ -188,7 +187,8 @@ class Actions : CommonActions
         // cascading buff that is applied to self last? anyway, the delay can cause the rotation to skip the
         // devilment weave window that occurs right after tech finish since it doesn't think we have tech finish yet
         // TODO: this is not very robust (eg player could die between action and buff application), investigate why StatusDetail doesn't pick it up from pending statuses...
-        if (_predictedTechFinish) {
+        if (_predictedTechFinish)
+        {
             if (_state.TechFinishLeft == 0)
                 _state.TechFinishLeft = 1000f;
             else
@@ -237,20 +237,6 @@ class Actions : CommonActions
     private float StatusLeft(SID status) => StatusDetails(Player, status, Player.InstanceID).Left;
 
     private int NumAOETargets(Actor origin) => Autorot.Hints.NumPriorityTargetsInAOECircle(origin.Position, 5);
-
-    private int NumFan4Targets(Actor primary) =>
-        Autorot.Hints.NumPriorityTargetsInAOECone(
-            Player.Position,
-            15,
-            (primary.Position - Player.Position).Normalized(),
-            60.Degrees()
-        );
-
-    private int NumStarfallTargets(Actor primary) =>
-        Autorot.Hints.NumPriorityTargetsInAOERect(
-            Player.Position,
-            (primary.Position - Player.Position).Normalized(),
-            25,
-            4
-        );
+    private int NumFan4Targets(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOECone(Player.Position, 15, (primary.Position - Player.Position).Normalized(), 60.Degrees());
+    private int NumStarfallTargets(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOERect(Player.Position, (primary.Position - Player.Position).Normalized(), 25, 4);
 }

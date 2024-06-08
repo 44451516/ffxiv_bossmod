@@ -8,7 +8,7 @@ public enum OID : uint
     Sunstorm = 0x38D4, // spawn during fight after solar wings cast
     ProdigalSun = 0x38D5, // spawn during fight
     Helper = 0x233C, // x33
-};
+}
 
 public enum AID : uint
 {
@@ -39,7 +39,7 @@ public enum AID : uint
     TeleportFlame = 28818, // WardensFlame->location, no cast
     RadiantFinish = 28817, // Boss->self, 3.0s cast, visual
     RadiantFlourish = 28820, // WardensFlame->self, 3.0s cast, range 25 aoe
-    FinishFans  = 29360, // Boss->self, no cast, visual
+    FinishFans = 29360, // Boss->self, no cast, visual
 
     FleetingSpark = 28828, // Boss->self, 5.5s cast, range 60 270-degree cone
 
@@ -59,4 +59,4 @@ public enum AID : uint
     Sunbeam = 28823, // Helper->self, 6.0s cast, range 9 aoe
     SublimeSunset = 28824, // Boss->self, 9.0s cast
     SublimeSunsetAOE = 28825, // ProdigalSun->location, 9.5s cast, range 60 aoe with ? falloff
-};
+}

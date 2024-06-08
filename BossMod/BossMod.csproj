@@ -23,6 +23,9 @@
 
      <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
        <OutputPath>..\release</OutputPath>
+       <AnalysisMode>All</AnalysisMode>
+       <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
       </PropertyGroup>
 
   <ItemGroup>
@@ -35,6 +38,7 @@
     <Using Include="System" />
     <Using Include="System.Collections" />
     <Using Include="System.Collections.Generic" />
+    <Using Include="System.Collections.Immutable" />
     <Using Include="System.Linq" />
     <Using Include="System.Numerics" />
   </ItemGroup>
@@ -50,10 +54,18 @@
   <ItemGroup>
     <PackageReference Include="DalamudPackager" Version="2.1.12" />
     <PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
-    <Reference Include="FFXIVClientStructs">
-      <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <ProjectReference Include="..\CodeAnalysis\CodeAnalysis.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Analyzer</OutputItemType>
+    </ProjectReference>
+    
+    <ProjectReference Include="..\FFXIVClientStructs\FFXIVClientStructs\FFXIVClientStructs.csproj" />
+
+<!--    <Reference Include="FFXIVClientStructs">-->
+<!--      <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>-->
+<!--      <Private>false</Private>-->
+<!--    </Reference>-->
+
     <Reference Include="Newtonsoft.Json">
       <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>

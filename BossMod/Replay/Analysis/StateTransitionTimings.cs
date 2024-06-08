@@ -4,20 +4,12 @@ namespace BossMod.ReplayAnalysis;
 
 class StateTransitionTimings
 {
-    class TransitionMetric
+    class TransitionMetric(double duration, Replay replay, Replay.Encounter encounter, DateTime time)
     {
-        public double Duration;
-        public Replay Replay;
-        public Replay.Encounter Encounter;
-        public DateTime Time;
-
-        public TransitionMetric(double duration, Replay replay, Replay.Encounter encounter, DateTime time)
-        {
-            Duration = duration;
-            Replay = replay;
-            Encounter = encounter;
-            Time = time;
-        }
+        public double Duration = duration;
+        public Replay Replay = replay;
+        public Replay.Encounter Encounter = encounter;
+        public DateTime Time = time;
     }
 
     class TransitionMetrics
@@ -26,26 +18,20 @@ class StateTransitionTimings
         public double MaxTime;
         public double AvgTime;
         public double StdDev;
-        public List<TransitionMetric> Instances = new();
+        public List<TransitionMetric> Instances = [];
     }
 
-    class StateMetrics
+    class StateMetrics(string name, double expectedTime)
     {
-        public string Name;
-        public double ExpectedTime;
-        public SortedDictionary<uint, TransitionMetrics> Transitions = new();
-
-        public StateMetrics(string name, double expectedTime)
-        {
-            Name = name;
-            ExpectedTime = expectedTime;
-        }
+        public string Name = name;
+        public double ExpectedTime = expectedTime;
+        public SortedDictionary<uint, TransitionMetrics> Transitions = [];
     }
 
-    private SortedDictionary<uint, StateMetrics> _metrics = new();
-    private List<(Replay, Replay.Encounter, Replay.EncounterError)> _errors = new();
-    private List<(Replay, Replay.Encounter)> _encounters = new();
-    private float _lastSecondsToIgnore = 0;
+    private readonly SortedDictionary<uint, StateMetrics> _metrics = [];
+    private readonly List<(Replay, Replay.Encounter, Replay.EncounterError)> _errors = [];
+    private readonly List<(Replay, Replay.Encounter)> _encounters = [];
+    private float _lastSecondsToIgnore;
     private object? _selected;
 
     public StateTransitionTimings(List<Replay> replays, uint oid)
@@ -103,10 +89,10 @@ class StateTransitionTimings
             tree.LeafNodes(_errors.Where(e => (e.Item2.Time.End - e.Item3.Timestamp).TotalSeconds >= _lastSecondsToIgnore), error => $"{LocationString(error.Item1, error.Item2, error.Item3.Timestamp)} [{error.Item3.CompType}] {error.Item3.Message}");
         }
 
-        List<Action> actions = new();
+        Action? actions = null;
         foreach (var from in _metrics.Values)
         {
-            Func<KeyValuePair<uint, TransitionMetrics>, UITree.NodeProperties> map = kv =>
+            UITree.NodeProperties map(KeyValuePair<uint, TransitionMetrics> kv)
             {
                 var destName = kv.Key != uint.MaxValue ? _metrics[kv.Key].Name : "<end>";
                 var name = $"{from.Name} -> {destName}";
@@ -114,19 +100,17 @@ class StateTransitionTimings
                 //bool warn = from.ExpectedTime < Math.Round(m.MinTime, 1) || from.ExpectedTime > Math.Round(m.MaxTime, 1);
                 bool warn = Math.Abs(from.ExpectedTime - kv.Value.AvgTime) > Math.Ceiling(kv.Value.StdDev * 10) / 10;
                 return new($"{name}: {value}###{name}", false, warn ? 0xff00ffff : 0xffffffff);
-            };
-            foreach (var (toID, m) in tree.Nodes(from.Transitions, map, kv => TransitionContextMenu(from, kv.Key, kv.Value, tree, actions), select: kv => _selected = kv.Value))
+            }
+            foreach (var (toID, m) in tree.Nodes(from.Transitions, map, kv => TransitionContextMenu(from, kv.Key, kv.Value, tree, ref actions), select: kv => _selected = kv.Value))
             {
                 foreach (var inst in m.Instances)
                 {
                     bool warn = Math.Abs(inst.Duration - m.AvgTime) > m.StdDev;
-                    tree.LeafNode($"{inst.Duration:f2}: {LocationString(inst.Replay, inst.Encounter, inst.Time)}", warn ? 0xff00ffff : 0xffffffff, () => TransitionInstanceContextMenu(from, toID, m, inst, actions), select: () => _selected = inst);
+                    tree.LeafNode($"{inst.Duration:f2}: {LocationString(inst.Replay, inst.Encounter, inst.Time)}", warn ? 0xff00ffff : 0xffffffff, () => TransitionInstanceContextMenu(from, toID, m, inst, ref actions), select: () => _selected = inst);
                 }
             }
         }
-
-        foreach (var a in actions)
-            a();
+        actions?.Invoke();
     }
 
     private string LocationString(Replay replay, Replay.Encounter enc, DateTime timestamp) => $"{replay.Path} @ {enc.Time.Start:O} + {(timestamp - enc.Time.Start).TotalSeconds:f3} / {enc.Time.Duration:f3}";
@@ -134,8 +118,8 @@ class StateTransitionTimings
     private void RecalculateMetrics(TransitionMetrics trans)
     {
         trans.Instances.SortBy(e => e.Duration);
-        trans.MinTime = trans.Instances.First().Duration;
-        trans.MaxTime = trans.Instances.Last().Duration;
+        trans.MinTime = trans.Instances[0].Duration;
+        trans.MaxTime = trans.Instances[^1].Duration;
         double sum = 0, sumSq = 0;
         foreach (var inst in trans.Instances)
         {
@@ -146,16 +130,16 @@ class StateTransitionTimings
         trans.StdDev = trans.Instances.Count > 0 ? Math.Sqrt((sumSq - sum * sum / trans.Instances.Count) / (trans.Instances.Count - 1)) : 0;
     }
 
-    private void TransitionContextMenu(StateMetrics state, uint to, TransitionMetrics trans, UITree tree, List<Action> actions)
+    private void TransitionContextMenu(StateMetrics state, uint to, TransitionMetrics trans, UITree tree, ref Action? actions)
     {
         if (ImGui.MenuItem("Ignore this transition"))
         {
-            actions.Add(() =>
+            actions += () =>
             {
                 if (_selected == trans)
                     _selected = null;
                 state.Transitions.Remove(to);
-            });
+            };
         }
         if (_selected is TransitionMetrics dest && trans != dest && ImGui.MenuItem("Merge to selected transition"))
         {
@@ -165,11 +149,11 @@ class StateTransitionTimings
         }
     }
 
-    private void TransitionInstanceContextMenu(StateMetrics state, uint to, TransitionMetrics trans, TransitionMetric metric, List<Action> actions)
+    private void TransitionInstanceContextMenu(StateMetrics state, uint to, TransitionMetrics trans, TransitionMetric metric, ref Action? actions)
     {
         if (ImGui.MenuItem("Ignore this instance"))
         {
-            actions.Add(() =>
+            actions += () =>
             {
                 if (_selected == metric)
                     _selected = null;
@@ -178,7 +162,7 @@ class StateTransitionTimings
                     RecalculateMetrics(trans);
                 else
                     state.Transitions.Remove(to);
-            });
+            };
         }
     }
 }

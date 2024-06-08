@@ -23,7 +23,7 @@ public enum ActorType : ushort
     CardStand = 0xE00,
 }
 
-public class ActorCastInfo
+public sealed class ActorCastInfo
 {
     public static readonly TimeSpan NPCFinishDelay = TimeSpan.FromSeconds(0.3); // for whatever reason, npc spells have reported remaining cast time consistently 0.3s smaller than reality
 
@@ -43,19 +43,15 @@ public class ActorCastInfo
     public bool IsSpell<AID>(AID aid) where AID : Enum => Action == ActionID.MakeSpell(aid);
 }
 
-public class ActorCastEvent
+public sealed class ActorCastEvent
 {
-    public struct Target
-    {
-        public ulong ID;
-        public ActionEffects Effects;
-    }
+    public readonly record struct Target(ulong ID, ActionEffects Effects);
 
     public ActionID Action;
     public ulong MainTargetID; // note that actual affected targets could be completely different
     public float AnimationLockTime;
     public uint MaxTargets;
-    public List<Target> Targets = new();
+    public List<Target> Targets = [];
     public Vector3 TargetPos;
     public uint SourceSequence;
     public uint GlobalSequence;
@@ -66,85 +62,48 @@ public class ActorCastEvent
     public bool IsSpell<AID>(AID aid) where AID : Enum => Action == ActionID.MakeSpell(aid);
 }
 
-public struct ActorHP
-{
-    public uint Cur;
-    public uint Max;
-    public uint Shield;
-}
+public record struct ActorHPMP(uint CurHP, uint MaxHP, uint Shield, uint CurMP);
 
 // note on tethers - it is N:1 type of relation, actor can be tethered to 0 or 1 actors, but can itself have multiple actors tethering themselves to itself
-public struct ActorTetherInfo
-{
-    public ulong Target; // instance id
-    public uint ID;
-}
+// target is an instance id
+public record struct ActorTetherInfo(uint ID, ulong Target);
 
-public struct ActorStatus
-{
-    public uint ID;
-    public ulong SourceID;
-    public ushort Extra;
-    public DateTime ExpireAt;
-}
+public record struct ActorStatus(uint ID, ushort Extra, DateTime ExpireAt, ulong SourceID);
 
-public struct ActorModelState
-{
-    public byte ModelState;
-    public byte AnimState1;
-    public byte AnimState2;
-}
+public record struct ActorModelState(byte ModelState, byte AnimState1, byte AnimState2);
 
-public class Actor
+public sealed class Actor(ulong instanceID, uint oid, int spawnIndex, string name, uint nameID, ActorType type, Class classID, int level, Vector4 posRot, float hitboxRadius = 1, ActorHPMP hpmp = default, bool targetable = true, bool ally = false, ulong ownerID = 0, uint fateID = 0)
 {
-    public ulong InstanceID; // 'uuid'
-    public uint OID;
-    public int SpawnIndex; // [0-200) = character (even for normal, odd for dependents like mounts), [200-246) = client-side, [246, 286) = event object, [286, 426) = ???, [426-526) = ???, [526,596) = ???
-    public string Name;
-    public uint NameID;
-    public ActorType Type;
-    public Class Class;
-    public int Level;
-    public Vector4 PosRot = new(); // W = rotation: 0 = pointing S, pi/2 = pointing E, pi = pointing N, -pi/2 = pointing W
-    public float HitboxRadius;
-    public ActorHP HP;
-    public uint CurMP;
+    public ulong InstanceID = instanceID; // 'uuid'
+    public uint OID = oid;
+    public int SpawnIndex = spawnIndex; // [0-200) = character (even for normal, odd for dependents like mounts), [200-246) = client-side, [246, 286) = event object, [286, 426) = ???, [426-526) = ???, [526,596) = ???
+    public uint FateID = fateID;
+    public string Name = name;
+    public uint NameID = nameID;
+    public ActorType Type = type;
+    public Class Class = classID;
+    public int Level = level;
+    public Vector4 PosRot = posRot; // W = rotation: 0 = pointing S, pi/2 = pointing E, pi = pointing N, -pi/2 = pointing W
+    public float HitboxRadius = hitboxRadius;
+    public ActorHPMP HPMP = hpmp;
     public bool IsDestroyed; // set to true when actor is removed from world; object might still be alive because of other references
-    public bool IsTargetable;
-    public bool IsAlly;
+    public bool IsTargetable = targetable;
+    public bool IsAlly = ally;
     public bool IsDead;
     public bool InCombat;
     public ActorModelState ModelState;
     public byte EventState; // not sure about the field meaning...
-    public ulong OwnerID; // uuid of owner, for pets and similar
+    public ulong OwnerID = ownerID; // uuid of owner, for pets and similar
     public ulong TargetID;
     public ActorCastInfo? CastInfo;
-    public ActorTetherInfo Tether = new();
+    public ActorTetherInfo Tether;
     public ActorStatus[] Statuses = new ActorStatus[60]; // empty slots have ID=0
 
     public Role Role => Class.GetRole();
     public WPos Position => new(PosRot.X, PosRot.Z);
     public Angle Rotation => PosRot.W.Radians();
     public bool Omnidirectional => Utils.CharacterIsOmnidirectional(OID);
-
-    public Actor(ulong instanceID, uint oid, int spawnIndex, string name, uint nameID, ActorType type, Class classID, int level, Vector4 posRot, float hitboxRadius = 1, ActorHP hp = new(), uint mp = 0, bool targetable = true, bool ally = false, ulong ownerID = 0)
-    {
-        InstanceID = instanceID;
-        OID = oid;
-        SpawnIndex = spawnIndex;
-        Name = name;
-        NameID = nameID;
-        Type = type;
-        Class = classID;
-        Level = level;
-        PosRot = posRot;
-        HitboxRadius = hitboxRadius;
-        HP = hp;
-        CurMP = mp;
-        IsTargetable = targetable;
-        IsAlly = ally;
-        OwnerID = ownerID;
-    }
+    public bool IsDeadOrDestroyed => IsDead || IsDestroyed;
 
     public ActorStatus? FindStatus(uint sid)
     {

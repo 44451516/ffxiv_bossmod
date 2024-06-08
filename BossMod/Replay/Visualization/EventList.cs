@@ -1,43 +1,47 @@
 ﻿using ImGuiNET;
+using System.Runtime.InteropServices;
 
 namespace BossMod.ReplayVisualization;
 
-class EventList
+class EventList(Replay r, Action<DateTime> scrollTo)
 {
-    private Replay _replay;
-    private Action<DateTime> _scrollTo;
-    private UITree _tree = new();
-    private OpList? _opListRaw;
-    private Dictionary<Replay.Encounter, OpList> _opListsFiltered = new();
+    record struct Lists(OpList? Ops, IPCList? IPCs);
 
-    public EventList(Replay r, Action<DateTime> scrollTo)
-    {
-        _replay = r;
-        _scrollTo = scrollTo;
-    }
+    private readonly UITree _tree = new();
+    private Lists _listsRaw;
+    private readonly Dictionary<Replay.Encounter, Lists> _listsFiltered = [];
 
     public void Draw()
     {
         foreach (var n in _tree.Node("Full data"))
         {
-            foreach (var no in _tree.Node("Raw ops", contextMenu: () => OpListContextMenu(_opListRaw)))
+            foreach (var no in _tree.Node("Raw ops", contextMenu: () => OpListContextMenu(_listsRaw.Ops)))
             {
-                if (_opListRaw == null)
-                    _opListRaw = new(_replay, null, _replay.Ops, _scrollTo);
-                _opListRaw.Draw(_tree, _replay.Ops.First().Timestamp);
+                _listsRaw.Ops ??= new(r, null, r.Ops, scrollTo);
+                _listsRaw.Ops.Draw(_tree, r.Ops[0].Timestamp);
+            }
+            foreach (var no in _tree.Node("Server IPCs", contextMenu: () => IPCListContextMenu(_listsRaw.IPCs)))
+            {
+                _listsRaw.IPCs ??= new(r, r.Ops, scrollTo);
+                _listsRaw.IPCs.Draw(_tree, r.Ops[0].Timestamp);
             }
 
             DrawContents(null, null);
             DrawUserMarkers();
         }
-        foreach (var e in _tree.Nodes(_replay.Encounters, e => new($"{ModuleRegistry.FindByOID(e.OID)?.ModuleType.Name}: {e.InstanceID:X}, zone={e.Zone}, start={e.Time.Start:O}, duration={e.Time}, countdown on pull={e.CountdownOnPull:f3}")))
+        foreach (var e in _tree.Nodes(r.Encounters, e => new($"{ModuleRegistry.FindByOID(e.OID)?.ModuleType.Name}: {e.InstanceID:X}, zone={e.Zone}, start={e.Time.Start:O}, duration={e.Time}, countdown on pull={e.CountdownOnPull:f3}")))
         {
             var moduleInfo = ModuleRegistry.FindByOID(e.OID);
-            foreach (var n in _tree.Node("Raw ops", contextMenu: () => OpListContextMenu(_opListsFiltered.GetValueOrDefault(e))))
+            ref var lists = ref CollectionsMarshal.GetValueRefOrAddDefault(_listsFiltered, e, out _);
+            foreach (var n in _tree.Node("Raw ops", contextMenu: () => OpListContextMenu(_listsFiltered[e].Ops)))
             {
-                if (!_opListsFiltered.ContainsKey(e))
-                    _opListsFiltered[e] = new(_replay, moduleInfo, _replay.Ops.SkipWhile(o => o.Timestamp < e.Time.Start).TakeWhile(o => o.Timestamp <= e.Time.End), _scrollTo);
-                _opListsFiltered[e].Draw(_tree, e.Time.Start);
+                lists.Ops ??= new(r, moduleInfo, r.Ops.SkipWhile(o => o.Timestamp < e.Time.Start).TakeWhile(o => o.Timestamp <= e.Time.End), scrollTo);
+                lists.Ops.Draw(_tree, e.Time.Start);
+            }
+            foreach (var n in _tree.Node("Server IPCs", contextMenu: () => IPCListContextMenu(_listsFiltered[e].IPCs)))
+            {
+                lists.IPCs ??= new(r, r.Ops.SkipWhile(o => o.Timestamp < e.Time.Start).TakeWhile(o => o.Timestamp <= e.Time.End), scrollTo);
+                lists.IPCs.Draw(_tree, e.Time.Start);
             }
 
             DrawContents(e, moduleInfo);
@@ -53,19 +57,19 @@ class EventList
         var sidType = moduleInfo?.StatusIDType;
         var tidType = moduleInfo?.TetherIDType;
         var iidType = moduleInfo?.IconIDType;
-        var reference = filter?.Time.Start ?? _replay.Ops.First().Timestamp;
+        var reference = filter?.Time.Start ?? r.Ops[0].Timestamp;
         var tp = TimePrinter(reference);
-        var actions = filter != null ? _replay.EncounterActions(filter) : _replay.Actions;
-        var statuses = filter != null ? _replay.EncounterStatuses(filter) : _replay.Statuses;
-        var tethers = filter != null ? _replay.EncounterTethers(filter) : _replay.Tethers;
-        var icons = filter != null ? _replay.EncounterIcons(filter) : _replay.Icons;
-        var envControls = filter != null ? _replay.EncounterEnvControls(filter) : _replay.EnvControls;
+        var actions = filter != null ? r.EncounterActions(filter) : r.Actions;
+        var statuses = filter != null ? r.EncounterStatuses(filter) : r.Statuses;
+        var tethers = filter != null ? r.EncounterTethers(filter) : r.Tethers;
+        var icons = filter != null ? r.EncounterIcons(filter) : r.Icons;
+        var envControls = filter != null ? r.EncounterEnvControls(filter) : r.EnvControls;
 
         foreach (var n in _tree.Node("Participants"))
         {
             if (filter == null)
             {
-                DrawParticipants(_replay.Participants, actions, statuses, tp, reference, filter, aidType, sidType);
+                DrawParticipants(r.Participants, actions, statuses, tp, reference, filter, aidType, sidType);
             }
             else
             {
@@ -86,7 +90,7 @@ class EventList
         }
 
         bool haveActions = actions.Any();
-        Func<Replay.Action, bool> actionIsCrap = a => a.Source.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo;
+        bool actionIsCrap(Replay.Action a) => a.Source.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo;
         foreach (var n in _tree.Node("Interesting actions", !haveActions))
         {
             DrawActions(actions.Where(a => !actionIsCrap(a)), tp, aidType);
@@ -97,7 +101,7 @@ class EventList
         }
 
         bool haveStatuses = statuses.Any();
-        Func<Replay.Status, bool> statusIsCrap = s => (s.Source?.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo) || (s.Target.Type is ActorType.Pet or ActorType.Chocobo);
+        bool statusIsCrap(Replay.Status s) => s.Source?.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo || s.Target.Type is ActorType.Pet or ActorType.Chocobo;
         foreach (var n in _tree.Node("Interesting statuses", !haveStatuses))
         {
             DrawStatuses(statuses.Where(s => !statusIsCrap(s)), tp, sidType);
@@ -213,8 +217,8 @@ class EventList
 
     private void DrawUserMarkers()
     {
-        foreach (var n in _tree.Node("User markers", _replay.UserMarkers.Count == 0))
-            _tree.LeafNodes(_replay.UserMarkers, kv => $"{kv.Key:O}: {kv.Value}");
+        foreach (var n in _tree.Node("User markers", r.UserMarkers.Count == 0))
+            _tree.LeafNodes(r.UserMarkers, kv => $"{kv.Key:O}: {kv.Value}");
     }
 
     private Func<DateTime, string> TimePrinter(DateTime start)
@@ -224,7 +228,7 @@ class EventList
 
     private void OpenTimeline(Replay.Encounter enc, BitMask showPlayers)
     {
-        new ReplayTimelineWindow(_replay, enc, showPlayers);
+        _ = new ReplayTimelineWindow(r, enc, showPlayers);
     }
 
     private void DrawTimelines(Replay.Encounter enc)
@@ -252,6 +256,14 @@ class EventList
         if (list != null && ImGui.MenuItem("Show actor-size events", "", list.ShowActorSizeEvents, true))
         {
             list.ShowActorSizeEvents = !list.ShowActorSizeEvents;
+        }
+    }
+
+    private void IPCListContextMenu(IPCList? list)
+    {
+        if (ImGui.MenuItem("Clear filters"))
+        {
+            list?.ClearFilters();
         }
     }
 }

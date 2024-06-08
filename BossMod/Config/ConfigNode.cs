@@ -5,69 +5,49 @@ namespace BossMod;
 
 // attribute that specifies how config node should be shown in the UI
 [AttributeUsage(AttributeTargets.Class)]
-public class ConfigDisplayAttribute : Attribute
+public sealed class ConfigDisplayAttribute : Attribute
 {
-    public string? Name;
-    public int Order;
-    public Type? Parent;
+    public string? Name { get; set; }
+    public int Order { get; set; }
+    public Type? Parent { get; set; }
 }
 
 // attribute that specifies how config node field or enumeration value is shown in the UI
 [AttributeUsage(AttributeTargets.Field)]
-public class PropertyDisplayAttribute : Attribute
+public sealed class PropertyDisplayAttribute(string label, uint color = 0xffffffff) : Attribute
 {
-    public string Label;
-    public uint Color;
-
-    public PropertyDisplayAttribute(string label, uint color = 0xffffffff)
-    {
-        Label = label;
-        Color = color;
-    }
+    public string Label { get; } = label;
+    public uint Color { get; } = color;
 }
 
 // attribute that specifies combobox should be used for displaying int/bool property
 [AttributeUsage(AttributeTargets.Field)]
-public class PropertyComboAttribute : Attribute
+public sealed class PropertyComboAttribute(string[] values) : Attribute
 {
-    public string[] Values;
+    public string[] Values { get; } = values;
 
-    public PropertyComboAttribute(string[] values)
-    {
-        Values = values;
-    }
-
-    public PropertyComboAttribute(string falseText, string trueText)
-    {
-        Values = new[] { falseText, trueText };
-    }
+#pragma warning disable CA1019 // this is just a shorthand
+    public PropertyComboAttribute(string falseText, string trueText) : this([falseText, trueText]) { }
+#pragma warning restore CA1019
 }
 
 // attribute that specifies slider should be used for displaying float/int property
 [AttributeUsage(AttributeTargets.Field)]
-public class PropertySliderAttribute : Attribute
+public sealed class PropertySliderAttribute(float min, float max) : Attribute
 {
-    public float Speed = 1;
-    public float Min;
-    public float Max;
-    public bool Logarithmic;
-
-    public PropertySliderAttribute(float min, float max)
-    {
-        Min = min;
-        Max = max;
-    }
+    public float Speed { get; set; } = 1;
+    public float Min { get; } = min;
+    public float Max { get; } = max;
+    public bool Logarithmic { get; set; }
 }
 
 // base class for configuration nodes
 public abstract class ConfigNode
 {
-    public event Action? Modified;
-
-    // notify that configuration node was modified; should be called by derived classes whenever they make any modifications
-    // implementation dispatches modification event and forwards request to parent
-    // root should subscribe to modification event to save updated configuration
-    public void NotifyModified() => Modified?.Invoke();
+    // event fired when configuration node was modified; should be fired by anyone making any modifications
+    // root subscribes to modification event to save updated configuration
+    [JsonIgnore]
+    public Event Modified = new();
 
     // draw custom contents; override this for complex config nodes
     public virtual void DrawCustom(UITree tree, WorldState ws) { }
@@ -83,4 +63,13 @@ public abstract class ConfigNode
     {
         return JObject.FromObject(this, ser);
     }
+}
+
+// utility to simplify listening for config modifications; callback is executed immediately for initial state
+public sealed class ConfigListener<T>(T data, Action<T> modified) : IDisposable where T : ConfigNode
+{
+    public readonly T Data = data;
+    private readonly EventSubscription _listener = data.Modified.ExecuteAndSubscribe(() => modified(data));
+
+    public void Dispose() => _listener.Dispose();
 }

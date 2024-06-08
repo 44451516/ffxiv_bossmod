@@ -2,29 +2,41 @@
 
 // utility that determines ai hints automatically based on actor casts
 // this is used e.g. in outdoor or on trash, where we have no active bossmodules
-public class AutoHints : IDisposable
+public sealed class AutoHints : IDisposable
 {
-    static readonly float RaidwideSize = 30;
+    private const float RaidwideSize = 30;
 
-    private WorldState _ws;
-    private Dictionary<ulong, (Actor Caster, Actor? Target, AOEShape Shape, bool IsCharge)> _activeAOEs = new();
+    private readonly WorldState _ws;
+    private readonly EventSubscriptions _subscriptions;
+    private readonly Dictionary<ulong, (Actor Caster, Actor? Target, AOEShape Shape, bool IsCharge)> _activeAOEs = [];
+    private ArenaBoundsCircle? _activeFateBounds;
 
     public AutoHints(WorldState ws)
     {
         _ws = ws;
-        _ws.Actors.CastStarted += OnCastStarted;
-        _ws.Actors.CastFinished += OnCastFinished;
+        _subscriptions = new
+        (
+            ws.Actors.CastStarted.Subscribe(OnCastStarted),
+            ws.Actors.CastFinished.Subscribe(OnCastFinished),
+            ws.Client.ActiveFateChanged.Subscribe(_ => _activeFateBounds = null)
+        );
     }
 
-    public void Dispose()
-    {
-        _ws.Actors.CastStarted -= OnCastStarted;
-        _ws.Actors.CastFinished -= OnCastFinished;
-    }
+    public void Dispose() => _subscriptions.Dispose();
 
-    public void CalculateAIHints(AIHints hints, WPos playerPos)
+    public void CalculateAIHints(AIHints hints, Actor player)
     {
-        hints.Bounds = new ArenaBoundsSquare(playerPos, 30);
+        if (_ws.Client.ActiveFate.ID != 0 && player.Level <= Service.LuminaRow<Lumina.Excel.GeneratedSheets.Fate>(_ws.Client.ActiveFate.ID)?.ClassJobLevelMax)
+        {
+            hints.Center = new(_ws.Client.ActiveFate.Center.XZ());
+            hints.Bounds = (_activeFateBounds ??= new ArenaBoundsCircle(_ws.Client.ActiveFate.Radius));
+        }
+        else
+        {
+            hints.Center = player.Position.Rounded(5);
+            // keep default bounds
+        }
+
         foreach (var aoe in _activeAOEs.Values)
         {
             var target = aoe.Target?.Position ?? aoe.Caster.CastInfo!.LocXZ;
@@ -73,10 +85,7 @@ public class AutoHints : IDisposable
         _activeAOEs[actor.InstanceID] = (actor, target, shape, data.CastType == 8);
     }
 
-    private void OnCastFinished(Actor actor)
-    {
-        _activeAOEs.Remove(actor.InstanceID);
-    }
+    private void OnCastFinished(Actor actor) => _activeAOEs.Remove(actor.InstanceID);
 
     private Angle DetermineConeAngle(Lumina.Excel.GeneratedSheets.Action data)
     {
@@ -87,15 +96,14 @@ public class AutoHints : IDisposable
             return 180.Degrees();
         }
         var path = omen.Path.ToString();
-        var pos = path.IndexOf("fan");
+        var pos = path.IndexOf("fan", StringComparison.Ordinal);
         if (pos < 0 || pos + 6 > path.Length)
         {
             Service.Log($"[AutoHints] Can't determine angle from omen ({path}/{omen.PathAlly}) for {data.RowId} '{data.Name}'...");
             return 180.Degrees();
         }
 
-        int angle;
-        if (!int.TryParse(path.Substring(pos + 3, 3), out angle))
+        if (!int.TryParse(path.AsSpan(pos + 3, 3), out var angle))
         {
             Service.Log($"[AutoHints] Can't determine angle from omen ({path}/{omen.PathAlly}) for {data.RowId} '{data.Name}'...");
             return 180.Degrees();

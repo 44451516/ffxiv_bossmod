@@ -2,7 +2,7 @@
 
 class DSW1States : StateMachineBuilder
 {
-    private DSW1 _module;
+    private readonly DSW1 _module;
 
     public DSW1States(DSW1 module) : base(module)
     {
@@ -15,7 +15,7 @@ class DSW1States : StateMachineBuilder
 
     private bool ActorKilled(Actor? actor)
     {
-        return actor == null || actor.IsDestroyed || actor.HP.Cur < actor.HP.Max && !actor.IsTargetable;
+        return actor == null || actor.IsDestroyed || actor.HPMP.CurHP < actor.HPMP.MaxHP && !actor.IsTargetable;
     }
 
     private void MainPhase(uint id)

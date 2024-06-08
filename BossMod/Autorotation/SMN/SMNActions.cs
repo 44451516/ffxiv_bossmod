@@ -7,25 +7,23 @@ class Actions : CommonActions
     public const int AutoActionST = AutoActionFirstCustom + 0;
     public const int AutoActionAOE = AutoActionFirstCustom + 1;
 
-    private SMNConfig _config;
     private bool _aoe;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
+    private readonly ConfigListener<SMNConfig> _config;
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<SMNConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
-
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _config = Service.Config.GetAndSubscribe<SMNConfig>(OnConfigModified);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigModified;
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
@@ -54,7 +52,7 @@ class Actions : CommonActions
     {
     }
 
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         if (!Player.InCombat && _state.Unlocked(AID.SummonCarbuncle) && !_state.PetSummoned)
             return MakeResult(AID.SummonCarbuncle, Player);
@@ -62,15 +60,15 @@ class Actions : CommonActions
         //    return MakeResult(AID.Physick, Autorot.SecondaryTarget); // TODO: automatic target selection
 
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
         var aid = Rotation.GetNextBestGCD(_state, _strategy, _aoe, _strategy.ForceMovementIn < 5);
         return MakeResult(aid, Autorot.PrimaryTarget);
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         ActionID res = new();
         if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
@@ -108,22 +106,22 @@ class Actions : CommonActions
         }
     }
 
-    private void OnConfigModified()
+    private void OnConfigModified(SMNConfig config)
     {
         // placeholders
-        SupportedSpell(AID.Ruin1).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
-        SupportedSpell(AID.Outburst).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
+        SupportedSpell(AID.Ruin1).PlaceholderForAuto = config.FullRotation ? AutoActionST : AutoActionNone;
+        SupportedSpell(AID.Outburst).PlaceholderForAuto = config.FullRotation ? AutoActionAOE : AutoActionNone;
 
         // smart targets
-        SupportedSpell(AID.Physick).TransformTarget = _config.MouseoverFriendly ? SmartTargetFriendly : null;
+        SupportedSpell(AID.Physick).TransformTarget = config.MouseoverFriendly ? SmartTargetFriendly : null;
     }
 
-    private AID SmartResurrectAction()
-    {
-        // 1. swiftcast, if ready and not up yet
-        if (_state.Unlocked(AID.Swiftcast) && _state.SwiftcastLeft <= 0 && _state.CD(CDGroup.Swiftcast) <= 0)
-            return AID.Swiftcast;
+    //private AID SmartResurrectAction()
+    //{
+    //    // 1. swiftcast, if ready and not up yet
+    //    if (_state.Unlocked(AID.Swiftcast) && _state.SwiftcastLeft <= 0 && _state.CD(CDGroup.Swiftcast) <= 0)
+    //        return AID.Swiftcast;
 
-        return AID.Resurrection;
-    }
+    //    return AID.Resurrection;
+    //}
 }

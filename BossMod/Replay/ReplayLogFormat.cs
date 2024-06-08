@@ -1,4 +1,6 @@
-﻿namespace BossMod
+﻿using BossMod;
+
+namespace BossMod
 {
     public enum ReplayLogFormat
     {
@@ -15,4 +17,10 @@
         [PropertyDisplay("详细文本")]
         TextVerbose,
     }
+}
+
+public static class ReplayLogFormatMagic
+{
+    public static readonly FourCC CompressedBinary = new("BLCB"u8); // bossmod log compressed brotli
+    public static readonly FourCC RawBinary = new("BLOG"u8); // bossmod log
 }

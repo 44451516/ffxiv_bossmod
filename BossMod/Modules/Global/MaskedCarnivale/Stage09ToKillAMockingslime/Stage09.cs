@@ -10,39 +10,30 @@ public enum OID : uint
     Bavarois = 0x2715, //R=1.8
     Flan = 0x2716, //R=1.8
     DarkVoidzone = 0x1E9C9D, //R=0.5
-};
+}
 
 public enum AID : uint
 {
-    DeathRay = 15056, // 242D->player, 1,0s cast, single-target
-    Dark = 15057, // 242D->location, 3,0s cast, range 5 circle, creates a voidzone with radius 4
-    GoldenTongue = 14265, // 242D/2713/2714/2715->self, 5,0s cast, single-target
-    Fire = 14266, // 2711->player, 1,0s cast, single-target
-    Blizzard = 14267, // 2712->player, 1,0s cast, single-target
-    Aero = 14269, // 2713->player, 1,0s cast, single-target
-    Stone = 14270, // 2714->player, 1,0s cast, single-target
-    Thunder = 14268, // 2715->player, 1,0s cast, single-target
-    Water = 14271, // 2716->player, 1,0s cast, single-target
-};
-
-class GoldenTongue : Components.CastHint
-{
-    public GoldenTongue() : base(ActionID.MakeSpell(AID.GoldenTongue), "Can be interrupted, increase its magic damage") { }
+    DeathRay = 15056, // 242D->player, 1.0s cast, single-target
+    Dark = 15057, // 242D->location, 3.0s cast, range 5 circle, creates a voidzone with radius 4
+    GoldenTongue = 14265, // 242D/2713/2714/2715->self, 5.0s cast, single-target
+    Fire = 14266, // 2711->player, 1.0s cast, single-target
+    Blizzard = 14267, // 2712->player, 1.0s cast, single-target
+    Aero = 14269, // 2713->player, 1.0s cast, single-target
+    Stone = 14270, // 2714->player, 1.0s cast, single-target
+    Thunder = 14268, // 2715->player, 1.0s cast, single-target
+    Water = 14271, // 2716->player, 1.0s cast, single-target
 }
 
-class DarkVoidzone : Components.PersistentVoidzoneAtCastTarget
-{
-    public DarkVoidzone() : base(4, ActionID.MakeSpell(AID.Dark), m => m.Enemies(OID.DarkVoidzone), 0) { }
-}
+class GoldenTongue(BossModule module) : Components.CastHint(module, ActionID.MakeSpell(AID.GoldenTongue), "Can be interrupted, increase its magic damage");
 
-class Dark : Components.LocationTargetedAOEs
-{
-    public Dark() : base(ActionID.MakeSpell(AID.Dark), 5) { }
-}
+class DarkVoidzone(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 4, ActionID.MakeSpell(AID.Dark), m => m.Enemies(OID.DarkVoidzone), 0);
 
-class Hints : BossComponent
+class Dark(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.Dark), 5);
+
+class Hints(BossModule module) : BossComponent(module)
 {
-    public override void AddGlobalHints(BossModule module, GlobalHints hints)
+    public override void AddGlobalHints(GlobalHints hints)
     {
         hints.Add("Guimauve summons a total of 6 adds during the fight, one of each element.\nHealer mimikry can be helpful if you have trouble surviving.");
     }
@@ -63,7 +54,7 @@ class Stage09States : StateMachineBuilder
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 619, NameID = 8099)]
 public class Stage09 : BossModule
 {
-    public Stage09(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(100, 100), 16))
+    public Stage09(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(16))
     {
         ActivateComponent<Hints>();
     }

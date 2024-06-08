@@ -12,10 +12,6 @@ public static class ActorEnumeration
         return mask;
     }
 
-    // empty actor list utility
-    private static List<Actor> _emptyList = new();
-    public static IReadOnlyList<Actor> EmptyList => _emptyList;
-
     // convert slot+actor range into actor range
     public static IEnumerable<Actor> Actors(this IEnumerable<(int, Actor)> range) => range.Select(indexActor => indexActor.Item2);
 
@@ -131,7 +127,7 @@ public static class ActorEnumeration
         return range
             .Select(actor => (actor, (actor.Position - origin).LengthSq()))
             .OrderBy(actorDist => actorDist.Item2)
-            .Select(actorDist => actorDist.Item1);
+            .Select(actorDist => actorDist.actor);
     }
 
     public static IEnumerable<(int, Actor)> SortedByRange(this IEnumerable<(int, Actor)> range, WPos origin)

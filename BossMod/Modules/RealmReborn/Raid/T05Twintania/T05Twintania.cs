@@ -15,7 +15,7 @@ public enum OID : uint
     HelperMarker = 0x8EE, // R0.500, x2
     LiquidHell = 0x1E88FE, // R0.500, EventObj type, spawn during fight
     Twister = 0x1E8910, // R0.500, EventObj type, spawn during fight
-};
+}
 
 public enum AID : uint
 {
@@ -49,19 +49,19 @@ public enum AID : uint
     Hatch = 1256, // Oviform->self, no cast, ???
     LiquidHellMarker = 1457, // Boss->player, no cast, single-target, visual icon for liquid hell
     LiquidHellBoss = 670, // Boss->location, no cast, range 6 circle voidzone
-};
+}
 
 public enum SID : uint
 {
     Fetters = 292, // none->player, extra=0x0
     Disseminate = 348, // Hygieia->Asclepius/Hygieia/player, extra=0x1/0x2/0x3/0x4
-};
+}
 
 // note: this is one of the very early fights that is not represented well by a state machine - it has multiple timers running, can delay casts randomly, can have different overlaps depending on raid dps, etc.
 // the only thing that is well timed is P3 (divebombs phase)
 class T05TwintaniaStates : StateMachineBuilder
 {
-    private T05Twintania _module;
+    private readonly T05Twintania _module;
 
     public T05TwintaniaStates(T05Twintania module) : base(module)
     {
@@ -146,7 +146,7 @@ public class T05Twintania : BossModule
     public IReadOnlyList<Actor> ScourgeOfMeracydia;
     public IReadOnlyList<Actor> Neurolinks;
 
-    public T05Twintania(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(-3, -6.5f), 31))
+    public T05Twintania(WorldState ws, Actor primary) : base(ws, primary, new(-3, -6.5f), new ArenaBoundsCircle(31))
     {
         ScourgeOfMeracydia = Enemies(OID.ScourgeOfMeracydia);
         Neurolinks = Enemies(OID.Neurolink);

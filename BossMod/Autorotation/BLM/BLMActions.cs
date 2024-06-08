@@ -7,27 +7,25 @@ class Actions : CommonActions
     public const int AutoActionST = AutoActionFirstCustom + 0;
     public const int AutoActionAOE = AutoActionFirstCustom + 1;
 
-    private BLMConfig _config;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
     private DateTime _lastManaTick;
     private uint _prevMP;
+    private readonly ConfigListener<BLMConfig> _config;
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<BLMConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
-        _prevMP = player.CurMP;
-
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _prevMP = player.HPMP.CurMP;
+        _config = Service.Config.GetAndSubscribe<BLMConfig>(OnConfigModified);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigModified;
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
@@ -63,21 +61,21 @@ class Actions : CommonActions
         if (_state.Unlocked(AID.Transpose))
             SimulateManualActionForAI(ActionID.MakeSpell(AID.Transpose), Player, !Player.InCombat && _state.ElementalLevel > 0 && _state.CurMP < 10000);
         if (_state.Unlocked(AID.Manaward))
-            SimulateManualActionForAI(ActionID.MakeSpell(AID.Manaward), Player, Player.HP.Cur < Player.HP.Max * 0.8f);
+            SimulateManualActionForAI(ActionID.MakeSpell(AID.Manaward), Player, Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.8f);
     }
 
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
         var aid = Rotation.GetNextBestGCD(_state, _strategy);
         return MakeResult(aid, Autorot.PrimaryTarget);
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         ActionID res = new();
         if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
@@ -94,15 +92,15 @@ class Actions : CommonActions
         var gauge = Service.JobGauges.Get<BLMGauge>();
 
         // track mana ticks
-        if (_prevMP < Player.CurMP && !gauge.InAstralFire)
+        if (_prevMP < Player.HPMP.CurMP && !gauge.InAstralFire)
         {
             var expectedTick = Rotation.MPTick(-gauge.UmbralIceStacks);
-            if (Player.CurMP - _prevMP == expectedTick)
+            if (Player.HPMP.CurMP - _prevMP == expectedTick)
             {
                 _lastManaTick = Autorot.WorldState.CurrentTime;
             }
         }
-        _prevMP = Player.CurMP;
+        _prevMP = Player.HPMP.CurMP;
         _state.TimeToManaTick = 3 - (_lastManaTick != default ? (float)(Autorot.WorldState.CurrentTime - _lastManaTick).TotalSeconds % 3 : 0);
 
         _state.ElementalLevel = gauge.InAstralFire ? gauge.AstralFireStacks : -gauge.UmbralIceStacks;
@@ -115,14 +113,14 @@ class Actions : CommonActions
         _state.TargetThunderLeft = Math.Max(StatusDetails(Autorot.PrimaryTarget, _state.ExpectedThunder3, Player.InstanceID).Left, StatusDetails(Autorot.PrimaryTarget, SID.Thunder2, Player.InstanceID).Left);
     }
 
-    private void OnConfigModified()
+    private void OnConfigModified(BLMConfig config)
     {
         // placeholders
-        SupportedSpell(AID.Blizzard1).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
-        SupportedSpell(AID.Blizzard2).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
+        SupportedSpell(AID.Blizzard1).PlaceholderForAuto = config.FullRotation ? AutoActionST : AutoActionNone;
+        SupportedSpell(AID.Blizzard2).PlaceholderForAuto = config.FullRotation ? AutoActionAOE : AutoActionNone;
 
         // smart targets
-        SupportedSpell(AID.AetherialManipulation).TransformTarget = _config.MouseoverFriendly ? SmartTargetFriendly : null;
+        SupportedSpell(AID.AetherialManipulation).TransformTarget = config.MouseoverFriendly ? SmartTargetFriendly : null;
     }
 
     private int NumTargetsHitByAOE(Actor primary) => Autorot.Hints.NumPriorityTargetsInAOECircle(primary.Position, 5);

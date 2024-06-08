@@ -26,7 +26,7 @@ class UITest
             //Width = 1200,
             //Height = 800,
             Fullscreen = true,
-            TransparentColor = new float[] { 0, 0, 0 },
+            TransparentColor = [0, 0, 0],
         });
 
         // the background color of your window - typically don't change this for fullscreen overlays
@@ -146,8 +146,27 @@ class UITest
                         }
                     }
                 }
+
+                // Should return "C:\Program Files (x86)\Steam\steamapps\common\game Online" if installed with default options.
+                Span<int> validSteamAppIds = [39210, 312060];
+                foreach (var steamAppId in validSteamAppIds)
+                {
+                    using (var subkey = hklm.OpenSubKey($@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App {steamAppId}"))
+                    {
+                        if (subkey != null && subkey.GetValue("InstallLocation", null) is string path)
+                        {
+                            // InstallLocation is the root path of the game (the one containing boot and game) itself
+                            var dataPath = Path.Join(path, "game", "sqpack");
+                            if (Directory.Exists(dataPath))
+                            {
+                                return dataPath;
+                            }
+                        }
+                    }
+                }
             }
         }
-        return "D:\\installed\\SquareEnix\\FINAL FANTASY XIV - A Realm Reborn\\game\\sqpack";
+
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "SquareEnix\\FINAL FANTASY XIV - A Realm Reborn\\game\\sqpack");
     }
 }

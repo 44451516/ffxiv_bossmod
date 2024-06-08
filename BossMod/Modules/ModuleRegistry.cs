@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Collections.Generic;
+using System.Reflection;
 
 namespace BossMod;
 
@@ -15,6 +16,7 @@ public static class ModuleRegistry
         public Type? TetherIDType;
         public Type? IconIDType;
         public uint PrimaryActorOID;
+        public Func<WorldState, Actor, BossModule> ModuleFactory;
 
         public BossModuleInfo.Maturity Maturity;
         public string Contributors = "";
@@ -38,7 +40,7 @@ public static class ModuleRegistry
             var tidType = infoAttr?.TetherIDType ?? module.Module.GetType($"{module.Namespace}.TetherID");
             var iidType = infoAttr?.IconIDType ?? module.Module.GetType($"{module.Namespace}.IconID");
 
-            if (statesType == null || !statesType.IsSubclassOf(typeof(StateMachineBuilder)) || statesType.GetConstructor(new[] { module }) == null)
+            if (statesType == null || !statesType.IsSubclassOf(typeof(StateMachineBuilder)) || statesType.GetConstructor([module]) == null)
             {
                 Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated states type: it should be derived from StateMachineBuilder and have a constructor accepting module");
                 return null;
@@ -83,8 +85,7 @@ public static class ModuleRegistry
             uint primaryOID = infoAttr?.PrimaryActorOID ?? 0;
             if (primaryOID == 0 && oidType != null)
             {
-                object? oid;
-                if (Enum.TryParse(oidType, "Boss", out oid))
+                if (Enum.TryParse(oidType, "Boss", out var oid))
                     primaryOID = (uint)oid!;
             }
             if (primaryOID == 0)
@@ -160,10 +161,11 @@ public static class ModuleRegistry
         {
             ModuleType = moduleType;
             StatesType = statesType;
+            ModuleFactory = New<BossModule>.ConstructorDerived<WorldState, Actor>(moduleType);
         }
     }
 
-    private static Dictionary<uint, Info> _modules = new(); // [primary-actor-oid] = module type
+    private static readonly Dictionary<uint, Info> _modules = []; // [primary-actor-oid] = module type
 
     static ModuleRegistry()
     {
@@ -172,10 +174,8 @@ public static class ModuleRegistry
             var info = Info.Build(t);
             if (info == null)
                 continue;
-
-            if (_modules.ContainsKey(info.PrimaryActorOID))
-                throw new Exception($"Two boss modules have same primary actor OID: {t.Name} and {_modules[info.PrimaryActorOID].ModuleType.Name}");
-            _modules[info.PrimaryActorOID] = info;
+            if (!_modules.TryAdd(info.PrimaryActorOID, info))
+                Service.Log($"Two boss modules have same primary actor OID: {t.Name} and {_modules[info.PrimaryActorOID].ModuleType.Name}");
         }
     }
 
@@ -183,29 +183,21 @@ public static class ModuleRegistry
 
     public static Info? FindByOID(uint oid) => _modules.GetValueOrDefault(oid);
 
-    public static BossModule? CreateModule(Type? type, WorldState ws, Actor primary)
-    {
-        return type != null ? (BossModule?)Activator.CreateInstance(type, ws, primary) : null;
-    }
+    public static BossModule? CreateModule(Info? info, WorldState ws, Actor primary) => info?.ModuleFactory(ws, primary);
 
     public static BossModule? CreateModuleForActor(WorldState ws, Actor primary, BossModuleInfo.Maturity minMaturity)
     {
         var info = primary.Type is ActorType.Enemy or ActorType.EventObj ? FindByOID(primary.OID) : null;
-        return info?.Maturity >= minMaturity ? CreateModule(info.ModuleType, ws, primary) : null;
+        return info?.Maturity >= minMaturity ? CreateModule(info, ws, primary) : null;
     }
 
     // TODO: this is a hack...
     public static BossModule? CreateModuleForConfigPlanning(Type cfg)
     {
-        foreach (var i in _modules.Values)
-            if (i.ConfigType == cfg)
-                return CreateModule(i.ModuleType, new(TimeSpan.TicksPerSecond, "fake"), new(0, i.PrimaryActorOID, -1, "", 0, ActorType.None, Class.None, 0, new()));
-        return null;
+        var info = _modules.Values.FirstOrDefault(i => i.ConfigType == cfg);
+        return info != null ? CreateModule(info, new(TimeSpan.TicksPerSecond, "fake"), new(0, info.PrimaryActorOID, -1, "", 0, ActorType.None, Class.None, 0, new())) : null;
     }
 
     // TODO: this is a hack...
-    public static BossModule? CreateModuleForTimeline(uint oid)
-    {
-        return CreateModule(FindByOID(oid)?.ModuleType, new(TimeSpan.TicksPerSecond, "fake"), new(0, oid, -1, "", 0, ActorType.None, Class.None, 0, new()));
-    }
+    public static BossModule? CreateModuleForTimeline(uint oid) => CreateModule(FindByOID(oid), new(TimeSpan.TicksPerSecond, "fake"), new(0, oid, -1, "", 0, ActorType.None, Class.None, 0, new()));
 }

@@ -1,42 +1,50 @@
 ﻿using Dalamud.Game.Gui;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using ImGuiNET;
 
 namespace BossMod;
 
-public class DebugAction
+public class DebugAction(WorldState ws) : IDisposable
 {
-    private WorldState _ws;
-    private int _customAction = 0;
+    private int _customAction;
+    private readonly UITree _tree = new();
 
-    public DebugAction(WorldState ws)
+    public void Dispose()
     {
-        _ws = ws;
     }
 
-    public unsafe void DrawActionManagerEx()
+    public unsafe void DrawActionManagerExtensions()
     {
         var am = ActionManagerEx.Instance!;
         var amr = FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance();
+        var aidCastAction = am.CastAction;
+        var aidCastSpell = am.CastSpell;
+        var aidCombo = new ActionID(ActionType.Spell, amr->Combo.Action);
+        var aidQueued = am.QueuedAction;
+        var aidGTAction = new ActionID((ActionType)amr->AreaTargetingActionType, amr->AreaTargetingActionId);
+        var aidGTSpell = new ActionID(ActionType.Spell, amr->AreaTargetingSpellId);
         ImGui.TextUnformatted($"ActionManager singleton address: 0x{(ulong)amr:X}");
-        ImGui.TextUnformatted($"Anim lock: {am.AnimationLock:f3}");
-        ImGui.TextUnformatted($"Cast: {am.CastAction} / {am.CastSpell}, progress={am.CastTimeElapsed:f3}/{am.CastTimeTotal:f3}, target={am.CastTargetID:X}/{Utils.Vec3String(am.CastTargetPos)}");
-        ImGui.TextUnformatted($"Combo: {new ActionID(ActionType.Spell, am.ComboLastMove)}, {am.ComboTimeLeft:f3}");
-        ImGui.TextUnformatted($"Queue: {(am.QueueActive ? "active" : "inactive")}, {am.QueueAction} @ {am.QueueTargetID:X} [{am.QueueCallType}], combo={am.QueueComboRouteID}");
-        ImGui.TextUnformatted($"GT: {am.GTAction} / {am.GTSpell}, arg={am.GTUnkArg}, obj={am.GTUnkObj:X}, a0={am.GT_uA0:X2}, b8={am.GT_uB8:X2}, bc={am.GT_uBC:X}");
-        ImGui.TextUnformatted($"Last used action sequence: {am.LastUsedActionSequence}");
+        ImGui.TextUnformatted($"Anim lock: {amr->AnimationLock:f3}");
+        ImGui.TextUnformatted($"Cast: {aidCastAction} / {aidCastSpell}, progress={amr->CastTimeElapsed:f3}/{amr->CastTimeTotal:f3}, target={amr->CastTargetId:X}/{Utils.Vec3String(amr->CastTargetPosition)}");
+        ImGui.TextUnformatted($"Combo: {aidCombo}, {am.ComboTimeLeft:f3}");
+        ImGui.TextUnformatted($"Queue: {(amr->ActionQueued ? "active" : "inactive")}, {aidQueued} @ {(ulong)amr->QueuedTargetId:X} [{amr->QueueType}], combo={amr->QueuedComboRouteId}");
+        ImGui.TextUnformatted($"GT: {aidGTAction} / {aidGTSpell}, arg={Utils.ReadField<uint>(amr, 0x94)}, targ={amr->AreaTargetingExecuteAtObject:X}/{amr->AreaTargetingExecuteAtCursor}, a0={Utils.ReadField<byte>(amr, 0xA0):X2}, bc={Utils.ReadField<byte>(amr, 0xBC):X}");
+        ImGui.TextUnformatted($"Last used action sequence: {amr->LastUsedActionSequence}");
+        //ImGui.TextUnformatted($"GT config: 298={Framework.Instance()->SystemConfig.GetConfigOption(298)->Value.UInt}");
         if (ImGui.Button("GT complete"))
         {
-            Utils.WriteField(amr, 0xB8, (byte)1);
+            amr->AreaTargetingExecuteAtCursor = true;
         }
         ImGui.SameLine();
         if (ImGui.Button("GT set target"))
         {
-            Utils.WriteField(amr, 0x98, (ulong)(Service.TargetManager.Target?.ObjectId ?? 0));
+            var target = TargetSystem.Instance()->Target;
+            amr->AreaTargetingExecuteAtObject = target != null ? target->GetGameObjectId() : 0xE0000000;
         }
 
         if (ImGui.Button("Rotate 30 CCW"))
         {
-            am.FaceDirection((_ws.Party.Player()?.Rotation ?? 0.Degrees() + 30.Degrees()).ToDirection());
+            am.FaceDirection((ws.Party.Player()?.Rotation ?? 0.Degrees() + 30.Degrees()).ToDirection());
         }
     }
 
@@ -49,7 +57,7 @@ public class DebugAction
             if (data != null)
             {
                 ImGui.TextUnformatted($"Name: {data.Name}");
-                ImGui.TextUnformatted($"Cast time: {data.Cast100ms / 10.0:f1}");
+                ImGui.TextUnformatted($"Cast time: {data.Cast100ms * 0.1f:f1} + {data.Unknown38 * 0.1f:f1}");
                 ImGui.TextUnformatted($"Range: {data.Range}");
                 ImGui.TextUnformatted($"Effect range: {data.EffectRange}");
                 ImGui.TextUnformatted($"Cooldown group: {data.CooldownGroup}");
@@ -67,7 +75,7 @@ public class DebugAction
             ImGui.TextUnformatted($"Hover action: {hover.ActionKind} {hover.ActionID} (base={hover.BaseActionID}) ({mnemonic}: {rotationType?.GetEnumName(hover.ActionID)})");
 
             Lumina.Text.SeString? name = null;
-            FFXIVClientStructs.FFXIV.Client.Game.ActionType type = FFXIVClientStructs.FFXIV.Client.Game.ActionType.None;
+            var type = FFXIVClientStructs.FFXIV.Client.Game.ActionType.None;
             uint unlockLink = 0;
             if ((int)hover.ActionKind == 24) // action
             {
@@ -116,7 +124,7 @@ public class DebugAction
                 ImGui.TextUnformatted($"Recast group: {groupID}");
                 var group = mgr->GetRecastGroupDetail(groupID);
                 if (group != null)
-                    ImGui.TextUnformatted($"Recast group details: active={group->IsActive}, action={group->ActionID}, elapsed={group->Elapsed:f3}, total={group->Total:f3}, cooldown={group->Total - group->Elapsed:f3}");
+                    ImGui.TextUnformatted($"Recast group details: active={group->IsActive}, action={group->ActionId}, elapsed={group->Elapsed:f3}, total={group->Total:f3}, cooldown={group->Total - group->Elapsed:f3}");
             }
         }
         else if (Service.GameGui.HoveredItem != 0)
@@ -136,11 +144,16 @@ public class DebugAction
             ImGui.TextUnformatted($"Recast group: {groupID}");
             var group = mgr->GetRecastGroupDetail(groupID);
             if (group != null)
-                ImGui.TextUnformatted($"Recast group details: active={group->IsActive}, action={group->ActionID}, elapsed={group->Elapsed}, total={group->Total}");
+                ImGui.TextUnformatted($"Recast group details: active={group->IsActive}, action={group->ActionId}, elapsed={group->Elapsed}, total={group->Total}");
         }
         else
         {
             ImGui.TextUnformatted("Hover: none");
+        }
+
+        foreach (var nr in _tree.Node("Player actions"))
+        {
+            DrawFilteredActions("Hostile + friendly", a => a.IsPlayerAction && a.CanTargetHostile && (a.CanTargetSelf || a.CanTargetParty || a.CanTargetFriendly || a.Unknown19 || a.Unknown22 || a.Unknown23));
         }
     }
 
@@ -149,5 +162,16 @@ public class DebugAction
         uint extra;
         var status = ActionManagerEx.Instance!.GetActionStatus(action, Service.ClientState.LocalPlayer?.TargetObjectId ?? 0xE0000000, checkRecast, checkCasting, &extra);
         ImGui.TextUnformatted($"{prompt}: {status} [{extra}] '{Service.LuminaRow<Lumina.Excel.GeneratedSheets.LogMessage>(status)?.Text}'");
+    }
+
+    private void DrawFilteredActions(string tag, Func<Lumina.Excel.GeneratedSheets.Action, bool> filter)
+    {
+        foreach (var nr in _tree.Node(tag))
+        {
+            foreach (var a in Service.LuminaGameData!.GetExcelSheet<Lumina.Excel.GeneratedSheets.Action>()!.Where(filter))
+            {
+                _tree.LeafNode($"#{a.RowId} {a.Name}");
+            }
+        }
     }
 }

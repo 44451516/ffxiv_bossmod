@@ -7,25 +7,28 @@ class Actions : CommonActions
     public const int AutoActionST = AutoActionFirstCustom + 0;
     public const int AutoActionAOE = AutoActionFirstCustom + 1;
 
-    private SAMConfig _config;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
-
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
     private DateTime _lastTsubame;
-    private float _tsubameCooldown = 0;
+    private float _tsubameCooldown;
+    private readonly ConfigListener<SAMConfig> _config;
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<SAMConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
 
         SupportedSpell(AID.Iaijutsu).TransformAction = () => ActionID.MakeSpell(_state.BestIai);
         SupportedSpell(AID.MeikyoShisui).Condition = _ => _state.MeikyoLeft == 0;
 
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _config = Service.Config.GetAndSubscribe<SAMConfig>(OnConfigModified);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
@@ -55,31 +58,25 @@ class Actions : CommonActions
         );
     }
 
-    private void OnConfigModified()
+    private void OnConfigModified(SAMConfig config)
     {
-        SupportedSpell(AID.Hakaze).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
-        SupportedSpell(AID.Fuga).PlaceholderForAuto = SupportedSpell(AID.Fuko).PlaceholderForAuto =
-            _config.FullRotation ? AutoActionAOE : AutoActionNone;
+        SupportedSpell(AID.Hakaze).PlaceholderForAuto = config.FullRotation ? AutoActionST : AutoActionNone;
+        SupportedSpell(AID.Fuga).PlaceholderForAuto = SupportedSpell(AID.Fuko).PlaceholderForAuto = config.FullRotation ? AutoActionAOE : AutoActionNone;
     }
 
-    public override void Dispose()
-    {
-        _config.Modified -= OnConfigModified;
-    }
-
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         var aid = Rotation.GetNextBestGCD(_state, _strategy);
         return MakeResult(aid, Autorot.PrimaryTarget);
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         ActionID res = new();
         if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
@@ -96,13 +93,13 @@ class Actions : CommonActions
             SimulateManualActionForAI(
                 ActionID.MakeSpell(AID.SecondWind),
                 Player,
-                Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.5f
+                Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.5f
             );
         if (_state.Unlocked(AID.Bloodbath))
             SimulateManualActionForAI(
                 ActionID.MakeSpell(AID.Bloodbath),
                 Player,
-                Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.8f
+                Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.8f
             );
         if (_state.Unlocked(AID.MeikyoShisui))
             SimulateManualActionForAI(
@@ -139,26 +136,8 @@ class Actions : CommonActions
     }
 
     private int NumAOETargets() => Autorot.Hints.NumPriorityTargetsInAOECircle(Player.Position, 5);
-
-    private int NumGurenTargets(Actor? enemy) =>
-        enemy == null
-            ? 0
-            : Autorot.Hints.NumPriorityTargetsInAOERect(
-                Player.Position,
-                (enemy.Position - Player.Position).Normalized(),
-                10,
-                4
-            );
-
-    private int NumConeTargets(Actor? enemy) =>
-        enemy == null
-            ? 0
-            : Autorot.Hints.NumPriorityTargetsInAOECone(
-                Player.Position,
-                8,
-                (enemy.Position - Player.Position).Normalized(),
-                60.Degrees()
-            );
+    private int NumGurenTargets(Actor? enemy) => enemy == null ? 0 : Autorot.Hints.NumPriorityTargetsInAOERect(Player.Position, (enemy.Position - Player.Position).Normalized(), 10, 4);
+    private int NumConeTargets(Actor? enemy) => enemy == null ? 0 : Autorot.Hints.NumPriorityTargetsInAOECone(Player.Position, 8, (enemy.Position - Player.Position).Normalized(), 60.Degrees());
 
     private void UpdatePlayerState()
     {

@@ -5,9 +5,9 @@ namespace BossMod;
 
 public class BossModuleMainWindow : UIWindow
 {
-    private BossModuleManager _mgr;
+    private readonly BossModuleManager _mgr;
 
-    private static string _windowID = "###Boss module";
+    private const string _windowID = "###Boss module";
 
     public BossModuleMainWindow(BossModuleManager mgr) : base(_windowID, false, new(400, 400))
     {
@@ -18,15 +18,15 @@ public class BossModuleMainWindow : UIWindow
 
     public override void PreOpenCheck()
     {
-        IsOpen = _mgr.LoadedModules.Count > 0;
+        IsOpen = _mgr.Config.Enable && _mgr.LoadedModules.Count > 0;
         ShowCloseButton = _mgr.ActiveModule != null;
         WindowName = (_mgr.ActiveModule != null ? $"Boss module ({_mgr.ActiveModule.GetType().Name})" : "Loaded boss modules") + _windowID;
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
-        if (_mgr.WindowConfig.TrishaMode)
+        if (_mgr.Config.TrishaMode)
             Flags |= ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoBackground;
-        if (_mgr.WindowConfig.Lock)
+        if (_mgr.Config.Lock)
             Flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoInputs;
-        ForceMainWindow = _mgr.WindowConfig.TrishaMode; // NoBackground flag without ForceMainWindow works incorrectly for whatever reason
+        ForceMainWindow = _mgr.Config.TrishaMode; // NoBackground flag without ForceMainWindow works incorrectly for whatever reason
     }
 
     public override void OnOpen()
@@ -57,9 +57,9 @@ public class BossModuleMainWindow : UIWindow
         {
             try
             {
-                BossComponent.MovementHints? movementHints = _mgr.WindowConfig.ShowWorldArrows ? new() : null;
-                _mgr.ActiveModule.Draw(_mgr.WindowConfig.RotateArena ? (Camera.Instance?.CameraAzimuth ?? 0) : 0, PartyState.PlayerSlot, movementHints, !_mgr.WindowConfig.HintsInSeparateWindow, true);
-                DrawMovementHints(movementHints, _mgr.WorldState.Party.Player()?.PosRot.Y ?? 0);
+                _mgr.ActiveModule.Draw(_mgr.Config.RotateArena ? (Camera.Instance?.CameraAzimuth ?? 0) : 0, PartyState.PlayerSlot, !_mgr.Config.HintsInSeparateWindow, true);
+                if (_mgr.Config.ShowWorldArrows && _mgr.WorldState.Party[PartyState.PlayerSlot] is var pc && pc != null)
+                    DrawMovementHints(_mgr.ActiveModule.CalculateMovementHintsForRaidMember(PartyState.PlayerSlot, pc), pc.PosRot.Y);
             }
             catch (Exception ex)
             {
@@ -100,6 +100,6 @@ public class BossModuleMainWindow : UIWindow
     private void OpenModuleConfig()
     {
         if (_mgr.ActiveModule?.Info?.ConfigType != null)
-            new BossModuleConfigWindow(_mgr.ActiveModule.Info, _mgr.WorldState);
+            _ = new BossModuleConfigWindow(_mgr.ActiveModule.Info, _mgr.WorldState);
     }
 }

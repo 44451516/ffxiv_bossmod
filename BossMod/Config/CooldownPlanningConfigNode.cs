@@ -2,6 +2,7 @@
 using ImGuiNET;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
 
 namespace BossMod;
 
@@ -11,18 +12,18 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
     // per-class list of plans
     public class PlanList
     {
-        public List<CooldownPlan> Available = new();
+        public List<CooldownPlan> Available = [];
         public int SelectedIndex = -1;
 
         public CooldownPlan? Selected() => SelectedIndex >= 0 && SelectedIndex < Available.Count ? Available[SelectedIndex] : null;
     }
 
     public int SyncLevel { get; private init; }
-    public Dictionary<Class, PlanList> CooldownPlans = new();
+    public Dictionary<Class, PlanList> CooldownPlans = [];
 
     public CooldownPlan? SelectedPlan(Class c) => CooldownPlans.GetValueOrDefault(c)?.Selected();
 
-    public CooldownPlanningConfigNode(int syncLevel)
+    protected CooldownPlanningConfigNode(int syncLevel)
     {
         SyncLevel = syncLevel;
         foreach (var c in PlanDefinitions.Classes.Keys)
@@ -39,7 +40,7 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
         if (newSelected != plans.SelectedIndex)
         {
             plans.SelectedIndex = newSelected;
-            NotifyModified();
+            Modified.Fire();
         }
         ImGui.SameLine();
         if (ImGui.Button(plans.SelectedIndex >= 0 ? "Edit plan" : "Create new plan"))
@@ -48,7 +49,7 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
             {
                 plans.Available.Add(new(c, SyncLevel, $"New {plans.Available.Count + 1}"));
                 plans.SelectedIndex = plans.Available.Count - 1;
-                NotifyModified();
+                Modified.Fire();
             }
             StartPlanEditor(plans.Available[plans.SelectedIndex], sm, moduleInfo);
         }
@@ -94,7 +95,7 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
                         var plan = plans.Available[i].Clone();
                         plan.Name += " Copy";
                         plans.Available.Add(plan);
-                        NotifyModified();
+                        Modified.Fire();
                         StartPlanEditor(plan);
                     }
                     ImGui.SameLine();
@@ -106,14 +107,14 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
                             plans.SelectedIndex--;
                         plans.Available.RemoveAt(i);
                         --i;
-                        NotifyModified();
+                        Modified.Fire();
                     }
                     ImGui.SameLine();
                     bool selected = plans.SelectedIndex == i;
                     if (ImGui.Checkbox($"{c} '{plans.Available[i].Name}'", ref selected))
                     {
                         plans.SelectedIndex = selected ? i : -1;
-                        NotifyModified();
+                        Modified.Fire();
                     }
                     ImGui.PopID();
                 }
@@ -126,7 +127,7 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
                 {
                     var plan = new CooldownPlan(c, SyncLevel, $"New {plans.Available.Count}");
                     plans.Available.Add(plan);
-                    NotifyModified();
+                    Modified.Fire();
                     StartPlanEditor(plan);
                 }
             }
@@ -153,8 +154,8 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
     public override JObject Serialize(JsonSerializer ser)
     {
         var baseType = typeof(CooldownPlanningConfigNode);
-        JObject res = new();
-        foreach (var f in GetType().GetFields().Where(f => f.DeclaringType != baseType))
+        JObject res = [];
+        foreach (var f in GetType().GetFields().Where(f => f.DeclaringType != baseType && f.GetCustomAttribute<JsonIgnoreAttribute>() == null))
         {
             var v = f.GetValue(this);
             if (v != null)
@@ -170,7 +171,7 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
     {
         if (sm == null)
             return;
-        new CooldownPlanEditorWindow(plan, sm, moduleInfo, NotifyModified);
+        _ = new CooldownPlanEditorWindow(plan, sm, moduleInfo, Modified.Fire);
     }
 
     private void StartPlanEditor(CooldownPlan plan)
@@ -186,14 +187,12 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
             return;
         foreach (var (c, data) in j)
         {
-            Class cls;
-            if (!Enum.TryParse(c, out cls))
+            if (!Enum.TryParse(c, out Class cls))
                 continue; // invalid class
             var plans = CooldownPlans.GetValueOrDefault(cls);
             if (plans == null)
                 continue; // non-plannable class
-            var jPlans = data?["Available"] as JArray;
-            if (jPlans == null)
+            if (data?["Available"] is not JArray jPlans)
                 continue;
 
             plans.SelectedIndex = data?["SelectedIndex"]?.Value<int>() ?? -1;
@@ -210,7 +209,7 @@ public abstract class CooldownPlanningConfigNode : ConfigNode
 
     private JObject SerializeCooldownPlans(JsonSerializer ser)
     {
-        JObject res = new();
+        JObject res = [];
         foreach (var (c, plans) in CooldownPlans)
         {
             if (plans.Available.Count == 0)

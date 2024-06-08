@@ -2,7 +2,7 @@
 
 class UWUStates : StateMachineBuilder
 {
-    private UWU _module;
+    private readonly UWU _module;
 
     public UWUStates(UWU module) : base(module)
     {
@@ -11,15 +11,15 @@ class UWUStates : StateMachineBuilder
             .ActivateOnEnter<P1Plumes>()
             .ActivateOnEnter<P1Gigastorm>()
             .ActivateOnEnter<P1GreatWhirlwind>() // TODO: not sure about this...
-            .Raw.Update = () => Module.PrimaryActor.IsDestroyed || Module.PrimaryActor.HP.Cur <= 1 && !Module.PrimaryActor.IsTargetable;
+            .Raw.Update = () => Module.PrimaryActor.IsDestroyed || Module.PrimaryActor.HPMP.CurHP <= 1 && !Module.PrimaryActor.IsTargetable;
         SimplePhase(1, Phase2Ifrit, "P2: Ifrit")
             .ActivateOnEnter<P2Nails>()
             .ActivateOnEnter<P2InfernalFetters>()
             .ActivateOnEnter<P2SearingWind>()
-            .Raw.Update = () => Module.PrimaryActor.IsDestroyed || (_module.Ifrit()?.HP.Cur <= 1 && !(_module.Ifrit()?.IsTargetable ?? true));
+            .Raw.Update = () => Module.PrimaryActor.IsDestroyed || (_module.Ifrit()?.HPMP.CurHP <= 1 && !(_module.Ifrit()?.IsTargetable ?? true));
         SimplePhase(2, Phase3Titan, "P3: Titan")
             .ActivateOnEnter<P3Geocrush2>()
-            .Raw.Update = () => Module.PrimaryActor.IsDestroyed || (_module.Titan()?.HP.Cur <= 1 && !(_module.Titan()?.IsTargetable ?? true));
+            .Raw.Update = () => Module.PrimaryActor.IsDestroyed || (_module.Titan()?.HPMP.CurHP <= 1 && !(_module.Titan()?.IsTargetable ?? true));
         SimplePhase(3, Phase4LahabreaUltima, "P4: Lahabrea + Ultima")
             .Raw.Update = () => Module.PrimaryActor.IsDestroyed || (_module.Ultima()?.CastInfo?.IsSpell(AID.UltimateSuppression) ?? false);
         SimplePhase(4, Phase5Ultima, "P4: Ultima - suppression to enrage")
@@ -641,10 +641,12 @@ class UWUStates : StateMachineBuilder
         P5Ultima(id + 0x10000, 6.3f);
         P5AethericBoom(id + 0x20000, 6.2f);
 
-        Dictionary<AID, (uint seqID, Action<uint> buildState)> fork = new();
-        fork[AID.PrepareGaruda] = ((id >> 24) + 1, Phase5GarudaIfritTitan);
-        fork[AID.PrepareIfrit] = ((id >> 24) + 2, Phase5IfritGarudaTitan);
-        fork[AID.PrepareTitan] = ((id >> 24) + 3, Phase5TitanIfritGaruda);
+        Dictionary<AID, (uint seqID, Action<uint> buildState)> fork = new()
+        {
+            [AID.PrepareGaruda] = ((id >> 24) + 1, Phase5GarudaIfritTitan),
+            [AID.PrepareIfrit] = ((id >> 24) + 2, Phase5IfritGarudaTitan),
+            [AID.PrepareTitan] = ((id >> 24) + 3, Phase5TitanIfritGaruda)
+        };
         ActorCastStartFork(id + 0x30000, _module.Ultima, fork, 23.3f, true, "Primal roulette")
             .ActivateOnEnter<P5ViscousAetheroplasmTriple>();
     }

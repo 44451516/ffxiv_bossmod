@@ -1,70 +1,48 @@
+using System;
+using System.Collections.Generic;
+
 namespace BossMod;
 
 public static class PlanDefinitions
 {
-    public class CooldownTrack
+    public class CooldownTrack(string name, (ActionID aid, int minLevel)[] actions)
     {
-        public string Name;
-        public (ActionID aid, int minLevel)[] Actions;
+        public string Name = name;
+        public (ActionID aid, int minLevel)[] Actions = actions;
 
-        public CooldownTrack(string name, (ActionID aid, int minLevel)[] actions)
-        {
-            Name = name;
-            Actions = actions;
-        }
-
-        public CooldownTrack(string name, ActionID aid, int minLevel)
-        {
-            Name = name;
-            Actions = new[] { (aid, minLevel) };
-        }
+        public CooldownTrack(string name, ActionID aid, int minLevel) : this(name, [(aid, minLevel)]) { }
     }
 
-    public class StrategyTrack
+    public class StrategyTrack(string name, Type? values = null, float cooldown = 0)
     {
-        public string Name;
-        public Type? Values;
-        public float Cooldown;
-
-        public StrategyTrack(string name, Type? values = null, float cooldown = 0)
-        {
-            Name = name;
-            Values = values;
-            Cooldown = cooldown;
-        }
+        public string Name = name;
+        public Type? Values = values;
+        public float Cooldown = cooldown;
     }
 
-    public class ClassData
+    public class ClassData(Type aidType, Dictionary<ActionID, ActionDefinition> supportedActions)
     {
-        public Type AIDType;
-        public Dictionary<ActionID, ActionDefinition> Abilities;
-        public List<CooldownTrack> CooldownTracks = new();
-        public List<StrategyTrack> StrategyTracks = new();
-
-        public ClassData(Type aidType, Dictionary<ActionID, ActionDefinition> supportedActions)
-        {
-            AIDType = aidType;
-            Abilities = supportedActions;
-        }
+        public Type AIDType = aidType;
+        public Dictionary<ActionID, ActionDefinition> Abilities = supportedActions;
+        public List<CooldownTrack> CooldownTracks = [];
+        public List<StrategyTrack> StrategyTracks = [];
     }
 
-    public static Dictionary<Class, ClassData> Classes = new();
-
-    static PlanDefinitions()
+    public static readonly Dictionary<Class, ClassData> Classes = new()
     {
-        Classes[Class.WAR] = DefineWAR();
-        Classes[Class.PLD] = DefinePLD();
-        Classes[Class.WHM] = DefineWHM();
-        Classes[Class.SCH] = DefineSCH();
-        Classes[Class.DRG] = DefineDRG();
-        Classes[Class.MNK] = DefineMNK();
-        Classes[Class.BRD] = DefineBRD();
-        Classes[Class.DNC] = DefineDNC();
-        Classes[Class.BLM] = DefineBLM();
-        Classes[Class.RPR] = DefineRPR();
-        Classes[Class.GNB] = DefineGNB();
-        Classes[Class.SAM] = DefineSAM();
-    }
+        [Class.WAR] = DefineWAR(),
+        [Class.PLD] = DefinePLD(),
+        [Class.WHM] = DefineWHM(),
+        [Class.SCH] = DefineSCH(),
+        [Class.DRG] = DefineDRG(),
+        [Class.MNK] = DefineMNK(),
+        [Class.BRD] = DefineBRD(),
+        [Class.DNC] = DefineDNC(),
+        [Class.BLM] = DefineBLM(),
+        [Class.RPR] = DefineRPR(),
+        [Class.GNB] = DefineGNB(),
+        [Class.SAM] = DefineSAM()
+    };
 
     private static ClassData DefineWAR()
     {
@@ -91,7 +69,6 @@ public static class PlanDefinitions
         c.StrategyTracks.Add(new("Special", typeof(WAR.Rotation.Strategy.SpecialAction)));
         return c;
     }
-
 
     private static ClassData DefinePLD()
     {
@@ -136,14 +113,24 @@ public static class PlanDefinitions
         c.CooldownTracks.Add(new("Mantra", ActionID.MakeSpell(MNK.AID.Mantra), 42));
         c.StrategyTracks.Add(new("Dash", typeof(MNK.Rotation.Strategy.DashStrategy)));
         c.StrategyTracks.Add(new("TrueN", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
+        c.StrategyTracks.Add(new("DF", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
+        c.StrategyTracks.Add(new("Demo", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
         c.StrategyTracks.Add(new("Nadi", typeof(MNK.Rotation.Strategy.NadiChoice)));
         c.StrategyTracks.Add(new("RoF", typeof(MNK.Rotation.Strategy.FireStrategy)));
         c.StrategyTracks.Add(new("RoW", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
-        c.StrategyTracks.Add(new("BHood", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
-        c.StrategyTracks.Add(
-            new("PerfBal", typeof(CommonRotation.Strategy.OffensiveAbilityUse))
-        );
+        c.StrategyTracks.Add(new("BH", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
+        c.StrategyTracks.Add(new("TFC", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
+        c.StrategyTracks.Add(new("Meditate", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
+        c.StrategyTracks.Add(new("PB", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
+        c.StrategyTracks.Add(new("PB1", typeof(MNK.Rotation.Strategy.FormChoice)));
+        c.StrategyTracks.Add(new("PB2", typeof(MNK.Rotation.Strategy.FormChoice)));
+        c.StrategyTracks.Add(new("PB3", typeof(MNK.Rotation.Strategy.FormChoice)));
+        c.StrategyTracks.Add(new("FS", typeof(MNK.Rotation.Strategy.FormShiftStrategy)));
+        c.StrategyTracks.Add(new("FSForm", typeof(MNK.Rotation.Strategy.FormChoice)));
+        c.StrategyTracks.Add(new("Blitz", typeof(MNK.Rotation.Strategy.BlitzStrategy)));
+        c.StrategyTracks.Add(new("DK", typeof(MNK.Rotation.Strategy.DragonKickStrategy)));
         c.StrategyTracks.Add(new("SSS", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
+        c.StrategyTracks.Add(new("Potion", typeof(CommonRotation.Strategy.OffensiveAbilityUse)));
         return c;
     }
 

@@ -7,15 +7,14 @@ class Actions : CommonActions
     public const int AutoActionST = AutoActionFirstCustom + 0;
     public const int AutoActionAOE = AutoActionFirstCustom + 1;
 
-    private RPRConfig _config;
     private bool _aoe;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
+    private readonly ConfigListener<RPRConfig> _config;
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<RPRConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
 
@@ -25,16 +24,15 @@ class Actions : CommonActions
         SupportedSpell(AID.Gallows).TransformAction = SupportedSpell(AID.CrossReaping).TransformAction = () => ActionID.MakeSpell(_state.BestGallow);
         SupportedSpell(AID.SoulSow).TransformAction = SupportedSpell(AID.HarvestMoon).TransformAction = () => ActionID.MakeSpell(_state.BestSow);
 
-        SupportedSpell(AID.Harpe).Condition = _ => !_config.ForbidEarlyHarpe || _strategy.CombatTimer == float.MinValue || _strategy.CombatTimer >= -1.7f;
         SupportedSpell(AID.LegSweep).Condition = target => target?.CastInfo?.Interruptible ?? false;
 
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _config = Service.Config.GetAndSubscribe<RPRConfig>(OnConfigModified);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigModified;
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
@@ -66,7 +64,7 @@ class Actions : CommonActions
         };
         UpdatePlayerState();
         FillCommonStrategy(_strategy, CommonDefinitions.IDPotionStr);
-        _strategy.ApplyStrategyOverrides(Autorot.Bossmods.ActiveModule?.PlanExecution?.ActiveStrategyOverrides(Autorot.Bossmods.ActiveModule.StateMachine) ?? new uint[0]);
+        _strategy.ApplyStrategyOverrides(Autorot.Bossmods.ActiveModule?.PlanExecution?.ActiveStrategyOverrides(Autorot.Bossmods.ActiveModule.StateMachine) ?? []);
         FillStrategyPositionals(_strategy, Rotation.GetNextPositional(_state, _strategy), _state.TrueNorthLeft > _state.GCD);
     }
 
@@ -78,24 +76,24 @@ class Actions : CommonActions
             SimulateManualActionForAI(ActionID.MakeSpell(AID.LegSweep), interruptibleEnemy?.Actor, interruptibleEnemy != null);
         }
         if (_state.Unlocked(AID.SecondWind))
-            SimulateManualActionForAI(ActionID.MakeSpell(AID.SecondWind), Player, Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.5f);
+            SimulateManualActionForAI(ActionID.MakeSpell(AID.SecondWind), Player, Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.5f);
         if (_state.Unlocked(AID.Bloodbath))
-            SimulateManualActionForAI(ActionID.MakeSpell(AID.Bloodbath), Player, Player.InCombat && Player.HP.Cur < Player.HP.Max * 0.8f);
+            SimulateManualActionForAI(ActionID.MakeSpell(AID.Bloodbath), Player, Player.InCombat && Player.HPMP.CurHP < Player.HPMP.MaxHP * 0.8f);
         // TODO: true north...
     }
 
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
         var aid = Rotation.GetNextBestGCD(_state, _strategy, _aoe);
         return MakeResult(aid, Autorot.PrimaryTarget);
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         ActionID res = new();
         if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
@@ -118,7 +116,6 @@ class Actions : CommonActions
         if (_state.ComboLastMove == AID.InfernalSlice)
             _state.ComboTimeLeft = 0;
 
-
         _state.SoulReaverLeft = StatusDetails(Player, SID.SoulReaver, Player.InstanceID).Left;
         _state.ImmortalSacrificeLeft = StatusDetails(Player, SID.ImmortalSacrifice, Player.InstanceID).Left;
         _state.ArcaneCircleLeft = StatusDetails(Player, SID.ArcaneCircle, Player.InstanceID).Left;
@@ -140,13 +137,13 @@ class Actions : CommonActions
         _state.lastActionisSoD = ev.Action.Type == ActionType.Spell && (AID)ev.Action.ID is AID.ShadowofDeath or AID.WhorlofDeath;
     }
 
-    private void OnConfigModified()
+    private void OnConfigModified(RPRConfig config)
     {
         // placeholders
-        SupportedSpell(AID.Slice).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
-        SupportedSpell(AID.SpinningScythe).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
+        SupportedSpell(AID.Slice).PlaceholderForAuto = config.FullRotation ? AutoActionST : AutoActionNone;
+        SupportedSpell(AID.SpinningScythe).PlaceholderForAuto = config.FullRotation ? AutoActionAOE : AutoActionNone;
 
-        // combo replacement
+        SupportedSpell(AID.Harpe).Condition = config.ForbidEarlyHarpe ? _ => _strategy.CombatTimer is float.MinValue or >= -1.7f : null;
     }
 
     private bool WithoutDOT(Actor a) => Rotation.RefreshDOT(_state, StatusDetails(a, SID.DeathsDesign, Player.InstanceID).Left);

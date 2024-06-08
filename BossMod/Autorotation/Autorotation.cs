@@ -3,82 +3,44 @@ using ImGuiNET;
 
 namespace BossMod;
 
-// typically 'casting an action' causes the following sequence of events:
-// - immediately after sending ActionRequest message, client 'speculatively' starts CD (including GCD)
-// - ~50-100ms later client receives bundle (typically one, but sometimes messages can be spread over two frames!) with ActorControlSelf[Cooldown], ActorControl[Gain/LoseEffect], AbilityN, ActorGauge, StatusEffectList
-//   new statuses have large negative duration (e.g. -30 when ST is applied) - theory: it means 'show as X, don't reduce' - TODO test?..
-// - ~600ms later client receives EventResult with normal durations
-//
-// during this 'unconfirmed' window we might be considering wrong move to be the next-best one (e.g. imagine we've just started long IR cd and don't see the effect yet - next-best might be infuriate)
-// but I don't think this matters in practice, as presumably client forbids queueing any actions while there are pending requests
-// I don't know what happens if there is no confirmation for a long time (due to ping or packet loss)
-//
-// reject scenario:
-// a relatively easy way to repro it is doing no-movement rotation, then enabling moves when PR is up and 3 charges are up; next onslaught after PR seems to be often rejected
-// it seems that game will not send another request after reject until 500ms passed since prev request
-//
-// IMPORTANT: it seems that game uses *client-side* cooldown to determine when next request can happen, here's an example:
-// - 04:51.508: request Upheaval
-// - 04:51.635: confirm Upheaval (ACS[Cooldown] = 30s)
-// - 05:21.516: request Upheaval (30.008 since prev request, 29.881 since prev response)
-// - 05:21.609: confirm Upheaval (29.974 since prev response)
-//
-// here's a list of things we do now:
-// 1. we use cooldowns as reported by ActionManager API rather than parse network messages. This (1) allows us to not rely on randomized opcodes, (2) allows us not to handle things like CD resets on wipes, actor resets on zone changes, etc.
-// 2. we convert large negative status durations to their expected values
-// 3. when there are pending actions, we don't update internal state, leaving same next-best recommendation
-class Autorotation : IDisposable
+sealed class Autorotation : IDisposable
 {
-    private AutorotationConfig _config;
-    private BossModuleManager _bossmods;
-    private AutoHints _autoHints;
-    private UISimpleWindow _ui;
-    private CommonActions? _classActions;
+    public readonly AutorotationConfig Config = Service.Config.Get<AutorotationConfig>();
+    public readonly BossModuleManager Bossmods;
+    public WorldState WorldState => Bossmods.WorldState;
+    private readonly AutoHints _autoHints;
+    private readonly UISimpleWindow _ui;
+    private readonly EventSubscriptions _subscriptions;
 
-    private unsafe delegate bool UseActionDelegate(FFXIVClientStructs.FFXIV.Client.Game.ActionManager* self, ActionType actionType, uint actionID, ulong targetID, uint itemLocation, uint callType, uint comboRouteID, bool* outOptGTModeStarted);
-    private Hook<UseActionDelegate> _useActionHook;
-
-    public AutorotationConfig Config => _config;
-    public BossModuleManager Bossmods => _bossmods;
-    public WorldState WorldState => _bossmods.WorldState;
-    public CommonActions? ClassActions => _classActions;
+    public CommonActions? ClassActions { get; private set; }
 
     public Actor? PrimaryTarget; // this is usually a normal (hard) target, but AI can override; typically used for damage abilities
     public Actor? SecondaryTarget; // this is usually a mouseover, but AI can override; typically used for heal and utility abilities
     public AIHints Hints = new();
     public float EffAnimLock => ActionManagerEx.Instance!.EffectiveAnimationLock;
-    public float AnimLockDelay => ActionManagerEx.Instance!.EffectiveAnimationLockDelay;
+    public float AnimLockDelay => ActionManagerEx.Instance!.AnimationLockDelayEstimate;
 
-    private static ActionID IDSprintGeneral = new(ActionType.General, 4);
+    private static readonly ActionID IDSprintGeneral = new(ActionType.General, 4);
 
     public unsafe Autorotation(BossModuleManager bossmods)
     {
-        _config = Service.Config.Get<AutorotationConfig>();
-        _bossmods = bossmods;
+        Bossmods = bossmods;
         _autoHints = new(bossmods.WorldState);
         _ui = new("Autorotation", DrawOverlay, false, new(100, 100), ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoFocusOnAppearing) { RespectCloseHotkey = false };
-
-        ActionManagerEx.Instance!.ActionRequested += OnActionRequested;
-        WorldState.Actors.CastEvent += OnCastEvent;
-
-        _useActionHook = Service.Hook.HookFromSignature<UseActionDelegate>("E8 ?? ?? ?? ?? EB 64 B1 01", UseActionDetour);
-        if (_config.ActionManagerExHookEnabled == false)
-        {
-            _useActionHook.Enable();   
-        }
+        _subscriptions = new
+        (
+            WorldState.Client.ActionRequested.Subscribe(OnActionRequested),
+            WorldState.Actors.CastEvent.Subscribe(OnCastEvent)
+        );
+        ActionManagerEx.Instance!.FilterActionRequest += FilterActionRequest;
     }
 
     public void Dispose()
     {
-        ActionManagerEx.Instance!.ActionRequested -= OnActionRequested;
-        WorldState.Actors.CastEvent -= OnCastEvent;
-
+        ActionManagerEx.Instance!.FilterActionRequest -= FilterActionRequest;
+        _subscriptions.Dispose();
         _ui.Dispose();
-        if (_config.ActionManagerExHookEnabled == false)
-        {
-            _useActionHook.Dispose();   
-        }
-        _classActions?.Dispose();
+        ClassActions?.Dispose();
         _autoHints.Dispose();
     }
 
@@ -99,17 +61,20 @@ class Autorotation : IDisposable
             if (activeModule != null)
                 activeModule.CalculateAIHints(PartyState.PlayerSlot, player, playerAssignment, Hints);
             else
-                _autoHints.CalculateAIHints(Hints, player.Position);
+                _autoHints.CalculateAIHints(Hints, player);
         }
         Hints.Normalize();
         if (Hints.ForcedTarget != null && PrimaryTarget != Hints.ForcedTarget)
         {
             PrimaryTarget = Hints.ForcedTarget;
-            FFXIVClientStructs.FFXIV.Client.Game.Control.TargetSystem.Instance()->Target = Utils.GameObjectInternal(Service.ObjectTable.FirstOrDefault(go => go.ObjectId == Hints.ForcedTarget.InstanceID));
+            var obj = Hints.ForcedTarget.SpawnIndex >= 0 ? FFXIVClientStructs.FFXIV.Client.Game.Object.GameObjectManager.Instance()->Objects.IndexSorted[Hints.ForcedTarget.SpawnIndex].Value : null;
+            if (obj != null && obj->EntityId != Hints.ForcedTarget.InstanceID)
+                Service.Log($"[AR] Unexpected new target: expected {Hints.ForcedTarget.InstanceID:X} at #{Hints.ForcedTarget.SpawnIndex}, but found {obj->EntityId:X}");
+            FFXIVClientStructs.FFXIV.Client.Game.Control.TargetSystem.Instance()->Target = obj;
         }
 
         Type? classType = null;
-        if (_config.Enabled && player != null)
+        if (Config.Enabled && player != null)
         {
             classType = player.Class switch
             {
@@ -130,27 +95,30 @@ class Autorotation : IDisposable
             };
         }
 
-        if (_classActions?.GetType() != classType || _classActions?.Player != player)
+        if (ClassActions?.GetType() != classType || ClassActions?.Player != player)
         {
-            _classActions?.Dispose();
-            _classActions = classType != null ? (CommonActions?)Activator.CreateInstance(classType, this, player) : null;
+            ClassActions?.Dispose();
+            ClassActions = classType != null ? (CommonActions?)Activator.CreateInstance(classType, this, player) : null;
         }
 
-        _classActions?.Update();
-        var nextAction = _classActions?.CalculateNextAction() ?? default;
+        ClassActions?.Update();
+        var nextAction = ClassActions?.CalculateNextAction() ?? default;
         if (nextAction.Target != null && Hints.ForbiddenTargets.FirstOrDefault(e => e.Actor == nextAction.Target)?.Priority == AIHints.Enemy.PriorityForbidFully)
             nextAction = default;
         ActionManagerEx.Instance!.AutoQueue = nextAction; // TODO: this delays action for 1 frame after downtime, reconsider...
 
-        _classActions?.FillStatusesToCancel(Hints.StatusesToCancel);
+        ClassActions?.FillStatusesToCancel(Hints.StatusesToCancel);
         foreach (var s in Hints.StatusesToCancel)
-            ActionManagerEx.Instance!.CancelStatus(s.statusId, s.sourceId != 0 ? (uint)s.sourceId : Dalamud.Game.ClientState.Objects.Types.GameObject.InvalidGameObjectId);
-
-        _ui.IsOpen = _classActions != null && _config.ShowUI;
-
-        if (_config.ShowPositionals && PrimaryTarget != null && _classActions != null && _classActions.AutoAction != CommonActions.AutoActionNone && !PrimaryTarget.Omnidirectional)
         {
-            var strategy = _classActions.GetStrategy();
+            var res = FFXIVClientStructs.FFXIV.Client.Game.StatusManager.ExecuteStatusOff(s.statusId, s.sourceId != 0 ? (uint)s.sourceId : Dalamud.Game.ClientState.Objects.Types.GameObject.InvalidGameObjectId);
+            Service.Log($"[AR] Canceling status {s.statusId} from {s.sourceId:X} -> {res}");
+        }
+
+        _ui.IsOpen = ClassActions != null && Config.ShowUI;
+
+        if (Config.ShowPositionals && PrimaryTarget != null && ClassActions != null && ClassActions.AutoAction != CommonActions.AutoActionNone && !PrimaryTarget.Omnidirectional)
+        {
+            var strategy = ClassActions.GetStrategy();
             var color = PositionalColor(strategy);
             switch (strategy.NextPositional)
             {
@@ -167,13 +135,13 @@ class Autorotation : IDisposable
 
     private void DrawOverlay()
     {
-        if (_classActions == null)
+        if (ClassActions == null)
             return;
         var next = ActionManagerEx.Instance!.AutoQueue;
-        var state = _classActions.GetState();
-        var strategy = _classActions.GetStrategy();
-        ImGui.TextUnformatted($"[{_classActions.AutoAction}] Next: {next.Action} ({next.Source})");
-        if (_classActions.AutoAction != CommonActions.AutoActionNone && strategy.NextPositional != Positional.Any)
+        var state = ClassActions.GetState();
+        var strategy = ClassActions.GetStrategy();
+        ImGui.TextUnformatted($"[{ClassActions.AutoAction}] Next: {next.Action} ({next.Priority})");
+        if (ClassActions.AutoAction != CommonActions.AutoActionNone && strategy.NextPositional != Positional.Any)
         {
             ImGui.PushStyleColor(ImGuiCol.Text, PositionalColor(strategy));
             ImGui.TextUnformatted(strategy.NextPositional.ToString());
@@ -186,15 +154,15 @@ class Autorotation : IDisposable
         ImGui.TextUnformatted($"GCD={WorldState.Client.Cooldowns[CommonDefinitions.GCDGroup].Remaining:f3}, AnimLock={EffAnimLock:f3}+{AnimLockDelay:f3}, Combo={state.ComboTimeLeft:f3}");
     }
 
-    private void OnActionRequested(ClientActionRequest request)
+    private void OnActionRequested(ClientState.OpActionRequest op)
     {
-        _classActions?.NotifyActionExecuted(request);
+        ClassActions?.NotifyActionExecuted(op.Request);
     }
 
     private void OnCastEvent(Actor actor, ActorCastEvent cast)
     {
         if (cast.SourceSequence != 0 && actor == WorldState.Party.Player())
-            _classActions?.NotifyActionSucceeded(cast);
+            ClassActions?.NotifyActionSucceeded(cast);
     }
 
     private uint PositionalColor(CommonRotation.Strategy strategy)
@@ -205,31 +173,16 @@ class Autorotation : IDisposable
     }
 
     // note: current implementation introduces slight input lag (on button press, next autorotation update will pick state updates, which will be executed on next action manager update)
-    private unsafe bool UseActionDetour(FFXIVClientStructs.FFXIV.Client.Game.ActionManager* self, ActionType actionType, uint actionID, ulong targetID, uint itemLocation, uint callType, uint comboRouteID, bool* outOptGTModeStarted)
+    private bool FilterActionRequest(ActionID action, ulong targetId)
     {
-        // when spamming e.g. HS, every click (~0.2 sec) this function is called; aid=HS, a4=a5=a6=a7==0, returns True
-        // 0.5s before CD end, action becomes queued (this function returns True); while anything is queued, further calls return False
-        // callType is 0 for normal calls, 1 if called by queue mechanism, 2 if called from macro, 3 if combo (in such case comboRouteID is ActionComboRoute row id)
-        // right when GCD ends, it is called internally by queue mechanism with aid=adjusted-id, a5=1, a4=a6=a7==0, returns True
-        // itemLocation==0 for spells, 65535 for item used from hotbar, some value (bagID<<8 | slotID) for item used from inventory; it is the same as a4 in UseActionLocation
-        //Service.Log($"UA: {new ActionID(actionType, actionID)} @ {targetID:X}: {itemLocation} {callType} {comboRouteID}");
-        if (callType != 0 || _classActions == null)
-        {
-            // pass to hooked function transparently
-            return _useActionHook.Original(self, actionType, actionID, targetID, itemLocation, callType, comboRouteID, outOptGTModeStarted);
-        }
+        if (ClassActions == null)
+            return false;
 
-        var action = new ActionID(actionType, actionID);
         if (action == IDSprintGeneral)
             action = CommonDefinitions.IDSprint;
-        bool nullTarget = targetID == 0 || targetID == Dalamud.Game.ClientState.Objects.Types.GameObject.InvalidGameObjectId;
-        var target = nullTarget ? null : WorldState.Actors.Find(targetID);
-        if (target == null && !nullTarget || !_classActions.HandleUserActionRequest(action, target))
-        {
-            // unknown target (e.g. quest object) or unsupported action - pass to hooked function
-            return _useActionHook.Original(self, actionType, actionID, targetID, itemLocation, callType, comboRouteID, outOptGTModeStarted);
-        }
-
-        return false;
+        bool nullTarget = targetId is 0 or Dalamud.Game.ClientState.Objects.Types.GameObject.InvalidGameObjectId;
+        var target = nullTarget ? null : WorldState.Actors.Find(targetId);
+        // unknown target (e.g. quest object) or unsupported action => do not filter
+        return (nullTarget || target != null) && ClassActions.HandleUserActionRequest(action, target);
     }
 }

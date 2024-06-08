@@ -12,45 +12,38 @@ public enum OID : uint
 
 public enum AID : uint
 {
-    WrathOfTheRonka = 17223, // 2A40->self, 6,0s cast, single-target
+    WrathOfTheRonka = 17223, // 2A40->self, 6.0s cast, single-target
     WrathOfTheRonkaLong = 15918, // 28E8->self, no cast, range 35 width 8 rect
     WrathOfTheRonkaShort = 15916, // 28E8->self, no cast, range 12 width 8 rect
     WrathOfTheRonkaMedium = 15917, // 28E8->self, no cast, range 22 width 8 rect
-    RonkanFire = 17433, // 2A40->player, 1,0s cast, single-target
-    RonkanAbyss = 17387, // 2A40->location, 3,0s cast, range 6 circle
+    RonkanFire = 17433, // 2A40->player, 1.0s cast, single-target
+    RonkanAbyss = 17387, // 2A40->location, 3.0s cast, range 6 circle
     AutoAttack = 872, // 28DD/28DC->player, no cast, single-target
     AutoAttack2 = 17949, // 28E3->player, no cast, single-target
-    BurningBeam = 15923, // 28E3->self, 3,0s cast, range 15 width 4 rect
-};
+    BurningBeam = 15923, // 28E3->self, 3.0s cast, range 15 width 4 rect
+}
 
 public enum TetherID : uint
 {
     StatueActivate = 37, // 28E8->Boss
-};
-
-class RonkanFire : Components.SingleTargetCast
-{
-    public RonkanFire() : base(ActionID.MakeSpell(AID.RonkanFire)) { }
 }
 
-class RonkanAbyss : Components.LocationTargetedAOEs
-{
-    public RonkanAbyss() : base(ActionID.MakeSpell(AID.RonkanAbyss), 6) { }
-}
+class RonkanFire(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.RonkanFire));
+class RonkanAbyss(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.RonkanAbyss), 6);
 
-class WrathOfTheRonka : Components.GenericAOEs
+class WrathOfTheRonka(BossModule module) : Components.GenericAOEs(module)
 {
-    private List<Actor> _casters = new();
+    private readonly List<Actor> _casters = [];
     private static readonly AOEShapeRect RectShort = new(12, 4);
     private static readonly AOEShapeRect RectMedium = new(22, 4);
     private static readonly AOEShapeRect RectLong = new(35, 4);
     private DateTime _activation;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(BossModule module, int slot, Actor actor)
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         foreach (var c in _casters)
         {
-            if (module.PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
+            if (Module.PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
             {
                 if (c.Position.AlmostEqual(new(-17, 657), 1) || c.Position.AlmostEqual(new(-17, 650), 1) || c.Position.AlmostEqual(new(-17, 635), 1) || c.Position.AlmostEqual(new(-17, 620), 1) || c.Position.AlmostEqual(new(17, 657), 1) || c.Position.AlmostEqual(new(17, 650), 1) || c.Position.AlmostEqual(new(17, 635), 1) || c.Position.AlmostEqual(new(17, 620), 1))
                     yield return new(RectLong, c.Position, c.Rotation, _activation);
@@ -59,7 +52,7 @@ class WrathOfTheRonka : Components.GenericAOEs
                 if (c.Position.AlmostEqual(new(-17, 642), 1) || c.Position.AlmostEqual(new(17, 627), 1))
                     yield return new(RectShort, c.Position, c.Rotation, _activation);
             }
-            if (module.PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
+            if (Module.PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
             {
                 if (c.Position.AlmostEqual(new(17, 451), 1) || c.Position.AlmostEqual(new(17, 444), 1) || c.Position.AlmostEqual(new(17, 414), 1) || c.Position.AlmostEqual(new(17, 429), 1) || c.Position.AlmostEqual(new(-17, 451), 1) || c.Position.AlmostEqual(new(-17, 444), 1) || c.Position.AlmostEqual(new(-17, 414), 1) || c.Position.AlmostEqual(new(-17, 429), 1))
                     yield return new(RectLong, c.Position, c.Rotation, _activation);
@@ -71,16 +64,16 @@ class WrathOfTheRonka : Components.GenericAOEs
         }
     }
 
-    public override void OnTethered(BossModule module, Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.StatueActivate)
         {
             _casters.Add(source);
-            _activation = module.WorldState.CurrentTime.AddSeconds(6);
+            _activation = WorldState.FutureTime(6);
         }
     }
 
-    public override void OnEventCast(BossModule module, Actor caster, ActorCastEvent spell)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         if ((AID)spell.Action.ID is AID.WrathOfTheRonkaShort or AID.WrathOfTheRonkaMedium or AID.WrathOfTheRonkaLong)
         {
@@ -94,7 +87,7 @@ class WrathOfTheRonka : Components.GenericAOEs
     }
 }
 
-public class Layout : BossComponent
+public class Layout(BossModule module) : BossComponent(module)
 {
     private static IEnumerable<WPos> Wall1()
     {
@@ -127,29 +120,29 @@ public class Layout : BossComponent
         yield return new WPos(-6, 418);
         yield return new WPos(-4, 418);
     }
-    public override void DrawArenaForeground(BossModule module, int pcSlot, Actor pc, MiniArena arena)
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        if (module.PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
+        if (Module.PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
         {
-            arena.AddPolygon(Wall1(), ArenaColor.Border, 2);
-            arena.AddPolygon(Wall2(), ArenaColor.Border, 2);
+            Arena.AddPolygon(Wall1(), ArenaColor.Border, 2);
+            Arena.AddPolygon(Wall2(), ArenaColor.Border, 2);
         }
-        if (module.PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
+        if (Module.PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
         {
-            arena.AddPolygon(Wall3(), ArenaColor.Border, 2);
-            arena.AddPolygon(Wall4(), ArenaColor.Border, 2);
+            Arena.AddPolygon(Wall3(), ArenaColor.Border, 2);
+            Arena.AddPolygon(Wall4(), ArenaColor.Border, 2);
         }
     }
 
-    public override void AddAIHints(BossModule module, int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     { //Note: this isn't looking natural because the AI is trying to dodge the lasers and the wall at the same time, consider not activating the AI in partyfinder until the AI is improved, for multiboxing it should do ok
-        base.AddAIHints(module, slot, actor, assignment, hints);
-        if (module.PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (Module.PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
         {
             hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall1(), true));
             hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall2(), false));
         }
-        if (module.PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
+        if (Module.PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
         {
             hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall3(), false));
             hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall4(), true));
@@ -157,10 +150,7 @@ public class Layout : BossComponent
     }
 }
 
-class BurningBeam : Components.SelfTargetedAOEs
-{
-    public BurningBeam() : base(ActionID.MakeSpell(AID.BurningBeam), new AOEShapeRect(15, 2)) { }
-}
+class BurningBeam(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.BurningBeam), new AOEShapeRect(15, 2));
 
 class D030RonkanDreamerStates : StateMachineBuilder
 {
@@ -176,16 +166,8 @@ class D030RonkanDreamerStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 651, NameID = 8639)]
-public class D030RonkanDreamer : BossModule
+public class D030RonkanDreamer(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, primary.Position.Z > 550 ? 640 : 434), new ArenaBoundsRect(17.5f, 24))
 {
-    public D030RonkanDreamer(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(0, 0), 0)) { }
-    protected override void UpdateModule()
-    {
-        if (PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
-            Arena.Bounds = new ArenaBoundsRect(new(0, 640), 17.5f, 24);
-        if (PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
-            Arena.Bounds = new ArenaBoundsRect(new(0, 434), 17.5f, 24);
-    }
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
         Arena.Actor(PrimaryActor, ArenaColor.Enemy);

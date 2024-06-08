@@ -6,39 +6,24 @@ public enum OID : uint
     BossAdd = 0x3D31, //R=2.2
     BossHelper = 0x233C,
     Bubble = 0x3D32, //R=1.0
-};
+}
 
 public enum AID : uint
 {
     AutoAttack = 872, // Boss/BossAdd->player, no cast, single-target
-    PelagicCleaver = 32230, // Boss->self, 3,5s cast, range 40 60-degree cone
-    AquaticLance = 32231, // Boss->self, 4,0s cast, range 13 circle
-    FoulWaters = 32229, // Boss->location, 3,0s cast, range 3 circle, AOE + spawns bubble
-    Riptide = 32233, // Bubble->self, 1,0s cast, range 5 circle, pulls into bubble, dist 30 between centers
+    PelagicCleaver = 32230, // Boss->self, 3.5s cast, range 40 60-degree cone
+    AquaticLance = 32231, // Boss->self, 4.0s cast, range 13 circle
+    FoulWaters = 32229, // Boss->location, 3.0s cast, range 3 circle, AOE + spawns bubble
+    Riptide = 32233, // Bubble->self, 1.0s cast, range 5 circle, pulls into bubble, dist 30 between centers
     WateryGrave = 32234, // Bubble->self, no cast, range 2 circle, voidzone, imprisons player until status runs out
     NavalRam = 32232, // BossAdd->player, no cast, single-target
-    ProtolithicPuncture = 32228, // Boss->player, 5,0s cast, single-target
-};
-
-class PelagicCleaver : Components.SelfTargetedAOEs
-{
-    public PelagicCleaver() : base(ActionID.MakeSpell(AID.PelagicCleaver), new AOEShapeCone(40, 30.Degrees())) { }
+    ProtolithicPuncture = 32228, // Boss->player, 5.0s cast, single-target
 }
 
-class FoulWaters : Components.PersistentVoidzoneAtCastTarget
-{
-    public FoulWaters() : base(5, ActionID.MakeSpell(AID.FoulWaters), m => m.Enemies(OID.Bubble), 0) { }
-}
-
-class AquaticLance : Components.SelfTargetedAOEs
-{
-    public AquaticLance() : base(ActionID.MakeSpell(AID.AquaticLance), new AOEShapeCircle(13)) { }
-}
-
-class ProtolithicPuncture : Components.SingleTargetCast
-{
-    public ProtolithicPuncture() : base(ActionID.MakeSpell(AID.ProtolithicPuncture)) { }
-}
+class PelagicCleaver(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PelagicCleaver), new AOEShapeCone(40, 30.Degrees()));
+class FoulWaters(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, ActionID.MakeSpell(AID.FoulWaters), m => m.Enemies(OID.Bubble), 0);
+class AquaticLance(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AquaticLance), new AOEShapeCircle(13));
+class ProtolithicPuncture(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.ProtolithicPuncture));
 
 class TritonStates : StateMachineBuilder
 {
@@ -54,10 +39,8 @@ class TritonStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 909, NameID = 12006)]
-public class Triton : BossModule
+public class Triton(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
 {
-    public Triton(WorldState ws, Actor primary) : base(ws, primary, new ArenaBoundsCircle(new(100, 100), 20)) { }
-
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
         Arena.Actor(PrimaryActor, ArenaColor.Enemy);

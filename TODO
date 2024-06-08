@@ -1,3 +1,18 @@
+autorotation v2:
+- Autorotation.cs
+-- not tied to game - convert to rotationmodulemanager basically
+-- move useaction hook to AMEx
+-- manual queue should be managed by a plugin / framework
+-- move hints above? ie to be filled by framework right after WS/BMM update
+-- manage ui and active modules
+-- calcnextaction logic to combine manual queue, hints and rotation modules
+- CommonActions.cs
+-- just a base class for rotation modules
+-- move rotation expire logic to autorotation?
+--- maybe need to split into manager + manual layers?
+-- 
+
+
 autorotation rework:
 - priority action suggestions
 - control panel w/ presets and bindings
@@ -10,17 +25,16 @@ autorotation rework:
 -- properly support additional cdgroups
 -- remove fake cdgroup 71 (lb/holster)
 
-network rework:
-- optionally log raw ipcs to replay
-- visualize in replay analysis, dump to file
-- utility to inject custom ipcs to the stream for debugging?
-
 general:
+- refactor window system to dispose stuff properly and avoid CS1806 and `_ = new...` pattern
+- diagnostic to detect readonly mutable collections
+- introduce 'Game' class that would contain dalamud services and stuff like AMEx/IDScramble, instead of statics, to avoid uncontrolled access to game state (won't help with CS tho)
 - autoreplay improvements - react to module manager transitions?
 - better timing tracking for: statuses, gauges, cooldowns, cast times, anim lock, ...
 - constrain bossmodules to zone id (e.g. for T04)
 - revise module categories - consider merging fates/hunts/quests/gold saucer?/pvp? into outdoor?/casual?
 - refactor pendingeffects
+- utility to inject custom ipcs to the stream for debugging?
 
 boss modules:
 - wipe should not fast forward all phases

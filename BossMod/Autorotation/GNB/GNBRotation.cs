@@ -1,12 +1,12 @@
-﻿// CONTRIB: made by lazylemo, not checked
+// made by LazyLemo, edited by Akechi-kun (there's still plenty of issues, but with DT around the corner, I dont care to fix them. These QoL updates should suffice until then)
 namespace BossMod.GNB;
 
 public static class Rotation
 {
     // full state needed for determining next action
-    public class State : CommonRotation.PlayerState
+    public class State(WorldState ws) : CommonRotation.PlayerState(ws)
     {
-        public int Ammo; // 0 to 100
+        public int Ammo; // 0 to 3
         public int GunComboStep; // 0 to 2
         public float NoMercyLeft; // 0 if buff not up, max 20
         public bool ReadyToRip; // 0 if buff not up, max 10
@@ -15,16 +15,14 @@ public static class Rotation
         public bool ReadyToBlast; // 0 if buff not up, max 10
         public float AuroraLeft; // 0 if buff not up, max 18
         public int NumTargetsHitByAOE;
-
         public int MaxCartridges;
+
         // upgrade paths
         public AID BestZone => Unlocked(AID.BlastingZone) ? AID.BlastingZone : AID.DangerZone;
         public AID BestHeart => Unlocked(AID.HeartOfCorundum) ? AID.HeartOfCorundum : AID.HeartOfStone;
         public AID BestContinuation => ReadyToRip ? AID.JugularRip : ReadyToTear ? AID.AbdomenTear : ReadyToGouge ? AID.EyeGouge : ReadyToBlast ? AID.Hypervelocity : AID.Continuation;
         public AID BestGnash => GunComboStep == 1 ? AID.SavageClaw : GunComboStep == 2 ? AID.WickedTalon : AID.GnashingFang;
         public AID ComboLastMove => (AID)ComboLastAction;
-
-        public State(WorldState ws) : base(ws) { }
 
         public bool Unlocked(AID aid) => Definitions.Unlocked(aid, Level, UnlockProgress);
         public bool Unlocked(TraitID tid) => Definitions.Unlocked(tid, Level, UnlockProgress);
@@ -36,31 +34,44 @@ public static class Rotation
     }
 
     // strategy configuration
+    // TODO: add in "Hold Double Down" option?
     public class Strategy : CommonRotation.Strategy
     {
         public enum GaugeUse : uint
         {
-            Automatic = 0, // spend gauge either under raid buffs or if next downtime is soon (so that next raid buff window won't cover at least 4 GCDs)
+            Automatic = 0, // optimal spend (for the most part)
 
             [PropertyDisplay("Spend all gauge ASAP", 0x8000ff00)]
-            Spend = 1, // spend all gauge asap, don't bother conserving
+            Spend = 1, // burn all carts; Double Down > GF combo > Burst Strike > 123 combo
+
+            [PropertyDisplay("Hold Carts", 0x800000ff)]
+            Hold = 2, // Hold cartridges optimally; works for both ST/AOE
+
+            [PropertyDisplay("Force ST combo", 0x809061F9)]
+            ForceST = 3, // forces Single Target combo & protects overcap
+
+            [PropertyDisplay("Force AOE combo", 0x80D1AF97)]
+            ForceAOE = 4, // forces AOE combo & protects overcap 
+
+            [PropertyDisplay("Force Gnashing combo", 0x804C967D)]
+            ForceGF = 5, // forces GF combo
 
             [PropertyDisplay("Use Lightning Shot if outside melee", 0x80c08000)]
-            LightningShotIfNotInMelee = 2,
+            LightningShotIfNotInMelee = 6,
 
             [PropertyDisplay("Use ST combo if still in ST combo, else use AOE combo", 0x80c0c000)]
-            ComboFitBeforeDowntime = 3, // useful on late phases before downtime
+            ComboFitBeforeDowntime = 7, // useful on late phases before downtime
 
-            [PropertyDisplay("Use appropriate rotation to reach max gauge before downtime (NEEDS TESTING)", 0x80c0c000)]
-            MaxGaugeBeforeDowntime = 4, // useful on late phases before downtime
+            [PropertyDisplay("Use appropriate rotation to reach max gauge before downtime", 0x80c0c000)]
+            MaxGaugeBeforeDowntime = 8, // useful on late phases before downtime
 
             [PropertyDisplay("Use combo until second-last step, then spend gauge", 0x80400080)]
-            PenultimateComboThenSpend = 5, // useful for ensuring ST extension is used right before long downtime
+            PenultimateComboThenSpend = 9, // useful for ensuring ST extension is used right before long downtime
         }
 
         public enum PotionUse : uint
         {
-            Manual = 0, // potion won't be used automatically
+            Manual = 0, // nothing used
 
             [PropertyDisplay("Use ASAP, but delay slightly during opener", 0x8000ff00)]
             Immediate = 1,
@@ -247,10 +258,132 @@ public static class Rotation
     {
         if (strategy.GaugeStrategy == Strategy.GaugeUse.Spend)
         {
-            if (state.CD(CDGroup.GnashingFang) > 9 && state.Ammo >= 1)
+            if (state.Ammo >= 1)
+            {
+                if (state.CD(CDGroup.DoubleDown) < 0.6f && state.Ammo >= 2)
+                {
+                    return AID.DoubleDown;
+                }
+                else if (state.CD(CDGroup.GnashingFang) < 0.6f && state.Ammo <= 3)
+                {
+                    if (state.GunComboStep == 0)
+                        return AID.GnashingFang;
+                    if (state.GunComboStep == 1)
+                        return AID.SavageClaw;
+                    if (state.GunComboStep == 2)
+                        return AID.WickedTalon;
+                }
                 return AID.BurstStrike;
-            if (strategy.FightEndIn < 9 && state.Ammo > 0)
-                return AID.BurstStrike;
+            }
+
+            if (state.Ammo == 0 && state.GunComboStep <= 0)
+            {
+                return AID.KeenEdge;
+            }
+        }
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.Hold && state.Ammo >= 0 && state.NoMercyLeft >= 0)
+        {
+            if (aoe)
+            {
+                if (state.ComboLastMove == AID.DemonSlice && state.Ammo < 3)
+                {
+                    return AID.DemonSlaughter;
+                }
+                else if (state.ComboLastMove == AID.DemonSlice && state.Ammo == 3)
+                {
+                    return AID.FatedCircle;
+                }
+                else if (state.ComboLastMove == AID.KeenEdge)
+                {
+                    return AID.BrutalShell;
+                }
+
+                return AID.DemonSlice;
+            }
+            else if (state.ComboLastMove == AID.BrutalShell)
+            {
+                if (state.Ammo < 3)
+                {
+                    return AID.SolidBarrel;
+                }
+                else if (state.Ammo == 3)
+                {
+                    return AID.BurstStrike;
+                }
+            }
+            else if (state.ComboLastMove == AID.KeenEdge)
+            {
+                return AID.BrutalShell;
+            }
+            return AID.KeenEdge;
+        }
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceST && state.Ammo >= 0 && state.NoMercyLeft >= 0)
+        {
+            if (state.ComboLastMove == AID.BrutalShell)
+            {
+                if (state.Ammo < 3)
+                {
+                    return AID.SolidBarrel;
+                }
+                else if (state.Ammo == 3)
+                {
+                    return AID.BurstStrike;
+                }
+            }
+            else if (state.ComboLastMove == AID.KeenEdge)
+            {
+                return AID.BrutalShell;
+            }
+            return AID.KeenEdge;
+        }
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceAOE && state.Ammo >= 0 && state.NoMercyLeft >= 0)
+        {
+            if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceAOE && state.Ammo >= 0 && state.NoMercyLeft >= 0)
+            {
+                if (state.ComboLastMove == AID.DemonSlice && state.Ammo < 3)
+                {
+                    return AID.DemonSlaughter;
+                }
+                else if (state.ComboLastMove == AID.DemonSlice && state.Ammo == 3)
+                {
+                    return AID.FatedCircle;
+                }
+
+                return AID.DemonSlice;
+            }
+        }
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceGF)
+        {
+            if (state.Ammo >= 1)
+            {
+                if (state.CD(CDGroup.GnashingFang) < 0.6f && state.CD(CDGroup.DoubleDown) < 0.6f)
+                {
+                    if (state.GunComboStep == 0)
+                    {
+                        return AID.GnashingFang;
+                    }
+                    else if (state.GunComboStep == 1)
+                    {
+                        return AID.SavageClaw;
+                    }
+                    else if (state.GunComboStep == 2)
+                    {
+                        return AID.WickedTalon;
+                    }
+                }
+                else if (state.GunComboStep == 1)
+                {
+                    return AID.SavageClaw;
+                }
+                else if (state.GunComboStep == 2)
+                {
+                    return AID.WickedTalon;
+                }
+            }
         }
 
         if (Service.Config.Get<GNBConfig>().Skscheck && state.Ammo == state.MaxCartridges - 1 && state.ComboLastMove == AID.BrutalShell && state.GunComboStep == 0 && state.CD(CDGroup.GnashingFang) < 2.5)
@@ -260,6 +393,55 @@ public static class Rotation
 
         if (Service.Config.Get<GNBConfig>().EarlySonicBreak && state.CD(CDGroup.NoMercy) > 40 && state.CD(CDGroup.SonicBreak) < 0.6f)
             return AID.SonicBreak;
+
+        // Lv30-53 NM proc ST
+        if (state.Unlocked(AID.NoMercy))
+        {
+            bool canUseBurstStrike = !state.Unlocked(AID.FatedCircle) &&
+                                     !state.Unlocked(AID.DoubleDown) &&
+                                     !state.Unlocked(AID.Bloodfest) &&
+                                     !state.Unlocked(AID.Continuation) &&
+                                     !state.Unlocked(AID.GnashingFang) &&
+                                     !state.Unlocked(AID.SonicBreak);
+
+            // ST
+            if (!aoe)
+            {
+                if (!state.Unlocked(AID.FatedCircle) &&
+                    !state.Unlocked(AID.DoubleDown) &&
+                    !state.Unlocked(AID.Bloodfest) &&
+                    !state.Unlocked(AID.Continuation) &&
+                    !state.Unlocked(AID.GnashingFang) &&
+                    !state.Unlocked(AID.SonicBreak) &&
+                    state.Ammo >= 2)
+                {
+                    return AID.NoMercy;
+                }
+                else if (canUseBurstStrike && state.CD(CDGroup.NoMercy) < 40 && state.Ammo >= 2 && state.ComboLastMove == AID.BrutalShell)
+                {
+                    return AID.BurstStrike;
+                }
+            }
+
+            // AOE
+            if (aoe)
+            {
+                if (!state.Unlocked(AID.FatedCircle) &&
+                    !state.Unlocked(AID.DoubleDown) &&
+                    !state.Unlocked(AID.Bloodfest) &&
+                    !state.Unlocked(AID.Continuation) &&
+                    !state.Unlocked(AID.GnashingFang) &&
+                    !state.Unlocked(AID.SonicBreak) &&
+                    state.Ammo >= 2)
+                {
+                    return AID.NoMercy;
+                }
+                else if (canUseBurstStrike && state.CD(CDGroup.NoMercy) < 40 && state.Ammo >= 2 && state.ComboLastMove == AID.DemonSlice)
+                {
+                    return AID.BurstStrike;
+                }
+            }
+        }
 
         if (state.CD(CDGroup.NoMercy) > 17)
         {
@@ -283,16 +465,70 @@ public static class Rotation
                 return AID.BurstStrike;
             if (!aoe && state.Ammo >= 1 && state.CD(CDGroup.GnashingFang) > state.GCD && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.SonicBreak) && state.GunComboStep == 0)
                 return AID.BurstStrike;
-            if (!aoe && state.Ammo >= 1 && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.SonicBreak) && !state.Unlocked(AID.GnashingFang))
+            if (!state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.Bloodfest) && !state.Unlocked(AID.Continuation) && !state.Unlocked(AID.GnashingFang) && !state.Unlocked(AID.SonicBreak) && state.Ammo >= 2)
                 return AID.BurstStrike;
-            if (aoe && state.Ammo >= 1 && state.CD(CDGroup.GnashingFang) > state.GCD && state.CD(CDGroup.DoubleDown) > state.GCD && state.CD(CDGroup.SonicBreak) > state.GCD && state.Unlocked(AID.DoubleDown) && state.GunComboStep == 0)
-                return AID.FatedCircle;
-            if (aoe && state.Ammo >= 1 && state.CD(CDGroup.GnashingFang) > state.GCD && state.CD(CDGroup.SonicBreak) > state.GCD && !state.Unlocked(AID.DoubleDown) && state.GunComboStep == 0)
-                return AID.FatedCircle;
-            if (aoe && state.Ammo >= 1 && state.CD(CDGroup.GnashingFang) > state.GCD && state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.SonicBreak) && state.GunComboStep == 0)
-                return AID.FatedCircle;
-            if (aoe && state.Ammo >= 1 && state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.SonicBreak) && !state.Unlocked(AID.GnashingFang))
-                return AID.FatedCircle;
+
+            if (!aoe)
+            {
+                if (state.Ammo >= 1 && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.Bloodfest) && !state.Unlocked(AID.Continuation) && !state.Unlocked(AID.GnashingFang) && !state.Unlocked(AID.SonicBreak))
+                    return AID.BurstStrike;
+            }
+            // AOE
+            else if (aoe)
+            {
+                if (state.NoMercyLeft > 0)
+                {
+                    if (state.Ammo >= 1)
+                    {
+                        if (state.Unlocked(AID.GnashingFang) && state.CD(CDGroup.GnashingFang) == 0)
+                        {
+                            return AID.GnashingFang; // Lv60+ AOE GF
+                        }
+                        if (!state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown))
+                        {
+                            return AID.BurstStrike; // Lv 30-72 AOE BS
+                        }
+                    }
+                    if (state.Ammo >= 2 && !state.Unlocked(AID.DoubleDown) &&
+                        !state.Unlocked(AID.Bloodfest) && !state.Unlocked(AID.Continuation) && !state.Unlocked(AID.GnashingFang) && !state.Unlocked(AID.SonicBreak))
+                    {
+                        return AID.BurstStrike; // Lv30-53 AOE BS
+                    }
+                    if (state.Ammo >= 2 && state.Unlocked(AID.SonicBreak) && state.Unlocked(AID.GnashingFang) &&
+                        !state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown))
+                    {
+                        return AID.GnashingFang; // Lv60 AOE GF fix
+                    }
+                }
+                if (state.Ammo >= 1 && state.GunComboStep == 0)
+                {
+                    if (state.NoMercyLeft > 0 && !state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.Bloodfest) &&
+                        state.Unlocked(AID.Continuation))
+                    {
+                        return AID.BurstStrike; // Lv70 AOE BS
+                    }
+                    if (state.Ammo >= 1 && state.NoMercyLeft > 0 && state.Unlocked(AID.SonicBreak) && state.Unlocked(AID.GnashingFang) &&
+                        !state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown))
+                    {
+                        return AID.BurstStrike; // Lv60 AOE BS
+                    }
+                    if (state.CD(CDGroup.GnashingFang) > state.GCD && state.CD(CDGroup.DoubleDown) > state.GCD &&
+                        state.CD(CDGroup.SonicBreak) > state.GCD && state.Unlocked(AID.DoubleDown))
+                    {
+                        return AID.FatedCircle; // Lv80 AOE
+                    }
+                    if (state.CD(CDGroup.GnashingFang) > state.GCD && state.Unlocked(AID.FatedCircle) &&
+                        !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.SonicBreak))
+                    {
+                        return AID.FatedCircle; // Lv80 AOE 
+                    }
+                    if (state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) &&
+                        !state.Unlocked(AID.SonicBreak) && !state.Unlocked(AID.GnashingFang))
+                    {
+                        return AID.FatedCircle; // Lv80 AOE
+                    }
+                }
+            }
         }
 
         if (state.GunComboStep > 0)
@@ -315,12 +551,131 @@ public static class Rotation
 
         if (strategy.GaugeStrategy == Strategy.GaugeUse.Spend && state.Ammo >= 0)
         {
-            if (state.CD(CDGroup.GnashingFang) < 0.6f)
-                return AID.GnashingFang;
-            return AID.BurstStrike;
+            if (state.Ammo >= 2)
+            {
+                if (state.CD(CDGroup.DoubleDown) < 0.6f && state.Ammo > 2)
+                    return AID.DoubleDown;
+
+                if (state.CD(CDGroup.GnashingFang) < 0.6f && state.Ammo <= 2)
+                {
+                    if (state.GunComboStep == 0)
+                        return AID.GnashingFang;
+                    if (state.GunComboStep == 1)
+                        return AID.SavageClaw;
+                    if (state.GunComboStep == 2)
+                        return AID.WickedTalon;
+                }
+
+                return AID.BurstStrike;
+            }
+
+            if (state.Ammo == 0 && state.GunComboStep <= 0)
+            {
+                return AID.KeenEdge;
+            }
         }
 
-        // single-target gauge spender
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.Hold && state.Ammo >= 0 && state.NoMercyLeft >= 0)
+        {
+            if (aoe)
+            {
+                if (state.ComboLastMove == AID.DemonSlice)
+                {
+                    return AID.DemonSlaughter;
+                }
+                else if (state.ComboLastMove == AID.BrutalShell)
+                {
+                    return AID.SolidBarrel;
+                }
+                else if (state.ComboLastMove == AID.KeenEdge)
+                {
+                    return AID.BrutalShell;
+                }
+
+                return AID.DemonSlice;
+            }
+            else if (state.ComboLastMove == AID.BrutalShell)
+            {
+                if (state.Ammo < 3)
+                {
+                    return AID.SolidBarrel;
+                }
+                else if (state.Ammo == 3)
+                {
+                    return AID.BurstStrike;
+                }
+            }
+            else if (state.ComboLastMove == AID.KeenEdge)
+            {
+                return AID.BrutalShell;
+            }
+            return AID.KeenEdge;
+        }
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceST && state.Ammo >= 0 && state.NoMercyLeft >= 0)
+        {
+            if (state.ComboLastMove == AID.BrutalShell)
+            {
+                if (state.Ammo < 3)
+                {
+                    return AID.SolidBarrel;
+                }
+                else if (state.Ammo == 3)
+                {
+                    return AID.BurstStrike;
+                }
+            }
+            else if (state.ComboLastMove == AID.KeenEdge)
+            {
+                return AID.BrutalShell;
+            }
+            return AID.KeenEdge;
+        }
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceAOE && state.Ammo >= 0 && state.NoMercyLeft >= 0)
+        {
+            if (state.ComboLastMove == AID.DemonSlice && state.Ammo < 3)
+            {
+                return AID.DemonSlaughter;
+            }
+            else if (state.ComboLastMove == AID.DemonSlice && state.Ammo == 3)
+            {
+                return AID.FatedCircle;
+            }
+
+            return AID.DemonSlice;
+        }
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceGF)
+        {
+            if (state.Ammo >= 1)
+            {
+                if (state.CD(CDGroup.GnashingFang) < 0.6f && state.CD(CDGroup.DoubleDown) < 0.6f)
+                {
+                    if (state.GunComboStep == 0)
+                    {
+                        return AID.GnashingFang;
+                    }
+                    else if (state.GunComboStep == 1)
+                    {
+                        return AID.SavageClaw;
+                    }
+                    else if (state.GunComboStep == 2)
+                    {
+                        return AID.WickedTalon;
+                    }
+                }
+                else if (state.GunComboStep == 1)
+                {
+                    return AID.SavageClaw;
+                }
+                else if (state.GunComboStep == 2)
+                {
+                    return AID.WickedTalon;
+                }
+            }
+        }
+
         return GetNextUnlockedComboAction(state, strategy, aoe);
     }
 
@@ -328,6 +683,10 @@ public static class Rotation
     {
         Strategy.GaugeUse.Automatic or Strategy.GaugeUse.LightningShotIfNotInMelee => (state.RaidBuffsLeft > state.GCD || strategy.FightEndIn <= strategy.RaidBuffsIn + 10),
         Strategy.GaugeUse.Spend => true,
+        Strategy.GaugeUse.ForceST => true,
+        Strategy.GaugeUse.ForceAOE => true,
+        Strategy.GaugeUse.ForceGF => true,
+        Strategy.GaugeUse.Hold => true,
         Strategy.GaugeUse.ComboFitBeforeDowntime => strategy.FightEndIn <= state.GCD + 2.5f * ((aoe ? GetAOEComboLength(state.ComboLastMove) : GetSTComboLength(state.ComboLastMove)) - 1),
         Strategy.GaugeUse.PenultimateComboThenSpend => state.ComboLastMove is AID.BrutalShell or AID.DemonSlice,
         _ => true
@@ -344,17 +703,17 @@ public static class Rotation
 
     public static bool ShouldUseNoMercy(State state, Strategy strategy)
     {
-        if (strategy.NoMercyUse == Strategy.OffensiveAbilityUse.Delay)
+        if (strategy.NoMercyUse == CommonRotation.Strategy.OffensiveAbilityUse.Delay)
         {
             return false;
         }
-        else if (strategy.NoMercyUse == Strategy.OffensiveAbilityUse.Force)
+        else if (strategy.NoMercyUse == CommonRotation.Strategy.OffensiveAbilityUse.Force)
         {
             return true;
         }
         else
         {
-            GNBConfig gnbConfig = Service.Config.Get<GNBConfig>();
+            var gnbConfig = Service.Config.Get<GNBConfig>();
             bool isEarlyNoMercy = gnbConfig.EarlyNoMercy;
 
             bool isGnashingFangReady = state.CD(CDGroup.GnashingFang) < 2.5 && state.Unlocked(AID.GnashingFang);
@@ -382,37 +741,36 @@ public static class Rotation
         }
     }
 
-
     public static bool ShouldUseGnash(State state, Strategy strategy) => strategy.GnashUse switch
     {
-        Strategy.OffensiveAbilityUse.Delay => false,
-        Strategy.OffensiveAbilityUse.Force => true,
+        CommonRotation.Strategy.OffensiveAbilityUse.Delay => false,
+        CommonRotation.Strategy.OffensiveAbilityUse.Force => true,
         _ => strategy.CombatTimer >= 0 && state.TargetingEnemy && state.Unlocked(AID.GnashingFang) && state.CD(CDGroup.GnashingFang) < 0.6f && state.Ammo >= 1
     };
 
     public static bool ShouldUseZone(State state, Strategy strategy) => strategy.ZoneUse switch
     {
-        Strategy.OffensiveAbilityUse.Delay => false,
-        Strategy.OffensiveAbilityUse.Force => true,
+        CommonRotation.Strategy.OffensiveAbilityUse.Delay => false,
+        CommonRotation.Strategy.OffensiveAbilityUse.Force => true,
         _ => strategy.CombatTimer >= 0 && state.TargetingEnemy && state.Unlocked(AID.SonicBreak) && state.CD(CDGroup.SonicBreak) > state.AnimationLock && state.CD(CDGroup.NoMercy) > 17
     };
 
     public static bool ShouldUseFest(State state, Strategy strategy)
     {
-        if (strategy.BloodFestUse == Strategy.OffensiveAbilityUse.Delay)
+        if (strategy.BloodFestUse == CommonRotation.Strategy.OffensiveAbilityUse.Delay)
         {
             return false;
         }
-        else if (strategy.BloodFestUse == Strategy.OffensiveAbilityUse.Force)
+        else if (strategy.BloodFestUse == CommonRotation.Strategy.OffensiveAbilityUse.Force)
         {
             return true;
         }
         else
         {
-            GNBConfig gnbConfig = Service.Config.Get<GNBConfig>();
-            bool isEarlyNoMercy = gnbConfig.EarlyNoMercy;
+            //var gnbConfig = Service.Config.Get<GNBConfig>();
+            //bool isEarlyNoMercy = gnbConfig.EarlyNoMercy;
 
-            bool shouldUseEarlyNoMercy = state.TargetingEnemy && state.CD(CDGroup.NoMercy) < state.AnimationLock && ((!isEarlyNoMercy && state.ComboLastMove == AID.BrutalShell) || (isEarlyNoMercy && state.ComboLastMove == AID.KeenEdge)) && strategy.CombatTimer < 10 && state.Ammo == 0 && state.Unlocked(AID.Bloodfest);
+            //bool shouldUseEarlyNoMercy = state.TargetingEnemy && state.CD(CDGroup.NoMercy) < state.AnimationLock && ((!isEarlyNoMercy && state.ComboLastMove == AID.BrutalShell) || (isEarlyNoMercy && state.ComboLastMove == AID.KeenEdge)) && strategy.CombatTimer < 10 && state.Ammo == 0 && state.Unlocked(AID.Bloodfest);
             bool inNoMercy = state.NoMercyLeft > state.AnimationLock && state.Unlocked(AID.Bloodfest);
             return inNoMercy && state.Ammo == 0;
         }
@@ -420,8 +778,8 @@ public static class Rotation
 
     public static bool ShouldUseBow(State state, Strategy strategy) => strategy.BowUse switch
     {
-        Strategy.OffensiveAbilityUse.Delay => false,
-        Strategy.OffensiveAbilityUse.Force => true,
+        CommonRotation.Strategy.OffensiveAbilityUse.Delay => false,
+        CommonRotation.Strategy.OffensiveAbilityUse.Force => true,
         _ => strategy.CombatTimer >= 0 && state.TargetingEnemy && state.Unlocked(AID.BowShock) && state.CD(CDGroup.SonicBreak) > state.AnimationLock && state.CD(CDGroup.NoMercy) > 40
     };
 
@@ -512,7 +870,7 @@ public static class Rotation
     public static AID GetNextBestGCD(State state, Strategy strategy, bool aoe)
     {
         // prepull
-        if (strategy.CombatTimer > -100 && strategy.CombatTimer < -0.7f)
+        if (strategy.CombatTimer is > -100 and < -0.7f)
             return AID.None;
 
         if (strategy.GaugeStrategy == Strategy.GaugeUse.ComboFitBeforeDowntime && (state.GCD + 2.5f * GetSTComboLength(state.ComboLastMove) <= strategy.FightEndIn) && state.NoMercyLeft < state.AnimationLock)
@@ -520,6 +878,71 @@ public static class Rotation
 
         if (strategy.GaugeStrategy == Strategy.GaugeUse.LightningShotIfNotInMelee && state.RangeToTarget > 3)
             return AID.LightningShot;
+
+        if (!aoe)
+        {
+            if (state.Ammo >= 2 && !state.Unlocked(AID.DoubleDown) &&
+                !state.Unlocked(AID.Bloodfest) && !state.Unlocked(AID.Continuation) && !state.Unlocked(AID.GnashingFang) &&
+                !state.Unlocked(AID.SonicBreak))
+            {
+                return AID.BurstStrike;
+            }
+        }
+        // AOE Logic
+        else if (aoe)
+        {
+            if (state.Ammo >= 2)
+            {
+                if (state.Ammo >= 2)
+                {
+                    if (state.Unlocked(AID.GnashingFang) && state.CD(CDGroup.GnashingFang) == 0)
+                    {
+                        return AID.GnashingFang; // Lv60+ AOE GF
+                    }
+                    if (!state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown))
+                    {
+                        return AID.BurstStrike; // Lv30-72 AOE BS
+                    }
+                }
+                if (state.Ammo >= 2 && !state.Unlocked(AID.DoubleDown) &&
+                    !state.Unlocked(AID.Bloodfest) && !state.Unlocked(AID.Continuation) && !state.Unlocked(AID.GnashingFang) && !state.Unlocked(AID.SonicBreak))
+                {
+                    return AID.BurstStrike; // Lv30-53 AOE BS
+                }
+                if (state.Ammo >= 2 && state.Unlocked(AID.SonicBreak) && state.Unlocked(AID.GnashingFang) &&
+                    !state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown))
+                {
+                    return AID.GnashingFang; // Lv60 AOE GF fix
+                }
+                else if (state.Ammo >= 2 && state.Unlocked(AID.SonicBreak) && state.Unlocked(AID.GnashingFang) && (state.CD(CDGroup.GnashingFang) > state.AnimationLock && !state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown)))
+                {
+                    return AID.BurstStrike; // Lv60 AOE BS 
+                }
+            }
+            if (state.Ammo >= 2 && state.GunComboStep == 0)
+            {
+                if (!state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.Bloodfest) &&
+                    state.Unlocked(AID.Continuation))
+                {
+                    return AID.BurstStrike; // Lv70 AOE BS
+                }
+                if (state.CD(CDGroup.GnashingFang) > state.GCD && state.CD(CDGroup.DoubleDown) > state.GCD &&
+                    state.CD(CDGroup.SonicBreak) > state.GCD && state.Unlocked(AID.DoubleDown))
+                {
+                    return AID.FatedCircle; // Lv80 AOE
+                }
+                if (state.CD(CDGroup.GnashingFang) > state.GCD && state.Unlocked(AID.FatedCircle) &&
+                    !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.SonicBreak))
+                {
+                    return AID.FatedCircle; // Lv80 AOE
+                }
+                if (state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) &&
+                    !state.Unlocked(AID.SonicBreak) && !state.Unlocked(AID.GnashingFang))
+                {
+                    return AID.FatedCircle; // Lv80 AOE
+                }
+            }
+        }
 
         if (state.ReadyToBlast)
             return state.BestContinuation;
@@ -556,6 +979,18 @@ public static class Rotation
         if (strategy.GaugeStrategy == Strategy.GaugeUse.Spend)
             return GetNextAmmoAction(state, strategy, aoe);
 
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.Hold)
+            return GetNextUnlockedComboAction(state, strategy, aoe);
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceST)
+            return GetNextUnlockedComboAction(state, strategy, aoe);
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceAOE)
+            return GetNextUnlockedComboAction(state, strategy, aoe);
+
+        if (strategy.GaugeStrategy == Strategy.GaugeUse.ForceGF)
+            return GetNextAmmoAction(state, strategy, aoe);
+
         if (strategy.GaugeStrategy == Strategy.GaugeUse.MaxGaugeBeforeDowntime && state.NoMercyLeft < state.AnimationLock)
             return ChooseRotationBasedOnGauge(state, strategy, aoe);
 
@@ -564,7 +999,6 @@ public static class Rotation
 
     public static ActionID GetNextBestOGCD(State state, Strategy strategy, float deadline, bool aoe)
     {
-        bool hasContinuation = state.ReadyToBlast || state.ReadyToGouge || state.ReadyToRip || state.ReadyToTear;
         if (strategy.SpecialActionUse == Strategy.SpecialAction.LB3)
             return ActionID.MakeSpell(AID.GunmetalSoul);
 
@@ -598,6 +1032,20 @@ public static class Rotation
 
         if (state.Unlocked(AID.Bloodfest) && state.CanWeave(CDGroup.Bloodfest, 0.6f, deadline) && ShouldUseFest(state, strategy))
             return ActionID.MakeSpell(AID.Bloodfest);
+
+        // Lv30-53 NM proc ST
+        if (state.Unlocked(AID.NoMercy))
+        {
+            if (!state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.Bloodfest) && !state.Unlocked(AID.Continuation) && !state.Unlocked(AID.GnashingFang) && !state.Unlocked(AID.SonicBreak) && state.Ammo == 2 && state.CanWeave(CDGroup.NoMercy, 0.6f, deadline))
+                return ActionID.MakeSpell(AID.NoMercy);
+        }
+
+        // Lv30-53 NM proc AOE
+        if (state.Unlocked(AID.NoMercy))
+        {
+            if (aoe && !state.Unlocked(AID.FatedCircle) && !state.Unlocked(AID.DoubleDown) && !state.Unlocked(AID.Bloodfest) && !state.Unlocked(AID.Continuation) && !state.Unlocked(AID.GnashingFang) && state.Ammo == 2 && !state.Unlocked(AID.SonicBreak) && state.Ammo == 2 && state.CanWeave(CDGroup.NoMercy, 0.6f, deadline))
+                return ActionID.MakeSpell(AID.NoMercy);
+        }
 
         if (wantRoughDivide && Service.Config.Get<GNBConfig>().NoMercyRoughDivide && state.CanWeave(state.CD(CDGroup.RoughDivide) - 28.5f, 0.6f, deadline) && state.NoMercyLeft > state.AnimationLock && state.CD(CDGroup.SonicBreak) > 5.5 && state.Unlocked(AID.BurstStrike))
             return ActionID.MakeSpell(AID.RoughDivide);

@@ -1,16 +1,24 @@
-﻿using System.IO;
+﻿using System.ComponentModel;
+using System.IO;
 using System.IO.Compression;
 
 namespace BossMod;
 
-public class ReplayRecorder : IDisposable
+public sealed class ReplayRecorder : IDisposable
 {
     public abstract class Output : IDisposable
     {
-        public abstract void Dispose();
-        public abstract Output Entry(string tag, DateTime t);
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected abstract void Dispose(bool disposing);
+        public abstract void StartEntry(DateTime t);
         public abstract Output Emit();
         public abstract Output Emit(string v);
+        public abstract Output Emit(FourCC v);
         public abstract Output Emit(float v, string format = "g9");
         public abstract Output Emit(double v, string format = "g17");
         public abstract Output Emit(Vector3 v);
@@ -24,6 +32,7 @@ public class ReplayRecorder : IDisposable
         public abstract Output Emit(ushort v, string format = "d");
         public abstract Output Emit(uint v, string format = "d");
         public abstract Output Emit(ulong v, string format = "d");
+        public abstract Output Emit(byte[] v);
         public abstract Output Emit(ActionID v);
         public abstract Output Emit(Class v);
         public abstract Output Emit(ActorStatus v);
@@ -33,34 +42,24 @@ public class ReplayRecorder : IDisposable
         public abstract Output EmitActor(ulong instanceID);
         public abstract void EndEntry();
         public abstract void Flush();
+
+        public Output EmitFourCC(ReadOnlySpan<byte> v) => Emit(new FourCC(v));
     }
 
-    public class TextOutput : Output
+    public sealed class TextOutput(Stream dest, ActorState? actorLookup) : Output
     {
-        private StreamWriter _dest;
+        private readonly StreamWriter _dest = new(dest);
         private DateTime _curEntry;
-        private ActorState? _actorLookup;
 
-        public TextOutput(Stream dest, ActorState? actorLookup)
-        {
-            _dest = new(dest);
-            _actorLookup = actorLookup;
-        }
-
-        public override void Dispose()
-        {
-            _dest.Dispose();
-        }
-
-        public override Output Entry(string tag, DateTime t)
+        protected override void Dispose(bool disposing) => _dest.Dispose();
+        public override void StartEntry(DateTime t)
         {
             _curEntry = t;
             _dest.Write(t.ToString("O"));
-            return WriteEntry(tag);
         }
-
         public override Output Emit() => WriteEntry("");
         public override Output Emit(string v) => WriteEntry(v);
+        public override Output Emit(FourCC v) => WriteEntry(v.ToString());
         public override Output Emit(float v, string format) => WriteEntry(v.ToString(format));
         public override Output Emit(double v, string format) => WriteEntry(v.ToString(format));
         public override Output Emit(Vector3 v) => WriteEntry($"{v.X:f3}/{v.Y:f3}/{v.Z:f3}");
@@ -74,6 +73,13 @@ public class ReplayRecorder : IDisposable
         public override Output Emit(ushort v, string format = "d") => WriteEntry(v.ToString(format));
         public override Output Emit(uint v, string format = "d") => WriteEntry(v.ToString(format));
         public override Output Emit(ulong v, string format = "d") => WriteEntry(v.ToString(format));
+        public override Output Emit(byte[] v)
+        {
+            _dest.Write('|');
+            foreach (var b in v)
+                _dest.Write($"{b:X2}");
+            return this;
+        }
         public override Output Emit(ActionID v) => WriteEntry(v.ToString());
         public override Output Emit(Class v) => WriteEntry(v.ToString());
         public override Output Emit(ActorStatus v) => WriteEntry(Utils.StatusString(v.ID)).WriteEntry(v.Extra.ToString("X4")).WriteEntry(Utils.StatusTimeString(v.ExpireAt, _curEntry)).EmitActor(v.SourceID);
@@ -82,7 +88,7 @@ public class ReplayRecorder : IDisposable
             foreach (var t in v)
             {
                 EmitActor(t.ID);
-                for (int i = 0; i < 8; ++i)
+                for (int i = 0; i < ActionEffects.MaxCount; ++i)
                     if (t.Effects[i] != 0)
                         _dest.Write($"!{t.Effects[i]:X16}");
             }
@@ -92,7 +98,7 @@ public class ReplayRecorder : IDisposable
         public override Output EmitTimePair(DateTime t1, float t2) => WriteEntry($"{(t1 - _curEntry).TotalSeconds:f3}/{t2:f3}");
         public override Output EmitActor(ulong instanceID)
         {
-            var actor = _actorLookup?.Find(instanceID);
+            var actor = actorLookup?.Find(instanceID);
             return WriteEntry(actor != null ? $"{actor.InstanceID:X8}/{actor.OID:X}/{actor.Name}/{actor.Type}/{actor.PosRot.X:f3}/{actor.PosRot.Y:f3}/{actor.PosRot.Z:f3}/{actor.Rotation}" : $"{instanceID:X8}");
         }
 
@@ -112,29 +118,15 @@ public class ReplayRecorder : IDisposable
         }
     }
 
-    public class BinaryOutput : Output
+    public sealed class BinaryOutput(Stream dest) : Output
     {
-        private BinaryWriter _dest;
+        private readonly BinaryWriter _dest = new(dest);
 
-        public BinaryOutput(Stream dest)
-        {
-            _dest = new(dest);
-        }
-
-        public override void Dispose()
-        {
-            _dest.Dispose();
-        }
-
-        public override Output Entry(string tag, DateTime t)
-        {
-            foreach (var c in tag)
-                _dest.Write((byte)c);
-            return this;
-        }
-
+        protected override void Dispose(bool disposing) => _dest.Dispose();
+        public override void StartEntry(DateTime t) { }
         public override Output Emit() => this;
         public override Output Emit(string v) { _dest.Write(v); return this; }
+        public override Output Emit(FourCC v) { _dest.Write(v.Value); return this; }
         public override Output Emit(float v, string format) { _dest.Write(v); return this; }
         public override Output Emit(double v, string format) { _dest.Write(v); return this; }
         public override Output Emit(Vector3 v) { _dest.Write(v.X); _dest.Write(v.Y); _dest.Write(v.Z); return this; }
@@ -148,6 +140,7 @@ public class ReplayRecorder : IDisposable
         public override Output Emit(ushort v, string format = "d") { _dest.Write(v); return this; }
         public override Output Emit(uint v, string format = "d") { _dest.Write(v); return this; }
         public override Output Emit(ulong v, string format = "d") { _dest.Write(v); return this; }
+        public override Output Emit(byte[] v) { _dest.Write(v.Length); _dest.Write(v); return this; }
         public override Output Emit(ActionID v) { _dest.Write(v.Raw); return this; }
         public override Output Emit(Class v) { _dest.Write((byte)v); return this; }
         public override Output Emit(ActorStatus v) { _dest.Write(v.ID); _dest.Write(v.Extra); _dest.Write(v.ExpireAt.Ticks); _dest.Write(v.SourceID); return this; }
@@ -157,7 +150,7 @@ public class ReplayRecorder : IDisposable
             foreach (var t in v)
             {
                 _dest.Write(t.ID);
-                for (int i = 0; i < 8; ++i)
+                for (int i = 0; i < ActionEffects.MaxCount; ++i)
                     _dest.Write(t.Effects[i]);
             }
             return this;
@@ -169,10 +162,11 @@ public class ReplayRecorder : IDisposable
         public override void Flush() => _dest.Flush();
     }
 
-    private WorldState _ws;
-    private Output _logger;
+    private readonly WorldState _ws;
+    private readonly Output _logger;
+    private readonly EventSubscription _subscription;
 
-    public const int Version = 13;
+    public const int Version = 14;
 
     public ReplayRecorder(WorldState ws, ReplayLogFormat format, bool logInitialState, DirectoryInfo targetDirectory, string logPrefix)
     {
@@ -182,12 +176,12 @@ public class ReplayRecorder : IDisposable
         switch (format)
         {
             case ReplayLogFormat.BinaryCompressed:
-                WriteHeader(stream, "BLCB");// bossmod log compressed brotli
+                WriteHeader(stream, ReplayLogFormatMagic.CompressedBinary);
                 stream = new BrotliStream(stream, CompressionLevel.Optimal, false);
                 _logger = new BinaryOutput(stream);
                 break;
             case ReplayLogFormat.BinaryUncompressed:
-                WriteHeader(stream, "BLOG");// bossmod log
+                WriteHeader(stream, ReplayLogFormatMagic.RawBinary);
                 _logger = new BinaryOutput(stream);
                 break;
             case ReplayLogFormat.TextCondensed:
@@ -197,11 +191,12 @@ public class ReplayRecorder : IDisposable
                 _logger = new TextOutput(stream, _ws.Actors);
                 break;
             default:
-                throw new Exception("Bad format");
+                throw new InvalidEnumArgumentException("Bad format");
         }
 
         // log initial state
-        _logger.Entry("VER ", _ws.CurrentTime).Emit(Version).Emit(_ws.QPF).Emit(_ws.GameVersion);
+        _logger.StartEntry(_ws.CurrentTime);
+        _logger.EmitFourCC("VER "u8).Emit(Version).Emit(_ws.QPF).Emit(_ws.GameVersion);
         if (_logger is BinaryOutput)
             _logger.Emit(_ws.CurrentTime.Ticks);
         _logger.EndEntry();
@@ -215,23 +210,28 @@ public class ReplayRecorder : IDisposable
         }
 
         // log changes
-        _ws.Modified += Log;
+        _subscription = _ws.Modified.Subscribe(Log);
     }
 
     public void Dispose()
     {
-        _ws.Modified -= Log;
+        _subscription.Dispose();
         _logger.Dispose();
     }
 
-    private void WriteHeader(Stream stream, string header)
+    private unsafe void WriteHeader(Stream stream, FourCC magic)
     {
-        foreach (var c in header)
-            stream.WriteByte((byte)c);
+        Span<byte> buf = stackalloc byte[4];
+        fixed (byte* raw = &buf[0])
+        {
+            *(uint*)raw = magic.Value;
+            stream.Write(buf);
+        }
     }
 
     private void Log(WorldState.Operation op)
     {
+        _logger.StartEntry(op.Timestamp);
         op.Write(_logger);
         _logger.EndEntry();
     }

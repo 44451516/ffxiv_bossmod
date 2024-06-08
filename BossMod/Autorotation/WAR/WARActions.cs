@@ -7,15 +7,14 @@ class Actions : TankActions
     public const int AutoActionST = AutoActionFirstCustom + 0;
     public const int AutoActionAOE = AutoActionFirstCustom + 1;
 
-    private WARConfig _config;
     private bool _aoe;
-    private Rotation.State _state;
-    private Rotation.Strategy _strategy;
+    private readonly Rotation.State _state;
+    private readonly Rotation.Strategy _strategy;
+    private readonly ConfigListener<WARConfig> _config;
 
     public Actions(Autorotation autorot, Actor player)
         : base(autorot, player, Definitions.UnlockQuests, Definitions.SupportedActions)
     {
-        _config = Service.Config.Get<WARConfig>();
         _state = new(autorot.WorldState);
         _strategy = new();
 
@@ -26,21 +25,20 @@ class Actions : TankActions
         SupportedSpell(AID.Berserk).TransformAction = SupportedSpell(AID.InnerRelease).TransformAction = () => ActionID.MakeSpell(_state.BestInnerRelease);
         SupportedSpell(AID.RawIntuition).TransformAction = SupportedSpell(AID.Bloodwhetting).TransformAction = () => ActionID.MakeSpell(_state.BestBloodwhetting);
 
-        SupportedSpell(AID.Equilibrium).Condition = _ => Player.HP.Cur < Player.HP.Max;
+        SupportedSpell(AID.Equilibrium).Condition = _ => Player.HPMP.CurHP < Player.HPMP.MaxHP;
         SupportedSpell(AID.Reprisal).Condition = _ => Autorot.Hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(Player.Position, 5 + e.Actor.HitboxRadius)); // TODO: consider checking only target?..
         SupportedSpell(AID.Interject).Condition = target => target?.CastInfo?.Interruptible ?? false;
-        SupportedSpell(AID.Tomahawk).Condition = _ => !_config.ForbidEarlyTomahawk || _strategy.CombatTimer == float.MinValue || _strategy.CombatTimer >= -0.7f;
         // TODO: SIO - check that raid is in range?..
         // TODO: Provoke - check that not already MT?
         // TODO: Shirk - check that hate is close to MT?..
 
-        _config.Modified += OnConfigModified;
-        OnConfigModified();
+        _config = Service.Config.GetAndSubscribe<WARConfig>(OnConfigModified);
     }
 
-    public override void Dispose()
+    protected override void Dispose(bool disposing)
     {
-        _config.Modified -= OnConfigModified;
+        _config.Dispose();
+        base.Dispose(disposing);
     }
 
     public override CommonRotation.PlayerState GetState() => _state;
@@ -58,8 +56,7 @@ class Actions : TankActions
         };
         UpdatePlayerState();
         FillCommonStrategy(_strategy, CommonDefinitions.IDPotionStr);
-        _strategy.ApplyStrategyOverrides(Autorot.Bossmods.ActiveModule?.PlanExecution?.ActiveStrategyOverrides(Autorot.Bossmods.ActiveModule.StateMachine) ?? new uint[0]);
-        _strategy.OnslaughtHeadroom = _config.OnslaughtHeadroom;
+        _strategy.ApplyStrategyOverrides(Autorot.Bossmods.ActiveModule?.PlanExecution?.ActiveStrategyOverrides(Autorot.Bossmods.ActiveModule.StateMachine) ?? []);
     }
 
     protected override void QueueAIActions()
@@ -78,20 +75,20 @@ class Actions : TankActions
         }
     }
 
-    protected override NextAction CalculateAutomaticGCD()
+    protected override ActionQueue.Entry CalculateAutomaticGCD()
     {
         if (Autorot.PrimaryTarget == null || AutoAction < AutoActionAIFight)
-            return new();
+            return default;
         if (AutoAction == AutoActionAIFight && !Autorot.PrimaryTarget.Position.InCircle(Player.Position, 3 + Autorot.PrimaryTarget.HitboxRadius + Player.HitboxRadius) && _state.Unlocked(AID.Tomahawk))
             return MakeResult(AID.Tomahawk, Autorot.PrimaryTarget); // TODO: reconsider...
         var aid = Rotation.GetNextBestGCD(_state, _strategy, _aoe);
         return MakeResult(aid, Autorot.PrimaryTarget);
     }
 
-    protected override NextAction CalculateAutomaticOGCD(float deadline)
+    protected override ActionQueue.Entry CalculateAutomaticOGCD(float deadline)
     {
         if (AutoAction < AutoActionAIFight)
-            return new();
+            return default;
 
         ActionID res = new();
         if (_state.CanWeave(deadline - _state.OGCDSlotLength)) // first ogcd slot
@@ -132,23 +129,26 @@ class Actions : TankActions
         }
     }
 
-    private void OnConfigModified()
+    private void OnConfigModified(WARConfig config)
     {
         // placeholders
-        SupportedSpell(AID.HeavySwing).PlaceholderForAuto = _config.FullRotation ? AutoActionST : AutoActionNone;
-        SupportedSpell(AID.Overpower).PlaceholderForAuto = _config.FullRotation ? AutoActionAOE : AutoActionNone;
+        SupportedSpell(AID.HeavySwing).PlaceholderForAuto = config.FullRotation ? AutoActionST : AutoActionNone;
+        SupportedSpell(AID.Overpower).PlaceholderForAuto = config.FullRotation ? AutoActionAOE : AutoActionNone;
 
         // combo replacement
-        SupportedSpell(AID.Maim).TransformAction = _config.STCombos ? () => ActionID.MakeSpell(Rotation.GetNextMaimComboAction(ComboLastMove)) : null;
-        SupportedSpell(AID.StormEye).TransformAction = _config.STCombos ? () => ActionID.MakeSpell(Rotation.GetNextSTComboAction(ComboLastMove, AID.StormEye)) : null;
-        SupportedSpell(AID.StormPath).TransformAction = _config.STCombos ? () => ActionID.MakeSpell(Rotation.GetNextSTComboAction(ComboLastMove, AID.StormPath)) : null;
-        SupportedSpell(AID.MythrilTempest).TransformAction = _config.AOECombos ? () => ActionID.MakeSpell(Rotation.GetNextAOEComboAction(ComboLastMove)) : null;
+        SupportedSpell(AID.Maim).TransformAction = config.STCombos ? () => ActionID.MakeSpell(Rotation.GetNextMaimComboAction(ComboLastMove)) : null;
+        SupportedSpell(AID.StormEye).TransformAction = config.STCombos ? () => ActionID.MakeSpell(Rotation.GetNextSTComboAction(ComboLastMove, AID.StormEye)) : null;
+        SupportedSpell(AID.StormPath).TransformAction = config.STCombos ? () => ActionID.MakeSpell(Rotation.GetNextSTComboAction(ComboLastMove, AID.StormPath)) : null;
+        SupportedSpell(AID.MythrilTempest).TransformAction = config.AOECombos ? () => ActionID.MakeSpell(Rotation.GetNextAOEComboAction(ComboLastMove)) : null;
 
         // smart targets
-        SupportedSpell(AID.NascentFlash).TransformTarget = _config.SmartNascentFlashShirkTarget ? SmartTargetCoTank : null;
-        SupportedSpell(AID.Shirk).TransformTarget = _config.SmartNascentFlashShirkTarget ? SmartTargetCoTank : null;
-        SupportedSpell(AID.Provoke).TransformTarget = _config.ProvokeMouseover ? SmartTargetHostile : null; // TODO: also interject/low-blow
-        SupportedSpell(AID.Holmgang).TransformTarget = _config.HolmgangSelf ? _ => Player : null; // TODO: otherwise smarttarget hostile or self...
+        SupportedSpell(AID.NascentFlash).TransformTarget = config.SmartNascentFlashShirkTarget ? SmartTargetCoTank : null;
+        SupportedSpell(AID.Shirk).TransformTarget = config.SmartNascentFlashShirkTarget ? SmartTargetCoTank : null;
+        SupportedSpell(AID.Provoke).TransformTarget = config.ProvokeMouseover ? SmartTargetHostile : null; // TODO: also interject/low-blow
+        SupportedSpell(AID.Holmgang).TransformTarget = config.HolmgangSelf ? _ => Player : null; // TODO: otherwise smarttarget hostile or self...
+
+        SupportedSpell(AID.Tomahawk).Condition = config.ForbidEarlyTomahawk ? _ => _strategy.CombatTimer is float.MinValue or >= -0.7f : null;
+        _strategy.OnslaughtHeadroom = config.OnslaughtHeadroom;
     }
 
     private AID ComboLastMove => (AID)ActionManagerEx.Instance!.ComboLastMove;
