@@ -29,6 +29,7 @@ public enum ActionType : byte
     Magicite = 0xE3, // id = slot (1-3)
 }
 
+// public enum Positional { Any, Flank, Rear, Front }
 public enum Positional { Any, Flank, Rear, Front }
 
 // high byte is type, low 3 bytes is ID

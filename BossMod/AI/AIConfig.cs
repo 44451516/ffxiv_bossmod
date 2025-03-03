@@ -31,7 +31,7 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("覆盖位置偏好")]
     public bool OverridePositional = false;
 
-    [PropertyDisplay("期望的位置偏好")]
+    [PropertyDisplay("期望的位置偏好(Any任意,Flank侧面,Rear背面,Front正面)")]
     public Positional DesiredPositional = 0;
     
     [PropertyDisplay("移动延迟（秒）", tooltip: "保持此值较低！如果设置得太高，某些机制下它将无法及时移动。")]
