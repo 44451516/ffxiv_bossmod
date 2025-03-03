@@ -2,7 +2,7 @@
   "Author": "veyn",
   "Name": "Boss Mod",
   "InternalName": "BossMod",
-  "AssemblyVersion": "0.0.0.292",
+  "AssemblyVersion": "0.1.0.1",
   "Description": "A bunch of utilities to simplify bosses.",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/awgil/ffxiv_bossmod",
