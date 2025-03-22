@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Authors></Authors>
     <Company></Company>
-    <Version>0.1.0.3</Version>
+    <Version>0.1.0.4</Version>
     <Description>Boss mod.</Description>
     <Copyright></Copyright>
     <PackageProjectUrl></PackageProjectUrl>
@@ -49,7 +49,7 @@
 
   <PropertyGroup>
 <!--    <DalamudLibPath>$(appdata)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>-->
-    <DalamudLibPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\addon\Hooks\10.0.0.16\</DalamudLibPath>
+    <DalamudLibPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">

@@ -1,4 +1,6 @@
-﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.Raiden;
+﻿using BossMod.Modules.Stormblood.Foray;
+
+namespace BossMod.Stormblood.Foray.BaldesionArsenal.Raiden;
 
 public enum OID : uint
 {
@@ -18,12 +20,15 @@ public enum AID : uint
     AmeNoSakahoko1 = 14441, // Helper->self, 7.5s cast, range 25 circle
     WhirlingZantetsuken = 14442, // Boss->self, 5.5s cast, range ?-60 donut
     Shock = 14445, // BallLightning->self, 3.0s cast, range 8 circle
-    LateralZantetsuken = 14443, // Boss->self, 6.5s cast, range 70+R width 39 rect
+    LateralZantetsukenRight = 14443, // Boss->self, 6.5s cast, range 70+R width 39 rect
+    LateralZantetsukenLeft = 14444, // Boss->self, 6.5s cast, range 70+R width 39 rect
     LancingBolt = 14454, // Boss->self, 3.0s cast, single-target
     LancingBlow = 14455, // StreakLightning->self, no cast, range 10 circle
     BoomingLament = 14461, // Boss->location, 4.0s cast, range 10 circle
     UltimateZantetsuken = 14456, // Boss->self, 18.0s cast, range 80+R circle
     CloudToGround = 14448, // Boss->self, 4.0s cast, single-target
+    CloudToGroundFirst = 14449, // Helper->self, 5.0s cast, range 6 circle
+    CloudToGroundRest = 14450, // Helper->self, no cast, range 6 circle
 }
 
 public enum IconID : uint
@@ -36,7 +41,7 @@ class SpiritsOfTheFallen(BossModule module) : Components.RaidwideCast(module, Ac
 class AmeNoSakahoko(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AmeNoSakahoko1), new AOEShapeCircle(25));
 class WhirlingZantetsuken(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.WhirlingZantetsuken), new AOEShapeDonut(5, 60));
 class Shock(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Shock), new AOEShapeCircle(8));
-class LateralZantetsuken(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.LateralZantetsuken))
+class LateralZantetsuken(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<Actor> Casters = [];
 
@@ -44,13 +49,13 @@ class LateralZantetsuken(BossModule module) : Components.GenericAOEs(module, Act
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if ((AID)spell.Action.ID is AID.LateralZantetsukenLeft or AID.LateralZantetsukenRight)
             Casters.Add(caster);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if ((AID)spell.Action.ID is AID.LateralZantetsukenLeft or AID.LateralZantetsukenRight)
             Casters.Remove(caster);
     }
 }
@@ -65,13 +70,43 @@ class StreakLightning(BossModule module) : Components.GenericStackSpread(module,
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         if ((AID)spell.Action.ID == AID.LancingBlow && Spreads.Count > 0)
-        {
             Spreads.Remove(Spreads.MinBy(s => (s.Target.Position - spell.TargetXZ).LengthSq()));
-        }
     }
 }
 class LightningAdds(BossModule module) : Components.Adds(module, (uint)OID.StreakLightning, 1);
 class UltimateZantetsuken(BossModule module) : Components.CastHint(module, ActionID.MakeSpell(AID.UltimateZantetsuken), "Kill adds!", true);
+
+class CloudToGround(BossModule module) : Components.Exaflare(module, new AOEShapeCircle(6), ActionID.MakeSpell(AID.CloudToGroundFirst))
+{
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action == WatchedAction)
+            Lines.Add(new()
+            {
+                Next = caster.Position,
+                Advance = caster.Rotation.ToDirection() * 8,
+                NextExplosion = Module.CastFinishAt(spell),
+                TimeToMove = 1,
+                ExplosionsLeft = 8,
+                MaxShownExplosions = 4
+            });
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID is AID.CloudToGroundFirst or AID.CloudToGroundRest)
+        {
+            for (var i = 0; i < Lines.Count; ++i)
+            {
+                if (!Lines[i].Next.AlmostEqual(caster.Position, 1))
+                    continue;
+                AdvanceLine(Lines[i], caster.Position);
+                if (Lines[i].ExplosionsLeft == 0)
+                    Lines.RemoveAt(i--);
+            }
+        }
+    }
+}
 
 class RaidenStates : StateMachineBuilder
 {
@@ -86,16 +121,10 @@ class RaidenStates : StateMachineBuilder
             .ActivateOnEnter<StreakLightning>()
             .ActivateOnEnter<LightningAdds>()
             .ActivateOnEnter<BoomingLament>()
-            .ActivateOnEnter<UltimateZantetsuken>();
+            .ActivateOnEnter<UltimateZantetsuken>()
+            .ActivateOnEnter<CloudToGround>();
     }
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 639, NameID = 7973)]
-public class Raiden(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 458), new ArenaBoundsCircle(35))
-{
-    protected override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        foreach (var actor in WorldState.Actors.Where(a => a.Type == ActorType.Player && WorldState.Party.FindSlot(a.InstanceID) < 0))
-            Arena.Actor(actor, ArenaColor.PlayerGeneric);
-    }
-}
+public class Raiden(WorldState ws, Actor primary) : BAModule(ws, primary, new(0, 458), new ArenaBoundsCircle(35));

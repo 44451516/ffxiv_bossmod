@@ -1,4 +1,6 @@
-﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.AbsoluteVirtue;
+﻿using BossMod.Modules.Stormblood.Foray;
+
+namespace BossMod.Stormblood.Foray.BaldesionArsenal.AbsoluteVirtue;
 
 public enum OID : uint
 {
@@ -9,6 +11,7 @@ public enum OID : uint
     BrightAurora = 0x25DF, // R1.000, x0 (spawn during fight)
     DarkHole = 0x1EAA49,
     BrightHole = 0x1EAA4A,
+    AernsWynav = 0x25DE, // R1.000, x0 (spawn during fight)
 }
 
 public enum AID : uint
@@ -16,17 +19,24 @@ public enum AID : uint
     AutoAttack = 14532, // Boss->player, no cast, single-target
     Meteor = 14233, // Boss->self, 4.0s cast, range 60 circle
     Eidos = 14214, // Boss->self, 2.0s cast, single-target, changes aspect (light/dark)
-    AstralRays = 14221, // Helper->self, 8.0s cast, range 8 circle
-    UmbralRays = 14222, // Helper->self, 8.0s cast, range 8 circle
+    AstralRaysSmall = 14220, // Helper->self, 8.0s cast, range 8 circle
+    AstralRaysBig = 14221, // Helper->self, 8.0s cast, range 8 circle
+    UmbralRaysSmall = 14222, // Helper->self, 8.0s cast, range 8 circle
+    UmbralRaysBig = 14223, // Helper->self, 8.0s cast, range 8 circle
     HostileAspect = 14219, // Boss->self, 8.0s cast, single-target
     MedusaJavelin = 14235, // Boss->self, 3.0s cast, range 60+R 90-degree cone
     BrightAurora = 14217, // Helper->self, 3.0s cast, range 30 width 100 rect
     DarkAurora = 14218, // Helper->self, 3.0s cast, range 30 width 100 rect
-    ImpactStream = 14216, // Boss->self, 3.0s cast, single-target
     AuroralWind = 14234, // Boss->players, 5.0s cast, range 5 circle
     TurbulentAether = 14224, // Boss->self, 3.0s cast, single-target
     BrightExplosion = 14225, // BrightAurora->self, no cast, range 6 circle
     DarkExplosion = 14226, // DarkAurora->self, no cast, range 6 circle
+    ExplosiveImpulseClone = 14227, // RelativeVirtue->self, 5.0s cast, range 60 circle, falloff at 18 probably
+    ExplosiveImpulse = 14228, // Boss->self, 5.0s cast, range 60 circle, falloff at 15 probably
+    BrightAuroraClone = 14230, // Helper->self, 5.0s cast, range 30 width 100 rect
+    DarkAuroraClone = 14231, // Helper->self, 5.0s cast, range 30 width 100 rect
+    Explosion = 14676, // 25DE->self, 8.0s cast, range 60 circle
+    MeteorEnrage = 14700, // Boss->self, 10.0s cast, range 60 circle
 }
 
 public enum SID : uint
@@ -47,6 +57,12 @@ public enum TetherID : uint
 class Meteor(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Meteor));
 class AuroralWind(BossModule module) : Components.BaitAwayCast(module, ActionID.MakeSpell(AID.AuroralWind), new AOEShapeCircle(5), centerAtTarget: true, endsOnCastEvent: true);
 class MedusaJavelin(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.MedusaJavelin), new AOEShapeCone(65, 45.Degrees()));
+class AstralRays(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AstralRaysSmall), new AOEShapeCircle(8));
+class UmbralRays(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.UmbralRaysSmall), new AOEShapeCircle(8));
+class AstralRaysBig(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AstralRaysBig), new AOEShapeCircle(15));
+class UmbralRaysBig(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.UmbralRaysBig), new AOEShapeCircle(15));
+class ExplosiveImpulse(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ExplosiveImpulse), new AOEShapeCircle(18));
+class ExplosiveImpulseClone(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ExplosiveImpulseClone), new AOEShapeCircle(18));
 
 class Aurora(BossModule module) : Components.GenericAOEs(module)
 {
@@ -59,10 +75,12 @@ class Aurora(BossModule module) : Components.GenericAOEs(module)
         switch ((AID)spell.Action.ID)
         {
             case AID.BrightAurora:
+            case AID.BrightAuroraClone:
                 if (caster.FindStatus(SID.AstralEssence) != null)
                     Casters.Add(caster);
                 break;
             case AID.DarkAurora:
+            case AID.DarkAuroraClone:
                 if (caster.FindStatus(SID.UmbralEssence) != null)
                     Casters.Add(caster);
                 break;
@@ -71,146 +89,128 @@ class Aurora(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.BrightAurora or AID.DarkAurora)
+        if ((AID)spell.Action.ID is AID.BrightAurora or AID.DarkAurora or AID.BrightAuroraClone or AID.DarkAuroraClone)
             Casters.Remove(caster);
-    }
-}
-class Rays(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<(Actor Actor, bool Big)> Casters = [];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Casters.Select(c => new AOEInstance(new AOEShapeCircle(c.Big ? 15 : 8), c.Actor.Position, default, Module.CastFinishAt(c.Actor.CastInfo)));
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        switch ((AID)spell.Action.ID)
-        {
-            case AID.UmbralRays:
-                Casters.Add((caster, caster.FindStatus(SID.UmbralEssence) != null));
-                break;
-            case AID.AstralRays:
-                Casters.Add((caster, caster.FindStatus(SID.AstralEssence) != null));
-                break;
-        }
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.UmbralRays or AID.AstralRays)
-            Casters.RemoveAll(c => c.Actor == caster);
     }
 }
 
 class Balls(BossModule module) : BossComponent(module)
 {
-    // EObjAnim 00040008 when hole disappears
+    // balls gain Sprint status and tower disappears ~21.85s after tether
 
-    private readonly List<(Actor Source, Actor Target, uint Color)> Tethers = [];
+    enum Color
+    {
+        None,
+        Dark,
+        Light
+    }
 
-    private const uint DarkColor = 0xFFB3198F;
-    private const uint LightColor = 0xFFB087E6;
+    private readonly List<(Actor Source, Actor Target, Color Color)> Tethers = [];
+    private readonly List<Actor> Towers = [];
+
+    private readonly Color[] TetherColors = Utils.MakeArray(PartyState.MaxPartySize, Color.None);
+
+    private const float TowerRadius = 1.5f;
+    private DateTime Deadline;
+
+    private IEnumerable<(Actor Tower, Color Color)> AllTowers => Towers.Select(t => (t, t.OID == (uint)OID.BrightHole ? Color.Light : Color.Dark));
+    private IEnumerable<Actor> SafeTowers(int pcSlot) => TetherColors[pcSlot] switch
+    {
+        Color.None => [],
+        var c => AllTowers.Where(t => t.Color != c).Select(t => t.Tower)
+    };
 
     public override void OnTethered(Actor source, ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID is TetherID.DarkTether or TetherID.BrightTether)
         {
+            if (Deadline == default)
+                Deadline = WorldState.FutureTime(21.85f);
+
             var actor = WorldState.Actors.Find(tether.Target);
             if (actor != null)
-                Tethers.Add((source, actor, tether.ID == (uint)TetherID.DarkTether ? DarkColor : LightColor));
+            {
+                var color = tether.ID == (uint)TetherID.DarkTether ? Color.Dark : Color.Light;
+                Tethers.Add((source, actor, color));
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
+                    TetherColors[slot] = color;
+            }
         }
     }
 
     public override void OnUntethered(Actor source, ActorTetherInfo tether)
     {
         Tethers.RemoveAll(t => t.Source == source);
+        var slot = Raid.FindSlot(tether.Target);
+        if (slot >= 0)
+            TetherColors[slot] = default;
+
+        if (Tethers.Count == 0)
+            Deadline = default;
+    }
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if ((OID)actor.OID is OID.BrightHole or OID.DarkHole)
+            Towers.Add(actor);
+    }
+
+    public override void OnActorEAnim(Actor actor, uint state)
+    {
+        if ((OID)actor.OID is OID.BrightHole or OID.DarkHole && state == 0x00040008)
+            Towers.Remove(actor);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        foreach (var (src, tar, col) in Tethers)
-            Arena.AddLine(src.Position, tar.Position, col);
-
-        foreach (var h in Module.Enemies(OID.DarkHole))
-            Arena.AddCircle(h.Position, 1.5f, DarkColor);
-        foreach (var h in Module.Enemies(OID.BrightHole))
-            Arena.AddCircle(h.Position, 1.5f, LightColor);
-    }
-}
-
-class AIPreposition(BossModule module) : BossComponent(module)
-{
-    enum Mechanic
-    {
-        None,
-        Javelin, // stay close to boss, cone is very large
-        Aurora, // stay on boss's vertical axis, room is split
-    }
-
-    private Mechanic NextMechanic = Mechanic.None;
-
-    private void StartMechanic(Mechanic m)
-    {
-        if (NextMechanic == m)
-            NextMechanic = Mechanic.None;
-    }
-
-    private int HostileAspectCounter;
-    private int EidosCounter;
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        switch ((AID)spell.Action.ID)
+        foreach (var (src, tar, _) in Tethers)
         {
-            case AID.HostileAspect:
-                HostileAspectCounter++;
-                if (HostileAspectCounter == 1)
-                    NextMechanic = Mechanic.Javelin;
-                break;
-            case AID.Eidos:
-                EidosCounter++;
-                if (EidosCounter == 2)
-                    NextMechanic = Mechanic.Aurora;
-                break;
-            case AID.TurbulentAether:
-                NextMechanic = Mechanic.Javelin;
-                break;
+            Arena.AddLine(src.Position, tar.Position, ArenaColor.PlayerGeneric);
+            Arena.ZoneCircle(src.Position, 1, ArenaColor.AOE);
         }
+
+        var tetherColor = TetherColors[pcSlot];
+        var tethered = tetherColor != Color.None;
+
+        foreach (var (t, tcol) in AllTowers)
+        {
+            Arena.AddCircle(t.Position, TowerRadius, tethered && tcol != tetherColor ? ArenaColor.Safe : ArenaColor.Danger);
+            foreach (var (_, ptar, _) in Tethers)
+                if (ptar.Position.InCircle(t.Position, TowerRadius))
+                {
+                    if (ptar == pc)
+                        Arena.AddCircle(ptar.Position, 6, ArenaColor.Danger);
+                    else
+                        Arena.ZoneCircle(ptar.Position, 6, ArenaColor.AOE);
+                }
+        }
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (TetherColors[slot] != Color.None)
+            hints.Add("Go to opposite color tower!", !SafeTowers(slot).Any(t => actor.Position.InCircle(t.Position, TowerRadius)));
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        switch (NextMechanic)
+        if (TetherColors[slot] != Color.None)
         {
-            case Mechanic.Javelin:
-                hints.AddForbiddenZone(ShapeDistance.Donut(Module.PrimaryActor.Position, 6, 100), DateTime.MaxValue);
-                break;
-            case Mechanic.Aurora:
-                hints.AddForbiddenZone(ShapeDistance.InvertedRect(Module.PrimaryActor.Position, 90.Degrees(), 50, 50, 3), DateTime.MaxValue);
-                break;
+            var safeTowers = SafeTowers(slot).Select(t => ShapeDistance.Donut(t.Position, TowerRadius, 100)).ToList();
+            if (safeTowers.Count > 0)
+                hints.AddForbiddenZone(ShapeDistance.Intersection(safeTowers), Deadline);
         }
-    }
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        switch ((AID)spell.Action.ID)
-        {
-            case AID.MedusaJavelin:
-                StartMechanic(Mechanic.Javelin);
-                break;
-            case AID.BrightAurora:
-            case AID.DarkAurora:
-                StartMechanic(Mechanic.Aurora);
-                break;
-        }
+        // don't go to the same tower as another baiter
+        var otherBaits = Tethers.Where(t => t.Target != actor).Select(t => ShapeDistance.Circle(t.Target.Position, 6)).ToList();
+        if (otherBaits.Count > 0)
+            hints.AddForbiddenZone(ShapeDistance.Union(otherBaits), DateTime.MaxValue);
     }
-
-#if DEBUG
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        hints.Add($"Prepositioning for mechanic: {NextMechanic}", false);
-    }
-#endif
 }
+
+class Wyvern(BossModule module) : Components.Adds(module, (uint)OID.AernsWynav, 1);
+class MeteorEnrage(BossModule module) : Components.CastHint(module, ActionID.MakeSpell(AID.MeteorEnrage), "Enrage!", true);
 
 class AbsoluteVirtueStates : StateMachineBuilder
 {
@@ -218,16 +218,25 @@ class AbsoluteVirtueStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<Meteor>()
-            .ActivateOnEnter<Rays>()
+            .ActivateOnEnter<AstralRays>()
+            .ActivateOnEnter<AstralRaysBig>()
+            .ActivateOnEnter<UmbralRays>()
+            .ActivateOnEnter<UmbralRaysBig>()
             .ActivateOnEnter<MedusaJavelin>()
             .ActivateOnEnter<AuroralWind>()
             .ActivateOnEnter<Aurora>()
-            .ActivateOnEnter<AIPreposition>()
             .ActivateOnEnter<Balls>()
-            ;
+            .ActivateOnEnter<ExplosiveImpulse>()
+            .ActivateOnEnter<ExplosiveImpulseClone>()
+            .ActivateOnEnter<Wyvern>()
+            .ActivateOnEnter<MeteorEnrage>();
     }
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 639, NameID = 7976)]
-public class AbsoluteVirtue(WorldState ws, Actor primary) : BossModule(ws, primary, new(-175, 314), new ArenaBoundsCircle(28));
+public class AbsoluteVirtue(WorldState ws, Actor primary) : BAModule(ws, primary, new(-175, 314), new ArenaBoundsCircle(30))
+{
+    // people like to early pull AV to be funny, so check if we have at least a BA low man run worth of people in the arena
+    protected override bool CheckPull() => PrimaryActor.InCombat && WorldState.Actors.Where(p => p.Type == ActorType.Player).Count(a => Bounds.Contains(a.Position - Center)) > 6;
+}
 

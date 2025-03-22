@@ -1,4 +1,6 @@
-﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.ProtoOzma;
+﻿using BossMod.Modules.Stormblood.Foray;
+
+namespace BossMod.Stormblood.Foray.BaldesionArsenal.ProtoOzma;
 
 public enum OID : uint
 {
@@ -14,12 +16,15 @@ public enum AID : uint
     AAStar = 14262, // Helper->players, no cast, range 6 circle, shared damage on random target
     AASphere = 14251, // Helper->player, no cast, single-target
     AAPyramid = 14253, // Helper->players, no cast, range 4 circle, bleed autos, should not be stacked
+    AACube = 14252, // Helper->players, no cast, range 40 width 4 rect, cleaving auto, move away from tank
 
     TransfigurationStar = 14258, // Boss/Shadow->self, no cast, single-target
     TransfigurationUnStar = 14259, // Boss->self, no cast, single-target
     TransfigurationPyramid = 14244, // Shadow/Boss->self, no cast, single-target
     TransfigurationUnPyramid = 14245, // Boss->self, no cast, single-target
     TransfigurationCube = 14238, // Shadow/Boss->self, no cast, single-target
+    TransfigurationUnCube = 14239, // Boss/Shadow->self, no cast, single-target
+
     MourningStar = 14260, // Boss/Shadow->self, no cast, single-target
     MourningStar1 = 14261, // Helper->self, no cast, range 27 circle
     ShootingStar = 14263, // Boss->self, 5.0s cast, single-target
@@ -33,25 +38,38 @@ public enum AID : uint
     MeteorImpact = 14256, // ArsenalUrolith->self, 4.0s cast, range 20 circle
     Meteor = 14248, // Helper->location, no cast, range 10 circle
 
-    // haven't seen these in replays yet, they're guessed based on existing data and action ID order
-    TransfigurationUnCube = 14238, // Boss->self, no cast, single-target
-    AACube = 14252, // Helper->players, no cast, range 40 width 4 rect, cleaving auto, move away from tank
+    UrolithAuto = 872, // ArsenalUrolith->player, no cast, single-target
 }
 
 public enum SID : uint
 {
-    Cube = 1070, // 25E9->25E9, extra=0x0
-    Pyramid = 1071, // 25E9/Boss->25E9/Boss, extra=0x0
+    Cube = 1070, // Boss/Shadow->Boss/Shadow, extra=0x0
+    Pyramid = 1071, // Boss/Shadow->Boss/Shadow, extra=0x0
+    Stellation = 1744, // Boss/Shadow->Boss/Shadow, extra=0x0
     AccelerationBomb = 1072, // none->player, extra=0x0
-    Stellation = 1744, // Boss/25E9->Boss/25E9, extra=0x0
     BlackHoleBuffer = 1745, // none->player, extra=0x0
 }
 
 public enum IconID : uint
 {
+    MeteorImpact = 57, // player->self
+    MeteorStack = 62, // player->self
     AccelerationBomb = 75, // player->self
-    Meteor = 57, // player->self
-    _Gen_Icon_62 = 62, // player->self
+}
+
+class MeteorStack(BossModule module) : Components.UniformStackSpread(module, 10, 0)
+{
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID == AID.Meteor)
+            Stacks.RemoveAll(s => s.Target.Position.AlmostEqual(spell.TargetXZ, 2));
+    }
+
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if (iconID == (uint)IconID.MeteorStack)
+            AddStack(actor, WorldState.FutureTime(5.1f), Raid.WithSlot().Where(t => t.Item2.ClassCategory == ClassCategory.Tank).Mask());
+    }
 }
 
 class MourningStar(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.MourningStar1))
@@ -65,7 +83,7 @@ class MourningStar(BossModule module) : Components.GenericAOEs(module, ActionID.
         if ((AID)spell.Action.ID == AID.TransfigurationStar)
             Casts.Add((caster, WorldState.FutureTime(8.15f)));
         else if (spell.Action == WatchedAction)
-            Casts.Clear();
+            Casts.RemoveAll(c => c.Source.Position.AlmostEqual(caster.Position, 2));
     }
 }
 
@@ -91,7 +109,7 @@ class Execration(BossModule module) : Components.GenericAOEs(module, ActionID.Ma
             }
         }
         else if (spell.Action == WatchedAction)
-            Casts.Clear();
+            Casts.RemoveAll(c => c.Origin.AlmostEqual(caster.Position, 2));
     }
 }
 
@@ -106,7 +124,7 @@ class FlareStar(BossModule module) : Components.GenericAOEs(module, ActionID.Mak
         if ((AID)spell.Action.ID == AID.TransfigurationCube)
             Casts.Add((caster, WorldState.FutureTime(8.6f)));
         else if (spell.Action == WatchedAction)
-            Casts.Clear();
+            Casts.RemoveAll(c => c.Source.Position.AlmostEqual(caster.Position, 2));
     }
 }
 
@@ -118,13 +136,10 @@ class ShootingStar(BossModule module) : Components.KnockbackFromCastTarget(modul
     {
         foreach (var s in Sources(slot, actor).Where(s => s.Shape!.Check(actor.Position, s.Origin, s.Direction)))
         {
-            var plat = ProtoOzma.GuessPlatform(s.Origin);
-            if (plat != null)
-            {
-                // this is overly conservative but i'm an idiot
-                var i = ShapeDistance.Intersection([ShapeDistance.InvertedCone(s.Origin, 4, plat.DirectionToBoss, ToCorner), ShapeDistance.InvertedCone(s.Origin, 4, plat.DirectionToBoss + 180.Degrees(), ToCorner)]);
-                hints.AddForbiddenZone(i, s.Activation);
-            }
+            var directionToBoss = Angle.FromDirection((Module.PrimaryActor.Position - s.Origin).Normalized());
+            // this is overly conservative but i'm an idiot
+            var i = ShapeDistance.Intersection([ShapeDistance.InvertedCone(s.Origin, 4, directionToBoss, ToCorner), ShapeDistance.InvertedCone(s.Origin, 4, directionToBoss + 180.Degrees(), ToCorner)]);
+            hints.AddForbiddenZone(i, s.Activation);
             break;
         }
     }
@@ -149,10 +164,45 @@ class StarAutos(BossModule module) : Components.GenericStackSpread(module)
     {
         switch ((AID)spell.Action.ID)
         {
-            case AID.MourningStar:
-                Enabled = true;
+            case AID.TransfigurationStar:
+                Enabled |= caster.OID == (uint)OID.Boss;
                 break;
             case AID.TransfigurationUnStar:
+                Enabled = false;
+                break;
+        }
+    }
+
+    public override void AddGlobalHints(GlobalHints hints)
+    {
+        if (Enabled)
+            hints.Add("Currently: star autos");
+    }
+}
+
+class CubeAutos(BossModule module) : Components.GenericBaitAway(module)
+{
+    private bool Enabled;
+
+    public override void Update()
+    {
+        CurrentBaits.Clear();
+        if (Enabled && Module.PrimaryActor.CastInfo == null)
+        {
+            var target = Raid.WithoutSlot().Where(t => t.ClassCategory == ClassCategory.Tank).Closest(Module.PrimaryActor.Position);
+            if (target != null)
+                CurrentBaits.Add(new(Module.PrimaryActor, target, new AOEShapeRect(40, 2), DateTime.MaxValue));
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        switch ((AID)spell.Action.ID)
+        {
+            case AID.TransfigurationCube:
+                Enabled |= caster.OID == (uint)OID.Boss;
+                break;
+            case AID.TransfigurationUnCube:
                 Enabled = false;
                 break;
         }
@@ -233,7 +283,7 @@ class BlackHole(BossModule module) : BossComponent(module)
     }
 }
 
-class MeteorBait(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Meteor, default, 15, 9)
+class MeteorBait(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.MeteorImpact, default, 15, 9)
 {
     public static readonly List<WDir> MeteorDropLocations = [
         // A plat
@@ -259,6 +309,8 @@ class MeteorBait(BossModule module) : Components.SpreadFromIcon(module, (uint)Ic
         {
             var drops = MeteorDropLocations.Select(m => ShapeDistance.InvertedCircle(Arena.Center + m, 1)).ToList();
             hints.AddForbiddenZone(ShapeDistance.Intersection(drops), Spreads[0].Activation);
+
+            // try to avoid other spreads if we can help it, but would rather drop two meteors in one spot
             var otherSpreads = ActiveSpreadTargets.Exclude(actor).Select(t => ShapeDistance.Circle(t.Position, 15)).ToList();
             hints.AddForbiddenZone(ShapeDistance.Union(otherSpreads), DateTime.MaxValue);
         }
@@ -273,6 +325,7 @@ class ProtoOzmaStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<StarAutos>()
+            .ActivateOnEnter<CubeAutos>()
             .ActivateOnEnter<MourningStar>()
             .ActivateOnEnter<ShootingStar>()
             .ActivateOnEnter<Execration>()
@@ -282,21 +335,16 @@ class ProtoOzmaStates : StateMachineBuilder
             .ActivateOnEnter<MeteorImpact>()
             .ActivateOnEnter<AccelerationBomb>()
             .ActivateOnEnter<Urolith>()
+            .ActivateOnEnter<MeteorStack>()
             ;
     }
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 639, NameID = 7981)]
-public class ProtoOzma(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, OzmaBounds)
+public class ProtoOzma(WorldState ws, Actor primary) : BAModule(ws, primary, ArenaCenter, OzmaBounds)
 {
     public static readonly WPos ArenaCenter = new(-17, 29);
     public static readonly ArenaBoundsCustom OzmaBounds = MakeBounds();
-
-    public record class Platform(WPos Center, Angle DirectionToBoss, string Marker)
-    {
-        public static readonly AOEShapeRect Shape = new(12, 5, 12);
-        public bool Contains(WPos position) => Shape.Check(position, Center, DirectionToBoss);
-    }
 
     private static ArenaBoundsCustom MakeBounds()
     {
@@ -311,15 +359,6 @@ public class ProtoOzma(WorldState ws, Actor primary) : BossModule(ws, primary, A
 
         return new(36.5f, clipper.Union(new(ring), platforms));
     }
-
-    public static IEnumerable<Platform> Platforms()
-    {
-        yield return new(ArenaCenter + new WDir(0, 24.5f), 180.Degrees(), "A");
-        yield return new(ArenaCenter + new WDir(0, 24.5f).Rotate(-120.Degrees()), 60.Degrees(), "B");
-        yield return new(ArenaCenter + new WDir(0, 24.5f).Rotate(120.Degrees()), -60.Degrees(), "C");
-    }
-
-    public static Platform? GuessPlatform(WPos position) => Platforms().FirstOrDefault(p => p.Contains(position));
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
