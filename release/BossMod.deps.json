@@ -12,7 +12,7 @@
           "InteropGenerator.Runtime": "1.0.0",
           "SharpDX.Mathematics": "4.2.0",
           "System.Data.SQLite": "1.0.119",
-          "FFXIVClientStructs": "0.0.5474.0"
+          "FFXIVClientStructs": "0.0.5507.0"
         },
         "runtime": {
           "BossMod.dll": {}
@@ -975,11 +975,11 @@
           }
         }
       },
-      "FFXIVClientStructs/0.0.5474.0": {
+      "FFXIVClientStructs/0.0.5507.0": {
         "runtime": {
           "FFXIVClientStructs.dll": {
-            "assemblyVersion": "0.0.5474.0",
-            "fileVersion": "0.0.5474.0"
+            "assemblyVersion": "0.0.5507.0",
+            "fileVersion": "0.0.5507.0"
           }
         }
       }
@@ -1682,7 +1682,7 @@
       "serviceable": false,
       "sha512": ""
     },
-    "FFXIVClientStructs/0.0.5474.0": {
+    "FFXIVClientStructs/0.0.5507.0": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""
