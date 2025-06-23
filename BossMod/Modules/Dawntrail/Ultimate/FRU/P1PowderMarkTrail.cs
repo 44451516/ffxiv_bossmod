@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
-class P1PowderMarkTrail(BossModule module) : Components.GenericBaitAway(module, ActionID.MakeSpell(AID.BurnMark), centerAtTarget: true)
+class P1PowderMarkTrail(BossModule module) : Components.GenericBaitAway(module, AID.BurnMark, centerAtTarget: true)
 {
     public bool AllowTankStacking;
     private Actor? _target;
@@ -50,13 +50,13 @@ class P1PowderMarkTrail(BossModule module) : Components.GenericBaitAway(module, 
             {
                 // tanks should stay near but not too near other tank
                 if (!AllowTankStacking)
-                    hints.AddForbiddenZone(_shape.Distance(p.Position, default), _activation);
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(p.Position, _avoidBaitDistance), _activation);
+                    hints.AddForbiddenZone(_shape.CheckFn(p.Position, default), _activation);
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(p.Position, _avoidBaitDistance), _activation);
             }
             else if (isTank != otherTank)
             {
                 // tanks should avoid non-tanks and vice versa
-                hints.AddForbiddenZone(ShapeDistance.Circle(p.Position, _avoidBaitDistance), _activation);
+                hints.AddForbiddenZone(ShapeContains.Circle(p.Position, _avoidBaitDistance), _activation);
             }
             // else: non-tanks don't care about non-tanks
         }

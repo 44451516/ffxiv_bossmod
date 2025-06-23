@@ -21,21 +21,21 @@ public enum AID : uint
     WheelOfSuffering = 28481, // Boss->self, 3.5s cast, range 7 circle aoe (knockback 12)
 }
 
-class IronUprising(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.IronUprising), new AOEShapeCone(7, 60.Degrees()));
-class SpineShatter(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.SpineShatter));
+class IronUprising(BossModule module) : Components.StandardAOEs(module, AID.IronUprising, new AOEShapeCone(7, 60.Degrees()));
+class SpineShatter(BossModule module) : Components.SingleTargetCast(module, AID.SpineShatter);
 
-class AugmentedSuffering(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.AugmentedSuffering), 12)
+class AugmentedSuffering(BossModule module) : Components.KnockbackFromCastTarget(module, AID.AugmentedSuffering, 12)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (Casters.Count > 0)
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Module.Center, Module.Bounds.Radius - Distance), Module.CastFinishAt(Casters[0].CastInfo!));
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.Center, Module.Bounds.Radius - Distance), Module.CastFinishAt(Casters[0].CastInfo!));
     }
 }
 
-class AugmentedShatter(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.AugmentedShatter), 6, 4);
-class AugmentedUprising(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AugmentedUprising), new AOEShapeCone(45, 45.Degrees()));
-class WheelOfSuffering(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.WheelOfSuffering), new AOEShapeCircle(7));
+class AugmentedShatter(BossModule module) : Components.StackWithCastTargets(module, AID.AugmentedShatter, 6, 4);
+class AugmentedUprising(BossModule module) : Components.StandardAOEs(module, AID.AugmentedUprising, new AOEShapeCone(45, 45.Degrees()));
+class WheelOfSuffering(BossModule module) : Components.StandardAOEs(module, AID.WheelOfSuffering, new AOEShapeCircle(7));
 
 class D142NeroStates : StateMachineBuilder
 {

@@ -30,17 +30,16 @@ public enum TetherID : uint
     JitteringJounce = 2, // Boss->player/Stardust
 }
 
-class JitteringGlare(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.JitteringGlare), new AOEShapeCone(40, 15.Degrees()));
-class JitteringJab(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.JitteringJab));
+class JitteringGlare(BossModule module) : Components.StandardAOEs(module, AID.JitteringGlare, new AOEShapeCone(40, 15.Degrees()));
+class JitteringJab(BossModule module) : Components.SingleTargetCast(module, AID.JitteringJab);
 
-class JitteringJounceAOE(BossModule module) : Components.GenericLineOfSightAOE(module, ActionID.MakeSpell(AID.JitteringJounceCharge), 100, false)
+class JitteringJounceAOE(BossModule module) : Components.GenericLineOfSightAOE(module, AID.JitteringJounceCharge, 100, false)
 {
     public override void OnTethered(Actor source, ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.JitteringJounce)
         {
-            var slot = Raid.FindSlot(tether.Target);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(tether.Target, out var slot))
             {
                 IgnoredPlayers = ~BitMask.Build(slot);
                 Modify(Module.PrimaryActor.Position, Module.Enemies(OID.Stardust).Where(e => !e.IsDead).Select(s => (s.Position, 1f)), WorldState.FutureTime(6));
@@ -91,7 +90,7 @@ class JitteringJounceTether(BossModule module) : BossComponent(module)
         if (Target == null || Target == actor)
             return;
 
-        hints.AddForbiddenZone(ShapeDistance.Rect(Module.PrimaryActor.Position, Target.Position, 3), Module.CastFinishAt(Module.PrimaryActor.CastInfo, 0.5f));
+        hints.AddForbiddenZone(ShapeContains.Rect(Module.PrimaryActor.Position, Target.Position, 3), Module.CastFinishAt(Module.PrimaryActor.CastInfo, 0.5f));
     }
 }
 
@@ -99,9 +98,9 @@ class Stardust(BossModule module) : BossComponent(module)
 {
     public override void DrawArenaForeground(int pcSlot, Actor pc) => Arena.Actors(Module.Enemies(OID.Stardust).Where(x => !x.IsDead), ArenaColor.Object, true);
 }
-class DeepFracture(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.DeepFracture), new AOEShapeCircle(11));
-class GyratingGlare(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.GyratingGlare));
-class MysticLight(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.MysticLight), new AOEShapeCircle(12));
+class DeepFracture(BossModule module) : Components.StandardAOEs(module, AID.DeepFracture, new AOEShapeCircle(11));
+class GyratingGlare(BossModule module) : Components.RaidwideCast(module, AID.GyratingGlare);
+class MysticLight(BossModule module) : Components.StandardAOEs(module, AID.MysticLight, new AOEShapeCircle(12));
 
 class ZiggyStates : StateMachineBuilder
 {
@@ -121,4 +120,3 @@ class ZiggyStates : StateMachineBuilder
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 141, NameID = 4808, Contributors = "xan")]
 public class Ziggy(WorldState ws, Actor primary) : BossModule(ws, primary, new(185.78f, 137.5f), new ArenaBoundsCircle(20));
-

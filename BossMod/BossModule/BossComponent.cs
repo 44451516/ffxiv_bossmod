@@ -46,6 +46,8 @@ public class BossComponent(BossModule module)
     // world state event handlers
     public virtual void OnActorCreated(Actor actor) { }
     public virtual void OnActorDestroyed(Actor actor) { }
+    public virtual void OnTargetable(Actor actor) { }
+    public virtual void OnUntargetable(Actor actor) { }
     public virtual void OnStatusGain(Actor actor, ActorStatus status) { } // note: also called for status-change events; if component needs to distinguish between lose+gain and change, it can use the fact that 'lose' is not called for change
     public virtual void OnStatusLose(Actor actor, ActorStatus status) { }
     public virtual void OnTethered(Actor source, ActorTetherInfo tether) { }
@@ -67,4 +69,32 @@ public class BossComponent(BossModule module)
     protected WorldState WorldState => Module.WorldState;
     protected PartyState Raid => Module.Raid;
     protected void ReportError(string message) => Module.ReportError(this, message);
+
+    // utility to try to determine who has the highest enmity in the party
+    // this is useful for a lot of savage mechanics, but we only get this information if the player is currently targeting the relevant enemy (:/), so we allow fallback behavior of returning players in order tank -> dps -> healer -> (other)
+    public IEnumerable<(int, Actor)> RaidWithSlotByEnmity(Actor primaryTarget, bool allowGuessing = true)
+    {
+        var table = WorldState.Client.CurrentTargetHate;
+        if (table.InstanceID != primaryTarget.InstanceID)
+        {
+            if (allowGuessing)
+                return Raid.WithSlot().OrderBy(r => r.Item2.Role switch
+                {
+                    Role.Tank => 1,
+                    Role.Melee or Role.Ranged => 2,
+                    Role.Healer => 3,
+                    _ => 4
+                });
+            else
+                return [];
+        }
+
+        return Raid.WithSlot()
+            .Select(r => (r, table.Targets.FirstOrDefault(t => t.InstanceID == r.Item2.InstanceID)))
+            .Where(r => r.Item2.InstanceID > 0)
+            .OrderByDescending(r => r.Item2.Enmity)
+            .Select(r => r.r);
+    }
+
+    public IEnumerable<Actor> RaidByEnmity(Actor primaryTarget, bool allowGuessing = true) => RaidWithSlotByEnmity(primaryTarget, allowGuessing).Select(r => r.Item2);
 }

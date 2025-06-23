@@ -1,6 +1,4 @@
-﻿using ImGuiNET;
-
-namespace BossMod.Dawntrail.FATE.Ttokrrone;
+﻿namespace BossMod.Dawntrail.FATE.Ttokrrone;
 
 public enum OID : uint
 {
@@ -77,11 +75,11 @@ public enum IconID : uint
     RotateCCW = 541, // Boss
 }
 
-class Devour(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.Devour), 8);
-class Touchdown(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Touchdown));
-class SummoningSands(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.SummoningSands), new AOEShapeCircle(6));
-class SandburstLong(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.SandburstLong), 12);
-class SandburstShort(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.SandburstShort), 12);
+class Devour(BossModule module) : Components.StandardAOEs(module, AID.Devour, 8);
+class Touchdown(BossModule module) : Components.RaidwideCast(module, AID.Touchdown);
+class SummoningSands(BossModule module) : Components.StandardAOEs(module, AID.SummoningSands, new AOEShapeCircle(6));
+class SandburstLong(BossModule module) : Components.StandardAOEs(module, AID.SandburstLong, 12);
+class SandburstShort(BossModule module) : Components.StandardAOEs(module, AID.SandburstShort, 12);
 
 class SandspoutDustdevil(BossModule module) : Components.GenericAOEs(module)
 {
@@ -112,9 +110,9 @@ class SandspoutDustdevil(BossModule module) : Components.GenericAOEs(module)
         base.AddAIHints(slot, actor, assignment, hints);
         // this is rotating quickly, we really want to stay as close to the imminent aoe as possible
         if (_remainingCasts > 2)
-            hints.AddForbiddenZone(_shapeCleave.Distance(Module.PrimaryActor.Position, _nextRotation + 2 * _increment), _nextActivation.AddSeconds(5.2f));
+            hints.AddForbiddenZone(_shapeCleave.CheckFn(Module.PrimaryActor.Position, _nextRotation + 2 * _increment), _nextActivation.AddSeconds(5.2f));
         if (_remainingCasts > 3)
-            hints.AddForbiddenZone(ShapeDistance.Cone(Module.PrimaryActor.Position, _shapeCleave.Radius, _nextRotation + 2.9f * _increment, 0.9f * _shapeCleave.HalfAngle), _nextActivation.AddSeconds(5.2f));
+            hints.AddForbiddenZone(ShapeContains.Cone(Module.PrimaryActor.Position, _shapeCleave.Radius, _nextRotation + 2.9f * _increment, 0.9f * _shapeCleave.HalfAngle), _nextActivation.AddSeconds(5.2f));
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)

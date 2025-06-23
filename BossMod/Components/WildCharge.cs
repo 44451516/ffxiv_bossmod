@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Components;
 
 // generic 'wild charge': various mechanics that consist of charge aoe on some target that other players have to stay in; optionally some players can be marked as 'having to be closest to source' (usually tanks)
-public class GenericWildCharge(BossModule module, float halfWidth, ActionID aid = default, float fixedLength = 0) : CastCounter(module, aid)
+public class GenericWildCharge(BossModule module, float halfWidth, Enum? aid = default, float fixedLength = 0) : CastCounter(module, aid)
 {
     public enum PlayerRole
     {
@@ -77,20 +77,24 @@ public class GenericWildCharge(BossModule module, float halfWidth, ActionID aid 
                     if (closest != null)
                     {
                         var stack = GetAOEForTarget(Source.Position, closest.Position);
-                        hints.AddForbiddenZone(ShapeDistance.InvertedRect(stack.origin, stack.dir, stack.length, 0, HalfWidth * 0.5f), Activation);
+                        hints.AddForbiddenZone(ShapeContains.InvertedRect(stack.origin, stack.dir, stack.length, 0, HalfWidth * 0.5f), Activation);
                     }
                 }
                 break;
             case PlayerRole.Share: // TODO: some hint to be first in line...
             case PlayerRole.ShareNotFirst:
                 foreach (var aoe in EnumerateAOEs())
-                    hints.AddForbiddenZone(ShapeDistance.InvertedRect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth), Activation);
+                    hints.AddForbiddenZone(ShapeContains.InvertedRect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth), Activation);
                 break;
             case PlayerRole.Avoid:
                 foreach (var aoe in EnumerateAOEs())
-                    hints.AddForbiddenZone(ShapeDistance.Rect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth), Activation);
+                    hints.AddForbiddenZone(ShapeContains.Rect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth), Activation);
                 break;
         }
+
+        foreach (var aoe in EnumerateAOEs())
+            // TODO add separate "tankbuster" hint for PlayerRole.Share if there are any ShareNotFirsts in the party
+            hints.AddPredictedDamage(Raid.WithSlot().Where(p => InAOE(aoe, p.Item2)).Mask(), Activation);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
@@ -113,9 +117,9 @@ public class GenericWildCharge(BossModule module, float halfWidth, ActionID aid 
         return (sourcePos, dir, length);
     }
 
-    private bool InAOE((WPos origin, WDir dir, float length) aoe, Actor actor) => actor.Position.InRect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth);
+    protected bool InAOE((WPos origin, WDir dir, float length) aoe, Actor actor) => actor.Position.InRect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth);
 
-    private IEnumerable<(WPos origin, WDir dir, float length)> EnumerateAOEs(int targetSlotToSkip = -1)
+    protected IEnumerable<(WPos origin, WDir dir, float length)> EnumerateAOEs(int targetSlotToSkip = -1)
     {
         if (Source == null)
             yield break;
@@ -128,11 +132,13 @@ public class GenericWildCharge(BossModule module, float halfWidth, ActionID aid 
 }
 
 // simple line stack where target is determined by 'target select' cast
-public class SimpleLineStack(BossModule module, float halfWidth, float fixedLength, ActionID aidTargetSelect, ActionID aidResolve, float activationDelay) : GenericWildCharge(module, halfWidth, aidResolve, fixedLength)
+public class SimpleLineStack(BossModule module, float halfWidth, float fixedLength, Enum aidTargetSelect, Enum aidResolve, float activationDelay) : GenericWildCharge(module, halfWidth, aidResolve, fixedLength)
 {
+    public readonly ActionID TargetSelect = ActionID.MakeSpell(aidTargetSelect);
+
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == aidTargetSelect)
+        if (spell.Action == TargetSelect)
         {
             Source = caster;
             Activation = WorldState.FutureTime(activationDelay);
@@ -146,4 +152,110 @@ public class SimpleLineStack(BossModule module, float halfWidth, float fixedLeng
             Array.Fill(PlayerRoles, PlayerRole.Ignore);
         }
     }
+}
+
+// component for multiple simultaneous line stacks from different sources
+// we assume getting hit by two line stacks is fatal (they typically give a vuln stack or something)
+public class MultiLineStack(BossModule module, float halfWidth, float fixedLength, Enum aidTargetSelect, Enum aidResolve, float activationDelay) : CastCounter(module, aidResolve)
+{
+    public float ActivationDelay = activationDelay;
+
+    public struct Stack(WPos source, Actor target, DateTime activation, BitMask forbiddenPlayers = default)
+    {
+        public WPos Source = source;
+        public Actor Target = target;
+        public DateTime Activation = activation;
+        public BitMask ForbiddenPlayers = forbiddenPlayers;
+    }
+
+    protected bool Check(Stack s, Actor player) => player.Position.InRect(s.Source, (s.Target.Position - s.Source).Normalized(), fixedLength, 0, halfWidth);
+
+    public readonly List<Stack> Stacks = [];
+
+    private Func<WPos, bool> ShapeFn(Stack s) => ShapeContains.Rect(s.Source, (s.Target.Position - s.Source).Normalized(), fixedLength, 0, halfWidth);
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action == WatchedAction)
+        {
+            NumCasts++;
+            Stacks.RemoveAll(c => c.Target.InstanceID == spell.MainTargetID);
+        }
+
+        if (spell.Action.ID == (uint)(object)aidTargetSelect)
+        {
+            if (WorldState.Actors.Find(spell.MainTargetID) is { } tar)
+                Stacks.Add(new(caster.Position, tar, WorldState.FutureTime(ActivationDelay)));
+            else
+                ReportError($"Unable to find target with ID {spell.MainTargetID:X} for stack");
+        }
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        foreach (var s in Stacks)
+            Arena.ZoneRect(s.Source, (s.Target.Position - s.Source).Normalized(), fixedLength, 0, halfWidth, s.ForbiddenPlayers[pcSlot] ? ArenaColor.AOE : ArenaColor.SafeFromAOE);
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (Stacks.Count == 0)
+            return;
+
+        if (Stacks.Any(s => s.Target == actor))
+            hints.Add("Stack with party!", false);
+        else
+        {
+            int countAllowed = 0, countOk = 0, countForbidden = 0;
+            foreach (var s in Stacks)
+            {
+                if (!s.ForbiddenPlayers[slot])
+                    countAllowed++;
+
+                if (Check(s, actor))
+                {
+                    if (s.ForbiddenPlayers[slot])
+                        countForbidden++;
+                    else
+                        countOk++;
+                }
+            }
+
+            if (countAllowed == 0)
+                return;
+
+            if (countForbidden > 0)
+                hints.Add("GTFO from forbidden stack!");
+            else if (countOk == 0)
+                hints.Add("Stack!");
+            else
+            {
+                hints.Add("Stack!", false);
+                if (countOk > 1)
+                    hints.Add("GTFO from other stacks!");
+            }
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Stacks.Count == 0)
+            return;
+
+        foreach (var group in Stacks.GroupBy(s => s.ForbiddenPlayers[slot]))
+        {
+            if (group.Key) // player is not allowed to stack with these
+            {
+                foreach (var s in group)
+                    hints.AddForbiddenZone(ShapeFn(s), s.Activation);
+            }
+            else
+            {
+                var zones = group.Select(ShapeFn).ToList();
+                hints.AddForbiddenZone(p => zones.Count(f => f(p)) != 1, group.First().Activation);
+            }
+        }
+    }
+
+    public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor) => Stacks.Any(s => s.Target == player) ? PlayerPriority.Interesting : PlayerPriority.Normal;
 }

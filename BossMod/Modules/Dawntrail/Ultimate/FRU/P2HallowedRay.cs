@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
-class P2HallowedRay(BossModule module) : Components.GenericWildCharge(module, 3, ActionID.MakeSpell(AID.HallowedRayAOE), 65)
+class P2HallowedRay(BossModule module) : Components.GenericWildCharge(module, 3, AID.HallowedRayAOE, 65)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -13,7 +13,7 @@ class P2HallowedRay(BossModule module) : Components.GenericWildCharge(module, 3,
             WDir averageDir = default;
             foreach (var p in Raid.WithoutSlot())
                 averageDir += (p.Position - Source.Position).Normalized();
-            hints.AddForbiddenZone(ShapeDistance.InvertedRect(Source.Position, Angle.FromDirection(averageDir), 20, -6, 2), Activation);
+            hints.AddForbiddenZone(ShapeContains.InvertedRect(Source.Position, Angle.FromDirection(averageDir), 20, -6, 2), Activation);
         }
         else
         {

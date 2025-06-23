@@ -41,7 +41,7 @@ public enum Trance
     Lightwyrm
 }
 
-public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player)
+public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player, PotionType.Intelligence)
 {
     public enum Track { Cyclone = SharedTrack.Count }
     public enum CycloneUse
@@ -241,7 +241,7 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
         (BestAOETarget, NumAOETargets) = SelectTargetByHP(strategy, primaryTarget, 25, IsSplashTarget);
         (BestMeleeTarget, NumMeleeTargets) = SelectTarget(strategy, primaryTarget, 3, IsSplashTarget);
 
-        if (Carbuncle == null && Player.MountId == 0)
+        if (Carbuncle == null)
             PushGCD(AID.SummonCarbuncle, Player);
 
         if (primaryTarget == null)
@@ -389,7 +389,7 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
         if (SearingFlash > 0)
             PushOGCD(AID.SearingFlash, BestAOETarget);
 
-        if (MP <= 7000)
+        if (MP <= Player.HPMP.MaxMP * 0.7f)
             PushOGCD(AID.LucidDreaming, Player);
 
         if (RefulgentLux is > 0 and < 2.5f)

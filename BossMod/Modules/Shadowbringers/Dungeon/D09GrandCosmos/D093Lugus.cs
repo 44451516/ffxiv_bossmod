@@ -39,13 +39,13 @@ public enum IconID : uint
     Tankbuster = 218 // player
 }
 
-class CullingBlade(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.CullingBlade));
-class CaptiveBolt(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.CaptiveBolt));
-class Plummet(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Plummet), new AOEShapeCircle(3));
-class ScorchingRight(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ScorchingRight), new AOEShapeCone(40, 90.Degrees()));
-class ScorchingLeft(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ScorchingLeft), new AOEShapeCone(40, 90.Degrees()));
-class OtherworldlyHeat(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.OtherworldlyHeat1), new AOEShapeCross(10, 2));
-class FiresIre(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.FiresIre), new AOEShapeCone(20, 45.Degrees()));
+class CullingBlade(BossModule module) : Components.RaidwideCast(module, AID.CullingBlade);
+class CaptiveBolt(BossModule module) : Components.SingleTargetCast(module, AID.CaptiveBolt);
+class Plummet(BossModule module) : Components.StandardAOEs(module, AID.Plummet, new AOEShapeCircle(3));
+class ScorchingRight(BossModule module) : Components.StandardAOEs(module, AID.ScorchingRight, new AOEShapeCone(40, 90.Degrees()));
+class ScorchingLeft(BossModule module) : Components.StandardAOEs(module, AID.ScorchingLeft, new AOEShapeCone(40, 90.Degrees()));
+class OtherworldlyHeat(BossModule module) : Components.StandardAOEs(module, AID.OtherworldlyHeat1, new AOEShapeCross(10, 2));
+class FiresIre(BossModule module) : Components.StandardAOEs(module, AID.FiresIre, new AOEShapeCone(20, 45.Degrees()));
 class BlackFlame(BossModule module) : BossComponent(module)
 {
     private BitMask targets;
@@ -95,7 +95,7 @@ class BlackFlame(BossModule module) : BossComponent(module)
         base.AddAIHints(slot, actor, assignment, hints);
         if (targets[slot])
             foreach (var ally in Furniture)
-                hints.AddForbiddenZone(p => IntersectFurniture(ally, p) ? -1 : 1, activation);
+                hints.AddForbiddenZone(p => IntersectFurniture(ally, p), activation);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -164,9 +164,9 @@ class MortalFlame(BossModule module) : BossComponent(module)
     {
         if (Timers[slot] > 0)
         {
-            var furnitures = Furniture.Select(f => ShapeDistance.InvertedCircle(f.Position, 1)).ToList();
+            var furnitures = Furniture.Select(f => ShapeContains.InvertedCircle(f.Position, 1)).ToList();
             if (furnitures.Count > 0)
-                hints.AddForbiddenZone(ShapeDistance.Intersection(furnitures), WorldState.FutureTime(Timers[slot]));
+                hints.AddForbiddenZone(ShapeContains.Intersection(furnitures), WorldState.FutureTime(Timers[slot]));
         }
     }
 
@@ -228,18 +228,18 @@ class FiresDomain(BossModule module) : BossComponent(module)
         if (Baits.Count == 0)
             return;
 
-        var baitAOE = ShapeDistance.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2);
+        var baitAOE = ShapeContains.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2);
 
         var order = Baits.IndexOf(actor);
         if (order == 0)
         {
             hints.Add("Stretch tether!", (actor.Position - Module.PrimaryActor.Position).Length() < TetherLength);
-            if (Raid.WithoutSlot().Exclude(actor).Any(a => baitAOE(a.Position) < 0))
+            if (Raid.WithoutSlot().Exclude(actor).Any(a => baitAOE(a.Position)))
                 hints.Add("GTFO from raid!");
         }
         else
         {
-            if (baitAOE(actor.Position) < 0)
+            if (baitAOE(actor.Position))
                 hints.Add("GTFO from charge!");
         }
     }
@@ -254,17 +254,17 @@ class FiresDomain(BossModule module) : BossComponent(module)
         {
             var source = Module.PrimaryActor;
             // stretch tether
-            hints.AddForbiddenZone(ShapeDistance.Circle(source.Position, TetherLength), NextCharge);
+            hints.AddForbiddenZone(ShapeContains.Circle(source.Position, TetherLength), NextCharge);
             // don't clip any other party member with charge
             foreach (var p in Raid.WithoutSlot(excludeNPCs: true).Exclude(actor))
-                hints.AddForbiddenZone(ShapeDistance.Cone(source.Position, 100, source.AngleTo(p), Angle.Asin(2f / (p.Position - source.Position).Length())), NextCharge);
+                hints.AddForbiddenZone(ShapeContains.Cone(source.Position, 100, source.AngleTo(p), Angle.Asin(2f / (p.Position - source.Position).Length())), NextCharge);
         }
         else
         {
             // try to preposition away from previous party member in line
-            hints.AddForbiddenZone(ShapeDistance.Circle(Baits[baitOrder - 1].Position, TetherLength), NextCharge.AddSeconds(4.4f * baitOrder));
+            hints.AddForbiddenZone(ShapeContains.Circle(Baits[baitOrder - 1].Position, TetherLength), NextCharge.AddSeconds(4.4f * baitOrder));
             // stay out of boss's charge aoe
-            hints.AddForbiddenZone(ShapeDistance.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2), NextCharge);
+            hints.AddForbiddenZone(ShapeContains.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2), NextCharge);
         }
     }
 }

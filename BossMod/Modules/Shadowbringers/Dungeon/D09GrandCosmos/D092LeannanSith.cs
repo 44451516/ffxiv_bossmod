@@ -37,12 +37,12 @@ public enum SID : uint
     Transporting = 404 // none->player, extra=0x15
 }
 
-class OdeToLostLove(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.OdeToLostLove));
-class StormOfColor(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.StormOfColor));
-class FarWindSpread(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.FarWindSpread), 5);
-class FarWind(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.FarWind), 8);
-class OdeToFallenPetals(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.OdeToFallenPetals), new AOEShapeDonut(5, 60));
-class IrefulWind(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.IrefulWind), 10, kind: Kind.DirForward, stopAtWall: true);
+class OdeToLostLove(BossModule module) : Components.RaidwideCast(module, AID.OdeToLostLove);
+class StormOfColor(BossModule module) : Components.SingleTargetCast(module, AID.StormOfColor);
+class FarWindSpread(BossModule module) : Components.SpreadFromCastTargets(module, AID.FarWindSpread, 5);
+class FarWind(BossModule module) : Components.StandardAOEs(module, AID.FarWind, 8);
+class OdeToFallenPetals(BossModule module) : Components.StandardAOEs(module, AID.OdeToFallenPetals, new AOEShapeDonut(5, 60));
+class IrefulWind(BossModule module) : Components.KnockbackFromCastTarget(module, AID.IrefulWind, 10, kind: Kind.DirForward, stopAtWall: true);
 
 class DirectSeeding(BossModule module) : BossComponent(module)
 {
@@ -105,17 +105,17 @@ class DirectSeeding(BossModule module) : BossComponent(module)
         else
         {
             var off = WindOffset;
-            List<Func<WPos, float>> tiledist = [];
+            List<Func<WPos, bool>> tiledist = [];
             foreach (var t in TileCenters)
             {
-                tiledist.Add(ShapeDistance.Rect(t - off, default(Angle), 5, 5, 5));
+                tiledist.Add(ShapeContains.Rect(t - off, default(Angle), 5, 5, 5));
                 // tile is at edge of arena; seed can't be pushed out of it, it will just hit the wall
                 if (!Module.Arena.InBounds(t + off))
-                    tiledist.Add(ShapeDistance.Rect(t, default(Angle), 5, 5, 5));
+                    tiledist.Add(ShapeContains.Rect(t, default(Angle), 5, 5, 5));
             }
-            var zone = ShapeDistance.Union(tiledist);
+            var zone = ShapeContains.Union(tiledist);
 
-            if (zone(actor.Position) > 0)
+            if (!zone(actor.Position))
             {
                 // normally the position of the seed we're carrying will lag behind our actual position in accordance with standard server latency
                 // jumping forces the server to acknowledge our current position (i think???) so we jump as soon as we enter a safe tile and then drop the seed

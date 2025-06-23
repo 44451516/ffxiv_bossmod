@@ -1,4 +1,13 @@
-﻿namespace BossMod.ClassShared;
+﻿using BossMod.Data;
+
+namespace BossMod.ClassShared;
+
+[ConfigDisplay(Name = "Cross-class actions", Parent = typeof(ActionTweaksConfig), Order = -5)]
+public sealed class SharedActionsConfig : ConfigNode
+{
+    [PropertyDisplay("Align dash actions with camera direction (Lost Swift, Occult Featherfoot, etc)")]
+    public bool AlignDashToCamera = false;
+}
 
 public enum AID : uint
 {
@@ -128,6 +137,8 @@ public enum SID : uint
 
 public sealed class Definitions : IDisposable
 {
+    private readonly SharedActionsConfig _config = Service.Config.Get<SharedActionsConfig>();
+
     public Definitions(ActionDefinitions d)
     {
         #region PvE
@@ -198,6 +209,12 @@ public sealed class Definitions : IDisposable
         d.RegisterSpell(AID.SprintPvP);
         #endregion
 
+        #region Phantom actions
+        foreach (var action in typeof(PhantomID).GetEnumValues())
+            if ((uint)action > 0)
+                d.RegisterSpell((PhantomID)action);
+        #endregion
+
         Customize(d);
     }
 
@@ -205,7 +222,7 @@ public sealed class Definitions : IDisposable
 
     private void Customize(ActionDefinitions d)
     {
-        d.Spell(AID.Interject)!.ForbidExecute = (_, _, target, _) => !(target?.CastInfo?.Interruptible ?? false); // don't use interject if target is not casting interruptible spell
+        d.Spell(AID.Interject)!.ForbidExecute = (_, _, act, _) => !(act.Target?.CastInfo?.Interruptible ?? false); // don't use interject if target is not casting interruptible spell
         d.Spell(AID.Reprisal)!.ForbidExecute = (_, player, _, hints) => !hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(player.Position, 5 + e.Actor.HitboxRadius)); // don't use reprisal if no one would be hit; TODO: consider checking only target?..
         d.Spell(AID.Shirk)!.SmartTarget = ActionDefinitions.SmartTargetCoTank;
 
@@ -217,7 +234,7 @@ public sealed class Definitions : IDisposable
         //d.Spell(AID.TrueNorth)!.EffectDuration = 10;
 
         d.Spell(AID.Peloton)!.ForbidExecute = (_, player, _, _) => player.InCombat;
-        d.Spell(AID.HeadGraze)!.ForbidExecute = (_, _, target, _) => !(target?.CastInfo?.Interruptible ?? false);
+        d.Spell(AID.HeadGraze)!.ForbidExecute = (_, _, act, _) => !(act.Target?.CastInfo?.Interruptible ?? false);
 
         //d.Spell(AID.Addle)!.EffectDuration = 10;
         //d.Spell(AID.Sleep)!.EffectDuration = 30;
@@ -225,5 +242,23 @@ public sealed class Definitions : IDisposable
         //d.Spell(AID.LucidDreaming)!.EffectDuration = 21;
         //d.Spell(AID.Swiftcast)!.EffectDuration = 10;
         //d.Spell(AID.Surecast)!.EffectDuration = 6;
+
+        // regular dash check doesn't work since this one is awkwardly fixed distance
+        d.Spell(PhantomID.PhantomKick)!.ForbidExecute = (_, player, action, hints) =>
+        {
+            var cfg = Service.Config.Get<ActionTweaksConfig>();
+            var target = action.Target;
+            if (target == null || !cfg.DashSafety)
+                return false;
+
+            if (player.PendingKnockbacks.Count > 0)
+                return true;
+
+            var dir = player.DirectionTo(target).Normalized() * 15;
+            return ActionDefinitions.IsDashDangerous(player.Position, player.Position + dir, hints);
+        };
+
+        d.Spell(PhantomID.OccultFeatherfoot)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15);
+        d.Spell(PhantomID.OccultFeatherfoot)!.TransformAngle = (ws, _, _, _) => _config.AlignDashToCamera ? ws.Client.CameraAzimuth + 180.Degrees() : null;
     }
 }

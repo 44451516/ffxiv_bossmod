@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P3Inception1(BossModule module) : Components.CastCounter(module, ActionID.MakeSpell(AID.JudgmentCrystalAOE))
+class P3Inception1(BossModule module) : Components.CastCounter(module, AID.JudgmentCrystalAOE)
 {
     private readonly List<Actor> _plasmaspheres = [];
     private readonly Actor?[] _tetherSources = new Actor?[PartyState.MaxPartySize];
@@ -75,8 +75,7 @@ class P3Inception1(BossModule module) : Components.CastCounter(module, ActionID.
         if (tether.ID == (uint)TetherID.Plasmasphere && (OID)source.OID == OID.Plasmasphere)
         {
             _plasmaspheres.Add(source);
-            var slot = Raid.FindSlot(tether.Target);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(tether.Target, out var slot))
                 _tetherSources[slot] = source;
 
             if (AllSpheresSpawned)

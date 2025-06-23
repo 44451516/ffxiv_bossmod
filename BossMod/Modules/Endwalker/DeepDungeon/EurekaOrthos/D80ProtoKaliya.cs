@@ -68,8 +68,7 @@ class Aetheromagnetism(BossModule module) : Components.Knockback(module, ignoreI
     {
         if (tether.ID == (uint)TetherID.Magnet)
         {
-            var slot = Raid.FindSlot(tether.Target);
-            if (slot < 0)
+            if (!Raid.TryFindSlot(tether.Target, out var slot))
                 return;
 
             var target = Raid[slot]!;
@@ -86,8 +85,7 @@ class Aetheromagnetism(BossModule module) : Components.Knockback(module, ignoreI
     {
         if ((AID)spell.Action.ID is AID.AetheromagnetismPull or AID.AetheromagnetismPush)
         {
-            var slot = Raid.FindSlot(spell.MainTargetID);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(spell.MainTargetID, out var slot))
                 _sources[slot] = null;
         }
     }
@@ -99,10 +97,10 @@ class Aetheromagnetism(BossModule module) : Components.Knockback(module, ignoreI
 
         var attract = source.Kind == Kind.TowardsOrigin;
 
-        var barofield = ShapeDistance.Circle(Module.PrimaryActor.Position, 5);
-        var arena = ShapeDistance.InvertedCircle(Module.PrimaryActor.Position, 8);
-        var cannons = Module.Enemies(OID.WeaponsDrone).Select(d => ShapeDistance.Rect(d.Position, d.Rotation, 50, 0, 2.5f));
-        var all = ShapeDistance.Union([barofield, arena, .. cannons]);
+        var barofield = ShapeContains.Circle(Module.PrimaryActor.Position, 5);
+        var arena = ShapeContains.InvertedCircle(Module.PrimaryActor.Position, 8);
+        var cannons = Module.Enemies(OID.WeaponsDrone).Select(d => ShapeContains.Rect(d.Position, d.Rotation, 50, 0, 2.5f));
+        var all = ShapeContains.Union([barofield, arena, .. cannons]);
 
         hints.AddForbiddenZone(p =>
         {
@@ -111,14 +109,14 @@ class Aetheromagnetism(BossModule module) : Components.Knockback(module, ignoreI
 
             // prevent KB through death zone in center
             if (Intersect.RayCircle(p, kb, Module.PrimaryActor.Position, 5) < 1000)
-                return -1;
+                return true;
 
             return all(p + kb * 10);
         }, source.Activation);
     }
 }
 
-class Barofield(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.Barofield))
+class Barofield(BossModule module) : Components.GenericAOEs(module, AID.Barofield)
 {
     private DateTime activation = DateTime.MinValue;
 
@@ -146,11 +144,11 @@ class Barofield(BossModule module) : Components.GenericAOEs(module, ActionID.Mak
             activation = DateTime.MinValue;
     }
 }
-class Resonance(BossModule module) : Components.BaitAwayCast(module, ActionID.MakeSpell(AID.Resonance), new AOEShapeCone(12, 45.Degrees()));
-class RightwardNerveGas(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.RightwardNerveGas), new AOEShapeCone(25, 90.Degrees()));
-class LeftwardNerveGas(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LeftwardNerveGas), new AOEShapeCone(25, 90.Degrees()));
-class CentralizedNerveGas(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CentralizedNerveGas), new AOEShapeCone(25, 60.Degrees()));
-class AutoCannons(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AutoCannons), new AOEShapeRect(45, 2.5f))
+class Resonance(BossModule module) : Components.BaitAwayCast(module, AID.Resonance, new AOEShapeCone(12, 45.Degrees()));
+class RightwardNerveGas(BossModule module) : Components.StandardAOEs(module, AID.RightwardNerveGas, new AOEShapeCone(25, 90.Degrees()));
+class LeftwardNerveGas(BossModule module) : Components.StandardAOEs(module, AID.LeftwardNerveGas, new AOEShapeCone(25, 90.Degrees()));
+class CentralizedNerveGas(BossModule module) : Components.StandardAOEs(module, AID.CentralizedNerveGas, new AOEShapeCone(25, 60.Degrees()));
+class AutoCannons(BossModule module) : Components.StandardAOEs(module, AID.AutoCannons, new AOEShapeRect(45, 2.5f))
 {
     private Aetheromagnetism? _knockback;
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -164,7 +162,7 @@ class AutoCannons(BossModule module) : Components.SelfTargetedAOEs(module, Actio
         base.AddAIHints(slot, actor, assignment, hints);
     }
 }
-class NerveGasRing(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.NerveGasRing), new AOEShapeDonut(8, 100))
+class NerveGasRing(BossModule module) : Components.StandardAOEs(module, AID.NerveGasRing, new AOEShapeDonut(8, 100))
 {
     private Aetheromagnetism? _knockback;
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)

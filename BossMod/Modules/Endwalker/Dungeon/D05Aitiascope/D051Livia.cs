@@ -40,34 +40,32 @@ public enum IconID : uint
     Icon161 = 161, // player
 }
 
-class AglaeaShotAOE1(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AglaeaShotAOE1), new AOEShapeRect(20, 3));
-class AglaeaShotAOE2(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AglaeaShotAOE2), new AOEShapeRect(20, 3));
+class AglaeaShot(BossModule module) : Components.GroupedAOEs(module, [AID.AglaeaShotAOE1, AID.AglaeaShotAOE2], new AOEShapeRect(40, 2));
 
-class AglaeaClimbAOE(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AglaeaClimbAOE), new AOEShapeCone(20, 45.Degrees()));
-class Disparagement(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Disparagement), new AOEShapeCone(40, 60.Degrees()));
+class AglaeaClimbAOE(BossModule module) : Components.StandardAOEs(module, AID.AglaeaClimbAOE, new AOEShapeCone(20, 45.Degrees()));
+class Disparagement(BossModule module) : Components.StandardAOEs(module, AID.Disparagement, new AOEShapeCone(40, 60.Degrees()));
 
-class IgnisOdi(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.IgnisOdi), 6, 8)
+class IgnisOdi(BossModule module) : Components.StackWithCastTargets(module, AID.IgnisOdi, 6, 8)
 {
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         // force AI to move to center - trust NPCs won't stack with you lol
         if (ActiveStackTargets.Contains(actor))
-            hints.AddForbiddenZone(new AOEShapeDonut(3, 50), Arena.Center);
+            hints.AddForbiddenZone(new AOEShapeDonut(3, 50), Arena.Center, activation: Stacks[0].Activation);
     }
 }
 
-class IgnisAmoris(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.IgnisAmoris), 6);
-class Frustration(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Frustration));
-class AglaeaBite(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.AglaeaBite));
+class IgnisAmoris(BossModule module) : Components.StandardAOEs(module, AID.IgnisAmoris, 6);
+class Frustration(BossModule module) : Components.RaidwideCast(module, AID.Frustration);
+class AglaeaBite(BossModule module) : Components.SingleTargetCast(module, AID.AglaeaBite);
 
 class D051LiviaStates : StateMachineBuilder
 {
     public D051LiviaStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<AglaeaShotAOE1>()
-            .ActivateOnEnter<AglaeaShotAOE2>()
+            .ActivateOnEnter<AglaeaShot>()
             .ActivateOnEnter<AglaeaClimbAOE>()
             .ActivateOnEnter<Disparagement>()
             .ActivateOnEnter<IgnisOdi>()

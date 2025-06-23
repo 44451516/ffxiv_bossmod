@@ -4,7 +4,7 @@ using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player)
+public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player, PotionType.Mind)
 {
     public enum Track { Kardia = SharedTrack.Count, Druo }
     public enum KardiaStrategy { Auto, Manual }
@@ -89,7 +89,7 @@ public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<A
 
         GoalZoneCombined(strategy, 25, Hints.GoalAOECircle(5), AID.Dyskrasia, 2);
 
-        if (!Player.InCombat && Unlocked(AID.Eukrasia) && !Eukrasia && Player.MountId == 0)
+        if (!Player.InCombat && Unlocked(AID.Eukrasia) && !Eukrasia)
             PushGCD(AID.Eukrasia, Player);
 
         if (Unlocked(AID.Eukrasia) && !CanFitGCD(TargetDotLeft, 1))
@@ -150,7 +150,7 @@ public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<A
             PushOGCD(AID.Druochole, healTarget);
         }
 
-        if (MP <= 7000)
+        if (MP <= Player.HPMP.MaxMP * 0.7f)
             PushOGCD(AID.LucidDreaming, Player);
 
         if (NumRangedAOETargets > 0)

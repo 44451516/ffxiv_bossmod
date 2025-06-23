@@ -15,19 +15,19 @@ public enum AID : uint
     HowlingBloomshower = 8399, // 1C4F->self, 2.5s cast, range 8+R ?-degree cone
 }
 
-class Moonlight(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.HowlingMoonlight), new AOEShapeCircle(10))
+class Moonlight(BossModule module) : Components.StandardAOEs(module, AID.HowlingMoonlight, new AOEShapeCircle(10))
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         base.AddAIHints(slot, actor, assignment, hints);
         // hits everyone (proximity damage)
         foreach (var c in Casters)
-            hints.PredictedDamage.Add((Raid.WithSlot().Mask(), Module.CastFinishAt(c.CastInfo)));
+            hints.AddPredictedDamage(Raid.WithSlot().Mask(), Module.CastFinishAt(c.CastInfo));
     }
 }
-class Icewind(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.HowlingIcewind), new AOEShapeRect(44, 2));
-class Dragonspirit(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Dragonspirit), new AOEShapeCircle(7.5f));
-class Bloomshower(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.HowlingBloomshower), new AOEShapeDonutSector(4, 8, 45.Degrees()));
+class Icewind(BossModule module) : Components.StandardAOEs(module, AID.HowlingIcewind, new AOEShapeRect(44, 2));
+class Dragonspirit(BossModule module) : Components.StandardAOEs(module, AID.Dragonspirit, new AOEShapeCircle(7.5f));
+class Bloomshower(BossModule module) : Components.StandardAOEs(module, AID.HowlingBloomshower, new AOEShapeDonutSector(4, 8, 45.Degrees()));
 
 class HakuroWhitefangStates : StateMachineBuilder
 {
@@ -44,4 +44,3 @@ class HakuroWhitefangStates : StateMachineBuilder
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.Quest, GroupID = 68088, NameID = 5975)]
 public class HakuroWhitefang(WorldState ws, Actor primary) : BossModule(ws, primary, new(504, -133), new ArenaBoundsCircle(20));
-

@@ -79,11 +79,12 @@ public record struct PendingEffectDelta(PendingEffect Effect, int Value);
 public record struct PendingEffectStatus(PendingEffect Effect, uint StatusId);
 public record struct PendingEffectStatusExtra(PendingEffect Effect, uint StatusId, byte ExtraLo);
 
-public sealed class Actor(ulong instanceID, uint oid, int spawnIndex, string name, uint nameID, ActorType type, Class classID, int level, Vector4 posRot, float hitboxRadius = 1, ActorHPMP hpmp = default, bool targetable = true, bool ally = false, ulong ownerID = 0, uint fateID = 0)
+public sealed class Actor(ulong instanceID, uint oid, int spawnIndex, uint layoutID, string name, uint nameID, ActorType type, Class classID, int level, Vector4 posRot, float hitboxRadius = 1, ActorHPMP hpmp = default, bool targetable = true, bool ally = false, ulong ownerID = 0, uint fateID = 0)
 {
     public ulong InstanceID = instanceID; // 'uuid'
     public uint OID = oid;
     public int SpawnIndex = spawnIndex; // [0-200) = character (even for normal, odd for dependents like mounts), [200-246) = client-side, [246, 286) = event object, [286, 426) = ???, [426-526) = ???, [526,596) = ???
+    public uint LayoutID = layoutID;
     public uint FateID = fateID;
     public string Name = name;
     public uint NameID = nameID;
@@ -124,19 +125,24 @@ public sealed class Actor(ulong instanceID, uint oid, int spawnIndex, string nam
     public WPos PrevPosition => new(PrevPosRot.X, PrevPosRot.Z);
     public WDir LastFrameMovement => Position - PrevPosition;
     public Angle Rotation => PosRot.W.Radians();
-    public bool Omnidirectional => Utils.CharacterIsOmnidirectional(OID);
+    public bool Omnidirectional
+    {
+        get;
+        set => field = value || Utils.CharacterIsOmnidirectional(OID);
+    } = Utils.CharacterIsOmnidirectional(oid);
+
     public bool IsDeadOrDestroyed => IsDead || IsDestroyed;
     public bool IsFriendlyNPC => Type == ActorType.Enemy && IsAlly && IsTargetable;
     public bool IsStrikingDummy => NameID == 541; // this is a hack, but striking dummies are special in some ways
     public int CharacterSpawnIndex => SpawnIndex < 200 && (SpawnIndex & 1) == 0 ? (SpawnIndex >> 1) : -1; // [0,100) for 'real' characters, -1 otherwise
     public float HPRatio => (float)HPMP.CurHP / HPMP.MaxHP;
-    public int PendingHPDiffence => PendingHPDifferences.Sum(p => p.Value);
-    public int PendingMPDiffence => PendingMPDifferences.Sum(p => p.Value);
-    public int PredictedHPRaw => (int)HPMP.CurHP + PendingHPDiffence;
-    public int PredictedMPRaw => (int)HPMP.CurMP + PendingMPDiffence;
-    public int PredictedHPClamped => Math.Clamp(PredictedHPRaw, 0, (int)HPMP.MaxHP);
-    public bool PredictedDead => PredictedHPRaw <= 1 && !IsStrikingDummy;
-    public float PredictedHPRatio => (float)PredictedHPRaw / HPMP.MaxHP;
+    public int PendingHPDifference => PendingHPDifferences.Sum(p => p.Value);
+    public int PendingMPDifference => PendingMPDifferences.Sum(p => p.Value);
+    public int PendingHPRaw => (int)HPMP.CurHP + PendingHPDifference;
+    public int PendingMPRaw => (int)HPMP.CurMP + PendingMPDifference;
+    public int PendingHPClamped => Math.Clamp(PendingHPRaw, 0, (int)HPMP.MaxHP);
+    public bool PendingDead => PendingHPRaw <= 1 && !IsStrikingDummy;
+    public float PendingHPRatio => (float)PendingHPRaw / HPMP.MaxHP;
 
     // if expirationForPredicted is not null, search pending first, and return one if found; in that case only low byte of extra will be set
     public ActorStatus? FindStatus(uint sid, DateTime? expirationForPending = null)

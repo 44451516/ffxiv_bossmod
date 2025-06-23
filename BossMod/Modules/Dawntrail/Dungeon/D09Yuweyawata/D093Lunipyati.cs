@@ -64,7 +64,7 @@ class RagingClaw(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class LeporineLoaf(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.LeporineLoaf));
+class LeporineLoaf(BossModule module) : Components.RaidwideCast(module, AID.LeporineLoaf);
 
 class BoulderDance(BossModule module) : Components.GenericAOEs(module)
 {
@@ -101,7 +101,7 @@ class BoulderDance(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class JaggedEdge(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.JaggedEdge), 6);
+class JaggedEdge(BossModule module) : Components.SpreadFromCastTargets(module, AID.JaggedEdge, 6);
 
 class LeapingEarthCurve(BossModule module) : Components.GenericAOEs(module)
 {
@@ -127,11 +127,33 @@ class LeapingEarthCurve(BossModule module) : Components.GenericAOEs(module)
     {
         if ((AID)spell.Action.ID == AID.LeapingEarth && _curves.Count > 0)
         {
-            var index = _curves.FindIndex(0, Math.Min(_curves.Count, 4), c => spell.LocXZ.AlmostEqual(Module.Center + _offsets[c.numCasts].distance * (c.direction + _offsets[c.numCasts].direction).ToDirection(), 1));
+            var index = -1;
+            var advance = 1;
+
+            for (var i = 0; i < Math.Min(_curves.Count, 4); i++)
+            {
+                var c = _curves[i];
+                bool matches(int cnt) => spell.LocXZ.AlmostEqual(Module.Center + _offsets[cnt].distance * (c.direction + _offsets[cnt].direction).ToDirection(), 1);
+
+                if (matches(c.numCasts))
+                {
+                    index = i;
+                    break;
+                }
+
+                // casts 0/1 and 2/3 can happen on the same frame and might even happen in reverse order, so we skip the cast if we get a later one early
+                if (c.numCasts < 3 && matches(c.numCasts + 1))
+                {
+                    index = i;
+                    advance = 2;
+                    break;
+                }
+            }
             if (index >= 0)
             {
                 ref var curve = ref _curves.Ref(index);
-                if (++curve.numCasts >= 4)
+                curve.numCasts += advance;
+                if (curve.numCasts >= 4)
                     _curves.RemoveAt(index);
             }
             else
@@ -183,7 +205,7 @@ class LeapingEarthSpiral(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class CraterCarve(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CraterCarveAOE), new AOEShapeCircle(11))
+class CraterCarve(BossModule module) : Components.StandardAOEs(module, AID.CraterCarveAOE, new AOEShapeCircle(11))
 {
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
@@ -193,9 +215,9 @@ class CraterCarve(BossModule module) : Components.SelfTargetedAOEs(module, Actio
     }
 }
 
-class BeastlyRoar(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.BeastlyRoar), 25, "GTFO from proximity marker!"); // TODO: verify falloff
+class BeastlyRoar(BossModule module) : Components.StandardAOEs(module, AID.BeastlyRoar, 25, warningText: "GTFO from proximity marker!"); // TODO: verify falloff
 
-class RockBlast(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.RockBlast))
+class RockBlast(BossModule module) : Components.GenericAOEs(module, AID.RockBlast)
 {
     private readonly List<AOEInstance> _aoes = [];
 
@@ -229,9 +251,9 @@ class RockBlast(BossModule module) : Components.GenericAOEs(module, ActionID.Mak
     }
 }
 
-class TuraliStone(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.TuraliStone), 6, 4);
-class SonicHowl(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.SonicHowl));
-class Slabber(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.Slabber));
+class TuraliStone(BossModule module) : Components.StackWithCastTargets(module, AID.TuraliStone, 6, 4);
+class SonicHowl(BossModule module) : Components.RaidwideCast(module, AID.SonicHowl);
+class Slabber(BossModule module) : Components.SingleTargetCast(module, AID.Slabber);
 
 class D093LunipyatiStates : StateMachineBuilder
 {

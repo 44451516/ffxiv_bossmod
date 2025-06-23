@@ -1,7 +1,7 @@
 ﻿namespace BossMod.RealmReborn.Extreme.Ex3Titan;
 
 // TODO: most of what's here should be handled by KnockbackFromCastTarget component...
-class Upheaval(BossModule module) : Components.Knockback(module, ActionID.MakeSpell(AID.Upheaval))
+class Upheaval(BossModule module) : Components.Knockback(module, AID.Upheaval)
 {
     private DateTime _remainInPosition;
 
@@ -18,7 +18,7 @@ class Upheaval(BossModule module) : Components.Knockback(module, ActionID.MakeSp
             // stack just behind boss, this is a good place to bait imminent landslide correctly
             var dirToCenter = (Module.Center - Module.PrimaryActor.Position).Normalized();
             var pos = Module.PrimaryActor.Position + 2 * dirToCenter;
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(pos, 1.5f), _remainInPosition);
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(pos, 1.5f), _remainInPosition);
         }
     }
 

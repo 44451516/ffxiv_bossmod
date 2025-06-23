@@ -1,8 +1,8 @@
 ﻿namespace BossMod.Dawntrail.Chaotic.Ch01CloudOfDarkness;
 
-class CurseOfDarkness(BossModule module) : Components.CastCounter(module, ActionID.MakeSpell(AID.CurseOfDarknessAOE));
+class CurseOfDarkness(BossModule module) : Components.CastCounter(module, AID.CurseOfDarknessAOE);
 
-class DarkEnergyParticleBeam(BossModule module) : Components.GenericBaitAway(module, ActionID.MakeSpell(AID.DarkEnergyParticleBeam))
+class DarkEnergyParticleBeam(BossModule module) : Components.GenericBaitAway(module, AID.DarkEnergyParticleBeam)
 {
     private readonly DateTime[] _activation = new DateTime[PartyState.MaxAllianceSize];
 
@@ -19,13 +19,13 @@ class DarkEnergyParticleBeam(BossModule module) : Components.GenericBaitAway(mod
 
     public override void OnStatusGain(Actor actor, ActorStatus status)
     {
-        if ((SID)status.ID == SID.CurseOfDarkness && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if ((SID)status.ID == SID.CurseOfDarkness && Raid.TryFindSlot(actor.InstanceID, out var slot))
             _activation[slot] = status.ExpireAt;
     }
 
     public override void OnStatusLose(Actor actor, ActorStatus status)
     {
-        if ((SID)status.ID == SID.CurseOfDarkness && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if ((SID)status.ID == SID.CurseOfDarkness && Raid.TryFindSlot(actor.InstanceID, out var slot))
             _activation[slot] = default;
     }
 }

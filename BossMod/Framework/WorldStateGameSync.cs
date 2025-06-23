@@ -13,6 +13,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace BossMod;
@@ -71,6 +72,14 @@ sealed class WorldStateGameSync : IDisposable
     private unsafe delegate void* ProcessPacketFateInfoDelegate(ulong fateId, long startTimestamp, ulong durationSecs);
     private readonly Hook<ProcessPacketFateInfoDelegate> _processPacketFateInfoHook;
 
+    private readonly unsafe delegate* unmanaged<ContainerInterface*, float> _calculateMoveSpeedMulti;
+
+    private unsafe delegate void ProcessMapEffectDelegate(byte* data);
+
+    private readonly Hook<ProcessMapEffectDelegate> _processMapEffect1Hook;
+    private readonly Hook<ProcessMapEffectDelegate> _processMapEffect2Hook;
+    private readonly Hook<ProcessMapEffectDelegate> _processMapEffect3Hook;
+
     public unsafe WorldStateGameSync(WorldState ws, ActionManagerEx amex)
     {
         _ws = ws;
@@ -120,8 +129,6 @@ sealed class WorldStateGameSync : IDisposable
         _processPacketRSVDataHook.Enable();
         Service.Log($"[WSG] ProcessPacketRSVData address = 0x{_processPacketRSVDataHook.Address:X}");
 
-        // _processSystemLogMessageHook = Service.Hook.HookFromSignature<ProcessSystemLogMessageDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 0F B6 43 28", ProcessSystemLogMessageDetour);
-        //先搜ProcessZonePacketDown 
         _processSystemLogMessageHook = Service.Hook.HookFromSignature<ProcessSystemLogMessageDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 0F B6 46 28", ProcessSystemLogMessageDetour);
         _processSystemLogMessageHook.Enable();
         Service.Log($"[WSG] ProcessSystemLogMessage address = 0x{_processSystemLogMessageHook.Address:X}");
@@ -130,15 +137,28 @@ sealed class WorldStateGameSync : IDisposable
         _processPacketOpenTreasureHook.Enable();
         Service.Log($"[WSG] ProcessPacketOpenTreasure address = 0x{_processPacketOpenTreasureHook.Address:X}");
 
-        //(a3 + 24), *(_QWORD *)(a3 + 32
-        // _processPacketFateInfoHook = Service.Hook.HookFromSignature<ProcessPacketFateInfoDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 0F B7 4B 10 48 8D 53 12 41 B8 ?? ?? ?? ??", ProcessPacketFateInfoDetour);
         _processPacketFateInfoHook = Service.Hook.HookFromSignature<ProcessPacketFateInfoDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 0F B7 4E 10 48 8D 56 12 41 B8 ?? ?? ?? ??", ProcessPacketFateInfoDetour);
         _processPacketFateInfoHook.Enable();
         Service.Log($"[WSG] ProcessPacketFateInfo address = 0x{_processPacketFateInfoHook.Address:X}");
+
+        _calculateMoveSpeedMulti = (delegate* unmanaged<ContainerInterface*, float>)Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 44 0F 28 D8 45 0F 57 D2");
+        Service.Log($"[WSG] CalculateMovementSpeedMultiplier address = 0x{(nint)_calculateMoveSpeedMulti:X}");
+
+        var processMapEffectAddr = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 4C 8D 46 10 8B D7 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 4E 10 E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 4C 8D 46 10 8B D7 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 4E 10 E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 4E 10 BA ?? ?? ?? ??");
+        _processMapEffect1Hook = Service.Hook.HookFromAddress<ProcessMapEffectDelegate>(processMapEffectAddr, ProcessMapEffect1Detour);
+        _processMapEffect1Hook.Enable();
+        _processMapEffect2Hook = Service.Hook.HookFromAddress<ProcessMapEffectDelegate>(processMapEffectAddr + 0x40, ProcessMapEffect2Detour);
+        _processMapEffect2Hook.Enable();
+        _processMapEffect3Hook = Service.Hook.HookFromAddress<ProcessMapEffectDelegate>(processMapEffectAddr + 0x80, ProcessMapEffect3Detour);
+        _processMapEffect3Hook.Enable();
+        Service.Log($"[WSG] MapEffect addresses = 0x{_processMapEffect1Hook.Address:X}, 0x{_processMapEffect2Hook.Address:X}, 0x{_processMapEffect3Hook.Address:X}");
     }
 
     public void Dispose()
     {
+        _processMapEffect1Hook.Dispose();
+        _processMapEffect2Hook.Dispose();
+        _processMapEffect3Hook.Dispose();
         _processPacketActorCastHook.Dispose();
         _processPacketEffectResultBasicHook.Dispose();
         _processPacketEffectResultHook.Dispose();
@@ -175,10 +195,10 @@ sealed class WorldStateGameSync : IDisposable
         {
             _ws.Execute(new WorldState.OpZoneChange(Service.ClientState.TerritoryType, GameMain.Instance()->CurrentContentFinderConditionId));
         }
-        if (_ws.Network.IDScramble != Network.IDScramble.Delta)
-        {
-            _ws.Execute(new NetworkState.OpIDScramble(Network.IDScramble.Delta));
-        }
+        var proxy = fwk->NetworkModuleProxy->ReceiverCallback;
+        var scramble = Network.IDScramble.Get();
+        if (_ws.Network.IDScramble != scramble)
+            _ws.Execute(new NetworkState.OpIDScramble(scramble));
 
         foreach (var op in _globalOps)
         {
@@ -207,6 +227,15 @@ sealed class WorldStateGameSync : IDisposable
             if (_ws.Waymarks[wm] != pos)
                 _ws.Execute(new WaymarkState.OpWaymarkChange(wm, pos));
             ++wm;
+        }
+
+        var sgn = Sign.Attack1;
+        foreach (ref var marker in MarkingController.Instance()->Markers)
+        {
+            var id = SanitizedObjectID(marker.Id);
+            if (_ws.Waymarks[sgn] != id)
+                _ws.Execute(new WaymarkState.OpSignChange(sgn, id));
+            ++sgn;
         }
     }
 
@@ -289,7 +318,7 @@ sealed class WorldStateGameSync : IDisposable
         if (act == null)
         {
             var type = (ActorType)(((int)obj->ObjectKind << 8) + obj->SubKind);
-            _ws.Execute(new ActorState.OpCreate(obj->EntityId, obj->BaseId, index, name, nameID, type, classID, level, posRot, radius, hpmp, targetable, friendly, SanitizedObjectID(obj->OwnerId), obj->FateId));
+            _ws.Execute(new ActorState.OpCreate(obj->EntityId, obj->BaseId, index, obj->LayoutId, name, nameID, type, classID, level, posRot, radius, hpmp, targetable, friendly, SanitizedObjectID(obj->OwnerId), obj->FateId));
             act = _actorsByIndex[index] = _ws.Actors.Find(obj->EntityId)!;
 
             // note: for now, we continue relying on network messages for tether changes, since sometimes multiple changes can happen in a single frame, and some components rely on seeing all of them...
@@ -364,7 +393,7 @@ sealed class WorldStateGameSync : IDisposable
                 {
                     var dur = Math.Min(Math.Abs(s.RemainingTime), 100000);
                     curStatus.ID = s.StatusId;
-                    curStatus.SourceID = SanitizedObjectID(s.SourceId);
+                    curStatus.SourceID = SanitizedObjectID(s.SourceObject);
                     curStatus.Extra = s.Param;
                     curStatus.ExpireAt = _ws.CurrentTime.AddSeconds(dur);
                 }
@@ -519,7 +548,7 @@ sealed class WorldStateGameSync : IDisposable
         for (int i = 0; i < group->MemberCount; ++i)
         {
             var member = group->PartyMembers.GetPointer(i);
-            if (member != player && Array.FindIndex(_ws.Party.Members, m => m.ContentId == member->ContentId) < 0)
+            if (member->ContentId != player->ContentId && Array.FindIndex(_ws.Party.Members, m => m.ContentId == member->ContentId) < 0)
                 AddPartyMember(BuildPartyMember(member));
             // else: member is either a player (it was handled by a different function) or already exists in party state
         }
@@ -545,7 +574,7 @@ sealed class WorldStateGameSync : IDisposable
         for (int i = PartyState.MaxPartySize; i < PartyState.MaxAllianceSize; ++i)
         {
             var member = isNormalAlliance ? group->AllianceMembers.GetPointer(i - PartyState.MaxPartySize) : null;
-            if (member != null && !member->IsValidAllianceMember)
+            if (member != null && !member->IsValidAllianceMember())
                 member = null;
             UpdatePartySlot(i, BuildPartyMember(member));
         }
@@ -606,13 +635,22 @@ sealed class WorldStateGameSync : IDisposable
         if (freeSlot >= 0)
             _ws.Execute(new PartyState.OpModify(freeSlot, m));
         else
-            Service.Log($"[WorldState] Failed to find empty slot for party member {m.ContentId:X}:{m.InstanceId:X}");
+        {
+            Service.Log($"[WorldState] Failed to find empty slot for party member {m.ContentId:X}:{m.InstanceId:X} ({_ws.Actors.Find(m.InstanceId)})");
+            Service.Log($"[WorldState] Current slots: {string.Join(", ", _ws.Party.Members.Select(m => _ws.Actors.Find(m.InstanceId)?.ToString() ?? "<unknown>"))}");
+        }
     }
 
     private void UpdatePartySlot(int slot, PartyState.Member m)
     {
         if (_ws.Party.Members[slot] != m)
             _ws.Execute(new PartyState.OpModify(slot, m));
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private unsafe struct CharacterContainer
+    {
+        [FieldOffset(0x8)] public Character* Character;
     }
 
     private unsafe void UpdateClient()
@@ -635,6 +673,17 @@ sealed class WorldStateGameSync : IDisposable
         if (_ws.Client.PlayerStats != stats)
             _ws.Execute(new ClientState.OpPlayerStatsChange(stats));
 
+        var pc = (Character*)GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
+        if (pc != null)
+        {
+            var baseSpeed = *(float*)((nint)Control.Instance() + 0x7108);
+            var c8 = new CharacterContainer() { Character = pc };
+            var factor = _calculateMoveSpeedMulti((ContainerInterface*)&c8);
+            var speed = baseSpeed * factor;
+            if (_ws.Client.MoveSpeed != speed)
+                _ws.Execute(new ClientState.OpMoveSpeedChange(speed));
+        }
+
         Span<Cooldown> cooldowns = stackalloc Cooldown[_ws.Client.Cooldowns.Length];
         _amex.GetCooldowns(cooldowns);
         if (!MemoryExtensions.SequenceEqual(_ws.Client.Cooldowns.AsSpan(), cooldowns))
@@ -645,9 +694,9 @@ sealed class WorldStateGameSync : IDisposable
                 _ws.Execute(new ClientState.OpCooldown(false, CalcCooldownDifference(cooldowns, _ws.Client.Cooldowns.AsSpan())));
         }
 
-        var (dutyAction0, dutyAction1) = _amex.GetDutyActions();
-        if (_ws.Client.DutyActions[0] != dutyAction0 || _ws.Client.DutyActions[1] != dutyAction1)
-            _ws.Execute(new ClientState.OpDutyActionsChange(dutyAction0, dutyAction1));
+        var dutyActions = _amex.GetDutyActions();
+        if (!MemoryExtensions.SequenceEqual(_ws.Client.DutyActions.AsSpan(), dutyActions))
+            _ws.Execute(new ClientState.OpDutyActionsChange(dutyActions));
 
         Span<byte> bozjaHolster = stackalloc byte[_ws.Client.BozjaHolster.Length];
         bozjaHolster.Clear();
@@ -695,8 +744,21 @@ sealed class WorldStateGameSync : IDisposable
             contentKeyValue[2].Item1,
             contentKeyValue[2].Item2
         };
-        if (!MemoryExtensions.SequenceEqual<uint>(ckArray, _ws.Client.ContentKeyValueData))
+        if (!MemoryExtensions.SequenceEqual(ckArray, _ws.Client.ContentKeyValueData))
             _ws.Execute(new ClientState.OpContentKVDataChange(ckArray));
+
+        var hate = uiState->Hate;
+        var hatePrimary = hate.HateTargetId;
+        var hateTargets = new ClientState.Hate[32];
+        for (var i = 0; i < hate.HateArrayLength; i++)
+            hateTargets[i] = new(hate.HateInfo[i].EntityId, hate.HateInfo[i].Enmity);
+
+        if (hatePrimary != _ws.Client.CurrentTargetHate.InstanceID || !MemoryExtensions.SequenceEqual(hateTargets, _ws.Client.CurrentTargetHate.Targets))
+            _ws.Execute(new ClientState.OpHateChange(hatePrimary, hateTargets));
+
+        var timers = actionManager->ProcTimers[1..];
+        if (!MemoryExtensions.SequenceEqual(timers, _ws.Client.ProcTimers))
+            _ws.Execute(new ClientState.OpProcTimersChange(timers.ToArray()));
     }
 
     private unsafe void UpdateDeepDungeon()
@@ -910,9 +972,10 @@ sealed class WorldStateGameSync : IDisposable
         _globalOps.Add(new WorldState.OpRSVData(MemoryHelper.ReadStringNullTerminated((nint)(packet + 4)), MemoryHelper.ReadString((nint)(packet + 0x34), *(int*)packet)));
     }
 
-    private unsafe void ProcessPacketOpenTreasureDetour(uint actorID, byte* packet)
+    private unsafe void ProcessPacketOpenTreasureDetour(uint playerID, byte* packet)
     {
-        _processPacketOpenTreasureHook.Original(actorID, packet);
+        _processPacketOpenTreasureHook.Original(playerID, packet);
+        var actorID = *(uint*)(packet + 16);
         _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventOpenTreasure(actorID));
     }
 
@@ -928,5 +991,34 @@ sealed class WorldStateGameSync : IDisposable
         var res = _processPacketFateInfoHook.Original(fateId, startTimestamp, durationSecs);
         _globalOps.Add(new ClientState.OpFateInfo((uint)fateId, DateTimeOffset.FromUnixTimeSeconds(startTimestamp).UtcDateTime));
         return res;
+    }
+
+    private unsafe void ProcessMapEffect1Detour(byte* data)
+    {
+        _processMapEffect1Hook.Original(data);
+        ProcessMapEffect(data, 10, 18);
+    }
+
+    private unsafe void ProcessMapEffect2Detour(byte* data)
+    {
+        _processMapEffect2Hook.Original(data);
+        ProcessMapEffect(data, 18, 34);
+    }
+
+    private unsafe void ProcessMapEffect3Detour(byte* data)
+    {
+        _processMapEffect3Hook.Original(data);
+        ProcessMapEffect(data, 26, 50);
+    }
+
+    private unsafe void ProcessMapEffect(byte* data, byte offLow, byte offIndex)
+    {
+        for (var i = 0; i < *data; i++)
+        {
+            var low = *(ushort*)(data + 2 * i + offLow);
+            var high = *(ushort*)(data + 2 * i + 2);
+            var index = data[i + offIndex];
+            _globalOps.Add(new WorldState.OpEnvControl(index, low | ((uint)high << 16)));
+        }
     }
 }

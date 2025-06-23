@@ -36,6 +36,7 @@ public sealed class ReplayBuilder : IDisposable
             _ws.Actors.Renamed.Subscribe(ActorRenamed),
             _ws.Actors.IsTargetableChanged.Subscribe(ActorTargetable),
             _ws.Actors.IsDeadChanged.Subscribe(ActorDead),
+            _ws.Actors.IsAllyChanged.Subscribe(ActorAlly),
             _ws.Actors.Moved.Subscribe(ActorMoved),
             _ws.Actors.SizeChanged.Subscribe(ActorSize),
             _ws.Actors.HPMPChanged.Subscribe(ActorHPMP),
@@ -48,6 +49,9 @@ public sealed class ReplayBuilder : IDisposable
             _ws.Actors.IconAppeared.Subscribe(EventIcon),
             _ws.Actors.CastEvent.Subscribe(EventCast),
             _ws.Actors.EffectResult.Subscribe(EventConfirm),
+            _ws.Actors.EventObjectAnimation.Subscribe(EventObjectAnimation),
+            _ws.Actors.EventStateChanged.Subscribe(EventState),
+            _ws.Actors.PlayActionTimelineEvent.Subscribe(PlayActionTimeline),
             _ws.UserMarkerAdded.Subscribe(EventUserMarker),
             _ws.CurrentZoneChanged.Subscribe(EventZoneChange),
             _ws.DirectorUpdate.Subscribe(EventDirectorUpdate),
@@ -217,6 +221,8 @@ public sealed class ReplayBuilder : IDisposable
             p.NameHistory[_ws.CurrentTime] = (actor.Name, actor.NameID);
         if (actor.IsTargetable)
             p.TargetableHistory[_ws.CurrentTime] = true;
+        if (actor.IsAlly)
+            p.AllyHistory[_ws.CurrentTime] = true;
         p.PosRotHistory[_ws.CurrentTime] = actor.PosRot;
         p.HPMPHistory[_ws.CurrentTime] = actor.HPMP;
         p.MinRadius = Math.Min(p.MinRadius, actor.HitboxRadius);
@@ -249,6 +255,11 @@ public sealed class ReplayBuilder : IDisposable
     private void ActorDead(Actor actor)
     {
         _participants[actor.InstanceID].DeadHistory[_ws.CurrentTime] = actor.IsDead;
+    }
+
+    private void ActorAlly(Actor actor)
+    {
+        _participants[actor.InstanceID].AllyHistory[_ws.CurrentTime] = actor.IsAlly;
     }
 
     private void ActorMoved(Actor actor)
@@ -390,6 +401,21 @@ public sealed class ReplayBuilder : IDisposable
         {
             Service.Log($"Skipping confirmation #{seq}/{targetIndex} for {source.InstanceID:X} for unexpected target (src={a.Source.InstanceID:X}, tgt={t.Target.InstanceID:X})");
         }
+    }
+
+    private void EventObjectAnimation(Actor actor, ushort param1, ushort param2)
+    {
+        _participants[actor.InstanceID].EventObjectAnimation[_ws.CurrentTime] = ((uint)param1 << 16) | param2;
+    }
+
+    private void EventState(Actor actor)
+    {
+        _participants[actor.InstanceID].EventState[_ws.CurrentTime] = actor.EventState;
+    }
+
+    private void PlayActionTimeline(Actor actor, ushort id)
+    {
+        _participants[actor.InstanceID].ActionTimeline[_ws.CurrentTime] = id;
     }
 
     private void EventUserMarker(WorldState.OpUserMarker op)

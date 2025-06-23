@@ -23,13 +23,13 @@ public enum AID : uint
     TwistingDive = 31471 // Boss->self, 5.0s cast, range 50 width 15 rect
 }
 
-class Twister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, ActionID.MakeSpell(AID.TwisterVisual), 0.4f, 0.25f);
-class BitingWind(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, ActionID.MakeSpell(AID.Gust), m => m.Enemies(OID.BitingWind).Where(z => z.EventState != 7), 0.9f);
-class MeracydianSquall(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.MeracydianSquall), 5);
-class TwistersHint(BossModule module, AID aid) : Components.CastHint(module, ActionID.MakeSpell(aid), "Twisters spawning, keep moving!");
+class Twister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, AID.TwisterVisual, 0.4f, 0.25f);
+class BitingWind(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, AID.Gust, m => m.Enemies(OID.BitingWind).Where(z => z.EventState != 7), 0.9f);
+class MeracydianSquall(BossModule module) : Components.StandardAOEs(module, AID.MeracydianSquall, 5);
+class TwistersHint(BossModule module, AID aid) : Components.CastHint(module, aid, "Twisters spawning, keep moving!");
 class Twisters1(BossModule module) : TwistersHint(module, AID.TwisterVisual);
 class Twisters2(BossModule module) : TwistersHint(module, AID.TwistingDive);
-class DiveTwister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, ActionID.MakeSpell(AID.TwistingDive), 0.4f, 0.25f);
+class DiveTwister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, AID.TwistingDive, 0.4f, 0.25f);
 
 class TwistingDive(BossModule module) : Components.GenericAOEs(module)
 {
@@ -60,19 +60,19 @@ class TwistingDive(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class Turbine(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.Turbine), 15)
+class Turbine(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Turbine, 15)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var forbidden = new List<Func<WPos, float>>();
+        var forbidden = new List<Func<WPos, bool>>();
         var component = Module.FindComponent<BitingWind>()?.ActiveAOEs(slot, actor)?.ToList();
         var source = Sources(slot, actor).FirstOrDefault();
         if (source != default && component != null)
         {
-            forbidden.Add(ShapeDistance.InvertedCircle(Arena.Center, 5));
-            forbidden.AddRange(component.Select(c => ShapeDistance.Cone(Arena.Center, 20, Angle.FromDirection(c.Origin - Arena.Center), 20.Degrees())));
+            forbidden.Add(ShapeContains.InvertedCircle(Arena.Center, 5));
+            forbidden.AddRange(component.Select(c => ShapeContains.Cone(Arena.Center, 20, Angle.FromDirection(c.Origin - Arena.Center), 20.Degrees())));
             if (forbidden.Count > 0)
-                hints.AddForbiddenZone(p => forbidden.Select(f => f(p)).Min(), source.Activation);
+                hints.AddForbiddenZone(p => forbidden.Any(f => f(p)), source.Activation);
         }
     }
 

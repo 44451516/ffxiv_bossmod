@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Savage.RM04SWickedThunder;
 
-class ElectropeEdgeWitchgleam(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.ElectropeEdgeWitchgleamAOE))
+class ElectropeEdgeWitchgleam(BossModule module) : Components.GenericAOEs(module, AID.ElectropeEdgeWitchgleamAOE)
 {
     private AOEInstance? _aoe;
 
@@ -15,10 +15,10 @@ class ElectropeEdgeWitchgleam(BossModule module) : Components.GenericAOEs(module
     }
 }
 
-class ElectropeEdgeSpark1(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ElectropeEdgeSpark1), new AOEShapeRect(5, 5, 5));
-class ElectropeEdgeSpark2(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ElectropeEdgeSpark2), new AOEShapeRect(15, 15, 15));
-class ElectropeEdgeSidewiseSparkR(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ElectropeEdgeSidewiseSparkR), new AOEShapeCone(60, 90.Degrees()));
-class ElectropeEdgeSidewiseSparkL(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ElectropeEdgeSidewiseSparkL), new AOEShapeCone(60, 90.Degrees()));
+class ElectropeEdgeSpark1(BossModule module) : Components.StandardAOEs(module, AID.ElectropeEdgeSpark1, new AOEShapeRect(5, 5, 5));
+class ElectropeEdgeSpark2(BossModule module) : Components.StandardAOEs(module, AID.ElectropeEdgeSpark2, new AOEShapeRect(15, 15, 15));
+class ElectropeEdgeSidewiseSparkR(BossModule module) : Components.StandardAOEs(module, AID.ElectropeEdgeSidewiseSparkR, new AOEShapeCone(60, 90.Degrees()));
+class ElectropeEdgeSidewiseSparkL(BossModule module) : Components.StandardAOEs(module, AID.ElectropeEdgeSidewiseSparkL, new AOEShapeCone(60, 90.Degrees()));
 
 class ElectropeEdgeStar(BossModule module) : Components.UniformStackSpread(module, 6, 6, alwaysShowSpreads: true)
 {
@@ -52,7 +52,7 @@ class ElectropeEdgeStar(BossModule module) : Components.UniformStackSpread(modul
     }
 }
 
-class LightningCage(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.LightningCageAOE))
+class LightningCage(BossModule module) : Components.GenericAOEs(module, AID.LightningCageAOE)
 {
     public int NumSparks;
     public int NumGleams;
@@ -90,7 +90,7 @@ class LightningCage(BossModule module) : Components.GenericAOEs(module, ActionID
 
     public override void OnStatusGain(Actor actor, ActorStatus status)
     {
-        if ((SID)status.ID == SID.ElectricalCondenser && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if ((SID)status.ID == SID.ElectricalCondenser && Raid.TryFindSlot(actor.InstanceID, out var slot))
             Order[slot] = (status.ExpireAt - WorldState.CurrentTime).TotalSeconds < 30 ? 1 : 2;
     }
 
@@ -119,7 +119,7 @@ class LightningCage(BossModule module) : Components.GenericAOEs(module, ActionID
             case AID.LightningCageWitchgleamAOE:
                 ++NumGleams;
                 foreach (var t in spell.Targets)
-                    if (Raid.FindSlot(t.ID) is var slot && slot >= 0)
+                    if (Raid.TryFindSlot(t.ID, out var slot))
                         ++_gleams[slot];
                 break;
             case AID.LightningCageSpark2:
@@ -169,7 +169,7 @@ class LightningCage(BossModule module) : Components.GenericAOEs(module, ActionID
     private WPos CellCenter(int index) => new(CellCenterCoordinate(index & 7), CellCenterCoordinate(index >> 3));
 }
 
-class LightningCageWitchgleam(BossModule module) : Components.GenericBaitAway(module, ActionID.MakeSpell(AID.LightningCageWitchgleamAOE))
+class LightningCageWitchgleam(BossModule module) : Components.GenericBaitAway(module, AID.LightningCageWitchgleamAOE)
 {
     private static readonly AOEShapeRect _shape = new(60, 2.5f);
 

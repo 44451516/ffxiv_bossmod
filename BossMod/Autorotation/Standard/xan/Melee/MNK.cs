@@ -4,7 +4,7 @@ using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan<AID, TraitID>(manager, player)
+public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan<AID, TraitID>(manager, player, PotionType.Strength)
 {
     public enum Track { BH = SharedTrack.Buffs, RoF, FiresReply, RoW, WindsReply, PB, Nadi, Blitz, SSS, FormShift, Meditation, TC, Potion, Engage, TN }
     public enum PotionStrategy
@@ -152,7 +152,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         // other utils
         def.Define(Track.TC).As<TCStrategy>("TC", uiPriority: 69)
             .AddOption(TCStrategy.None, "Do not use", minLevel: 35)
-            .AddOption(TCStrategy.GapClose, "Use if outside melee range", minLevel: 35)
+            .AddOption(TCStrategy.GapClose, "Use if outside melee range", minLevel: 35, supportedTargets: ActionTargets.Party | ActionTargets.Hostile)
             .AddAssociatedActions(AID.Thunderclap);
 
         def.Define(Track.Potion).As<PotionStrategy>("Pot", uiPriority: 59)
@@ -233,8 +233,8 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
 
     public bool CanFormShift => Unlocked(AID.FormShift) && PerfectBalanceLeft == 0;
 
-    // TODO incorporate crit calculation - rockbreaker is a gain on 3 at 22.1% crit
-    public int AOEBreakpoint => Unlocked(AID.ShadowOfTheDestroyer) && EffectiveForm == Form.OpoOpo ? 3 : 4;
+    // rockbreaker is a gain on 3 at 22.1% crit but i aint calculating that
+    public int AOEBreakpoint => Unlocked(AID.ShadowOfTheDestroyer) && EffectiveForm == Form.OpoOpo && OpoStacks == 0 ? 3 : 4;
     public bool UseAOE => NumAOETargets >= AOEBreakpoint;
 
     public int BuffedGCDsLeft => FireLeft > GCD ? (int)MathF.Floor((FireLeft - GCD) / AttackGCDLength) + 1 : 0;
@@ -263,6 +263,8 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         WindRanged = 100,
         FireRanged = 200,
         Basic = 300,
+        BasicSaver = 310,
+        BasicSpender = 320,
         AOE = 400,
         SSS = 500,
         Blitz = 600,
@@ -368,28 +370,34 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
 
         if (UseAOE)
         {
-            if (EffectiveForm == Form.Coeurl)
-                PushGCD(AID.Rockbreaker, Player, GCDPriority.AOE);
-
-            if (EffectiveForm == Form.Raptor)
-                PushGCD(AID.FourPointFury, Player, GCDPriority.AOE);
-
-            PushGCD(AID.ArmOfTheDestroyer, Player, GCDPriority.AOE);
+            var aoeAction = EffectiveForm switch
+            {
+                Form.Coeurl => AID.Rockbreaker,
+                Form.Raptor => AID.FourPointFury,
+                _ => AID.ArmOfTheDestroyer
+            };
+            PushGCD(aoeAction, Player, GCDPriority.AOE);
         }
+
+        GCDPriority prioBuffed(int balls) => balls > 0 && primaryTarget?.Priority >= 0 ? GCDPriority.BasicSpender : GCDPriority.Basic;
 
         switch (EffectiveForm)
         {
             case Form.Coeurl:
-                PushGCD(CoeurlStacks == 0 && Unlocked(AID.Demolish) ? AID.Demolish : AID.SnapPunch, primaryTarget, GCDPriority.Basic);
+                PushGCD(AID.Demolish, primaryTarget, GCDPriority.BasicSaver);
+                PushGCD(AID.SnapPunch, primaryTarget, prioBuffed(CoeurlStacks));
                 break;
             case Form.Raptor:
-                PushGCD(RaptorStacks == 0 && Unlocked(AID.TwinSnakes) ? AID.TwinSnakes : AID.TrueStrike, primaryTarget, GCDPriority.Basic);
+                PushGCD(AID.TwinSnakes, primaryTarget, GCDPriority.BasicSaver);
+                PushGCD(AID.TrueStrike, primaryTarget, prioBuffed(RaptorStacks));
                 break;
             case Form.OpoOpo:
-                PushGCD(OpoStacks == 0 && Unlocked(AID.DragonKick) ? AID.DragonKick : AID.Bootshine, primaryTarget, GCDPriority.Basic);
+                PushGCD(AID.DragonKick, primaryTarget, GCDPriority.BasicSaver);
+                PushGCD(AID.Bootshine, primaryTarget, prioBuffed(OpoStacks));
                 break;
             default:
-                PushGCD(OpoStacks > 0 && FormShiftLeft > GCD ? AID.Bootshine : Unlocked(AID.DragonKick) ? AID.DragonKick : AID.Bootshine, primaryTarget, GCDPriority.Basic);
+                PushGCD(AID.DragonKick, primaryTarget, GCDPriority.BasicSaver);
+                PushGCD(AID.Bootshine, primaryTarget, FormShiftLeft > GCD ? prioBuffed(OpoStacks) : GCDPriority.Basic);
                 break;
         }
 
@@ -400,7 +408,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 break;
             case OffensiveStrategy.Automatic:
                 if (EffectiveDowntimeIn > 0 && !CanFitGCD(EffectiveDowntimeIn, 1))
-                    PushGCD(AID.SixSidedStar, primaryTarget, GCDPriority.SSS);
+                    PushGCD(AID.SixSidedStar, primaryTarget, primaryTarget?.Priority >= 0 ? GCDPriority.SSS : GCDPriority.None);
                 break;
         }
 
@@ -582,8 +590,13 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 PushOGCD(AID.SteelPeak, primaryTarget, OGCDPriority.TFC);
         }
 
-        if (strategy.Option(Track.TC).As<TCStrategy>() == TCStrategy.GapClose && Player.DistanceToHitbox(primaryTarget) is > 3 and < 25)
-            PushOGCD(AID.Thunderclap, primaryTarget, OGCDPriority.TrueNorth);
+        var tc = strategy.Option(Track.TC);
+        if (tc.As<TCStrategy>() == TCStrategy.GapClose)
+        {
+            var tcTarget = ResolveTargetOverride(tc.Value) ?? primaryTarget?.Actor;
+            if (Player.DistanceToHitbox(tcTarget) is > 3 and < 25)
+                PushOGCD(AID.Thunderclap, tcTarget, OGCDPriority.TrueNorth);
+        }
     }
 
     private void Brotherhood(StrategyValues strategy, Enemy? primaryTarget)
@@ -591,7 +604,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         switch (strategy.Simple(Track.BH))
         {
             case OffensiveStrategy.Automatic:
-                if (HaveTarget && (CombatTimer > 10 || BeastCount == 2) && DowntimeIn > AnimLock + 20 && GCD > 0)
+                if (HaveTarget && (CombatTimer > 10 || BeastCount >= 2) && DowntimeIn > AnimLock + 20 && GCD > 0)
                     PushOGCD(AID.Brotherhood, Player, OGCDPriority.Brotherhood);
                 break;
             case OffensiveStrategy.Force:
@@ -604,7 +617,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
 
     private void Meditate(StrategyValues strategy, Enemy? primaryTarget)
     {
-        if (Chakra >= 5 || !Unlocked(AID.SteeledMeditation) || Player.MountId > 0)
+        if (Chakra >= 5 || !Unlocked(AID.SteeledMeditation))
             return;
 
         var prio = GCDPriority.None;

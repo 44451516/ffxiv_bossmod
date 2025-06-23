@@ -79,7 +79,7 @@ class HoundOutOfHeavenGood(BossModule module) : Components.BaitAwayTethers(modul
     {
         base.AddAIHints(slot, actor, assignment, hints);
         if (target == actor.InstanceID && CurrentBaits.Count > 0)
-            hints.AddForbiddenZone(ShapeDistance.Circle(Module.PrimaryActor.Position, 15));
+            hints.AddForbiddenZone(ShapeContains.Circle(Module.PrimaryActor.Position, 15));
     }
 }
 
@@ -117,16 +117,16 @@ class HoundOutOfHeavenBad(BossModule module) : Components.BaitAwayTethers(module
     {
         base.AddAIHints(slot, actor, assignment, hints);
         if (target == actor.InstanceID && CurrentBaits.Count > 0)
-            hints.AddForbiddenZone(ShapeDistance.Circle(Module.PrimaryActor.Position, 15));
+            hints.AddForbiddenZone(ShapeContains.Circle(Module.PrimaryActor.Position, 15));
     }
 }
 
-class ViperPoisonPatterns(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 6, ActionID.MakeSpell(AID.ViperPoisonPatterns), m => m.Enemies(OID.PoisonVoidzone).Where(z => z.EventState != 7), 0);
-class ConfessionOfFaithLeft(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ConfessionOfFaithLeft), new AOEShapeCone(60, 46.Degrees(), 20.Degrees())); // TODO: verify; there should not be an offset in reality here...
-class ConfessionOfFaithRight(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ConfessionOfFaithRight), new AOEShapeCone(60, 46.Degrees(), -20.Degrees())); // TODO: verify; there should not be an offset in reality here...
-class ConfessionOfFaithStack(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.ConfessionOfFaithStack), 6);
-class ConfessionOfFaithCenter(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ConfessionOfFaithCenter), new AOEShapeCone(60, 40.Degrees()));
-class ConfessionOfFaithSpread(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.ConfessionOfFaithSpread), 5);
+class ViperPoisonPatterns(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 6, AID.ViperPoisonPatterns, m => m.Enemies(OID.PoisonVoidzone).Where(z => z.EventState != 7), 0);
+class ConfessionOfFaithLeft(BossModule module) : Components.StandardAOEs(module, AID.ConfessionOfFaithLeft, new AOEShapeCone(60, 46.Degrees(), 20.Degrees())); // TODO: verify; there should not be an offset in reality here...
+class ConfessionOfFaithRight(BossModule module) : Components.StandardAOEs(module, AID.ConfessionOfFaithRight, new AOEShapeCone(60, 46.Degrees(), -20.Degrees())); // TODO: verify; there should not be an offset in reality here...
+class ConfessionOfFaithStack(BossModule module) : Components.StackWithCastTargets(module, AID.ConfessionOfFaithStack, 6);
+class ConfessionOfFaithCenter(BossModule module) : Components.StandardAOEs(module, AID.ConfessionOfFaithCenter, new AOEShapeCone(60, 40.Degrees()));
+class ConfessionOfFaithSpread(BossModule module) : Components.SpreadFromCastTargets(module, AID.ConfessionOfFaithSpread, 5);
 
 class ViperPoisonBait(BossModule module) : Components.GenericBaitAway(module)
 {
@@ -163,24 +163,24 @@ class ViperPoisonBait(BossModule module) : Components.GenericBaitAway(module)
     {
         base.AddAIHints(slot, actor, assignment, hints);
         if (target == actor && targeted)
-            hints.AddForbiddenZone(ShapeDistance.Rect(new(17, -518), new(17, -558), 13));
+            hints.AddForbiddenZone(ShapeContains.Rect(new(17, -518), new(17, -558), 13));
     }
 }
 
-class Inhale(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.Inhale), 50, kind: Kind.TowardsOrigin)
+class Inhale(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Inhale, 50, kind: Kind.TowardsOrigin)
 {
     //TODO: consider testing if path is unsafe in addition to destination
     public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<ViperPoisonPatterns>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
 }
 
-class HeavingBreath(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.HeavingBreath), 35, kind: Kind.DirForward, stopAtWall: true)
+class HeavingBreath(BossModule module) : Components.KnockbackFromCastTarget(module, AID.HeavingBreath, 35, kind: Kind.DirForward, stopAtWall: true)
 {
     //TODO: consider testing if path is unsafe in addition to destination
     public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<ViperPoisonPatterns>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
 }
 
-class Glossolalia(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Glossolalia));
-class Rend(BossModule module) : Components.SingleTargetDelayableCast(module, ActionID.MakeSpell(AID.Rend));
+class Glossolalia(BossModule module) : Components.RaidwideCast(module, AID.Glossolalia);
+class Rend(BossModule module) : Components.SingleTargetDelayableCast(module, AID.Rend);
 
 class D033ErosStates : StateMachineBuilder
 {

@@ -19,7 +19,7 @@ class Beacons(BossModule module) : BossComponent(module)
 
 class CalamitousCry : Components.GenericWildCharge
 {
-    public CalamitousCry(BossModule module) : base(module, 3, ActionID.MakeSpell(AID.CalamitousCryAOE), 80)
+    public CalamitousCry(BossModule module) : base(module, 3, AID.CalamitousCryAOE, 80)
     {
         Reset();
     }
@@ -31,8 +31,7 @@ class CalamitousCry : Components.GenericWildCharge
             case AID.CalamitousCryTargetFirst:
             case AID.CalamitousCryTargetRest:
                 Source = Module.PrimaryActor;
-                var slot = Raid.FindSlot(spell.MainTargetID);
-                if (slot >= 0)
+                if (Raid.TryFindSlot(spell.MainTargetID, out var slot))
                     PlayerRoles[slot] = PlayerRole.Target;
                 break;
             case AID.CalamitousCryAOE:
@@ -50,4 +49,4 @@ class CalamitousCry : Components.GenericWildCharge
     }
 }
 
-class CalamitousEcho(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CalamitousEcho), new AOEShapeCone(40, 10.Degrees()));
+class CalamitousEcho(BossModule module) : Components.StandardAOEs(module, AID.CalamitousEcho, new AOEShapeCone(40, 10.Degrees()));

@@ -1,6 +1,6 @@
 ﻿namespace BossMod.RealmReborn.Extreme.Ex2Garuda;
 
-class EyeOfTheStorm(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.EyeOfTheStorm))
+class EyeOfTheStorm(BossModule module) : Components.GenericAOEs(module, AID.EyeOfTheStorm)
 {
     private Actor? _caster;
     private DateTime _nextCastAt;
@@ -30,5 +30,4 @@ class EyeOfTheStorm(BossModule module) : Components.GenericAOEs(module, ActionID
             _nextCastAt = WorldState.FutureTime(4.2f);
         }
     }
-
 }

@@ -38,8 +38,8 @@ public enum IconID : uint
     VolcanicDrop = 139, // player
 }
 
-class HeavingHaymaker(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.HeavingHaymakerAOE));
-class LithicImpact(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LithicImpact), new AOEShapeRect(2, 2, 2));
+class HeavingHaymaker(BossModule module) : Components.RaidwideCast(module, AID.HeavingHaymakerAOE);
+class LithicImpact(BossModule module) : Components.StandardAOEs(module, AID.LithicImpact, new AOEShapeRect(2, 2, 2));
 
 class Allfire(BossModule module) : Components.GenericAOEs(module)
 {
@@ -69,9 +69,9 @@ class Allfire(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class VolcanicDrop(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.VolcanicDrop), 6);
+class VolcanicDrop(BossModule module) : Components.SpreadFromCastTargets(module, AID.VolcanicDrop, 6);
 
-class GreatFlood(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.GreatFlood), 25, kind: Kind.DirForward)
+class GreatFlood(BossModule module) : Components.KnockbackFromCastTarget(module, AID.GreatFlood, 25, kind: Kind.DirForward)
 {
     private readonly List<Actor> _allfireCasters = [];
 
@@ -85,13 +85,13 @@ class GreatFlood(BossModule module) : Components.KnockbackFromCastTarget(module,
             if (_allfireCasters.Count == 0)
             {
                 // no aoes => everything closer than knockback distance (25) to the wall is unsafe; add an extra margin for safety
-                hints.AddForbiddenZone(ShapeDistance.Rect(Arena.Center, s.Direction, 20, 7, 20), s.Activation);
+                hints.AddForbiddenZone(ShapeContains.Rect(Arena.Center, s.Direction, 20, 7, 20), s.Activation);
             }
             else
             {
                 // safe zone is one a 10x10 rect (4 first allfires), offset by knockback distance
                 var center = _allfireCasters.PositionCentroid();
-                hints.AddForbiddenZone(ShapeDistance.InvertedRect(center, s.Direction, -15, 35, 10), s.Activation);
+                hints.AddForbiddenZone(ShapeContains.InvertedRect(center, s.Direction, -15, 35, 10), s.Activation);
             }
         }
     }
@@ -111,7 +111,7 @@ class GreatFlood(BossModule module) : Components.KnockbackFromCastTarget(module,
     }
 }
 
-class Sledgehammer(BossModule module) : Components.GenericWildCharge(module, 4, ActionID.MakeSpell(AID.Sledgehammer), 60)
+class Sledgehammer(BossModule module) : Components.GenericWildCharge(module, 4, AID.Sledgehammer, 60)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -145,13 +145,13 @@ class AuraSpheres : Components.PersistentInvertibleVoidzone
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var shapes = Sources(Module).Select(s => ShapeDistance.InvertedCircle(s.Position + Shape.Radius * s.Rotation.ToDirection(), Shape.Radius)).ToList();
+        var shapes = Sources(Module).Select(s => ShapeContains.InvertedCircle(s.Position + Shape.Radius * s.Rotation.ToDirection(), Shape.Radius)).ToList();
         if (shapes.Count > 0)
-            hints.AddForbiddenZone(ShapeDistance.Intersection(shapes));
+            hints.AddForbiddenZone(ShapeContains.Intersection(shapes));
     }
 }
 
-class EnduringGlory(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.EnduringGlory));
+class EnduringGlory(BossModule module) : Components.RaidwideCast(module, AID.EnduringGlory);
 
 class BitingWind(BossModule module) : Components.PersistentVoidzone(module, 5, m => m.Enemies(OID.BitingWind))
 {
@@ -165,31 +165,31 @@ class BitingWind(BossModule module) : Components.PersistentVoidzone(module, 5, m
             if (distToCenter < 10)
             {
                 // normal voidzones for central ones
-                hints.AddForbiddenZone(ShapeDistance.Circle(t.Position, 5));
-                hints.AddForbiddenZone(ShapeDistance.Capsule(t.Position, dir, 20, 5), WorldState.FutureTime(2));
+                hints.AddForbiddenZone(ShapeContains.Circle(t.Position, 5));
+                hints.AddForbiddenZone(ShapeContains.Capsule(t.Position, dir, 20, 5), WorldState.FutureTime(2));
             }
             else
             {
                 // just forbid outer ones
-                hints.AddForbiddenZone(ShapeDistance.Rect(t.Position, dir, 40, 40, 5));
+                hints.AddForbiddenZone(ShapeContains.Rect(t.Position, dir, 40, 40, 5));
             }
         }
     }
 }
 
-class WindswrathShort(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.WindswrathShort), 15)
+class WindswrathShort(BossModule module) : Components.KnockbackFromCastTarget(module, AID.WindswrathShort, 15)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var s in Sources(slot, actor))
         {
             if (!IsImmune(slot, s.Activation))
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(s.Origin, 3), s.Activation);
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(s.Origin, 3), s.Activation);
         }
     }
 }
 
-class WindswrathLong(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.WindswrathLong), 15)
+class WindswrathLong(BossModule module) : Components.KnockbackFromCastTarget(module, AID.WindswrathLong, 15)
 {
     private readonly IReadOnlyList<Actor> _tornadoes = module.Enemies(OID.BitingWind);
 
@@ -201,16 +201,16 @@ class WindswrathLong(BossModule module) : Components.KnockbackFromCastTarget(mod
                 continue;
 
             // ok knockback is imminent, calculate precise safe zone
-            List<Func<WPos, float>> funcs = [
-                ShapeDistance.InvertedRect(Module.Center, new WDir(0, 1), 20, 20, 20),
-                .. _tornadoes.Select(t => ShapeDistance.Capsule(t.Position, t.Rotation, 20, 5))
+            List<Func<WPos, bool>> funcs = [
+                ShapeContains.InvertedRect(Module.Center, new WDir(0, 1), 21, 21, 21),
+                .. _tornadoes.Select(t => ShapeContains.Capsule(t.Position, t.Rotation, 20, 6))
             ];
-            float combined(WPos p)
+            bool combined(WPos p)
             {
                 var offset = p - s.Origin;
                 offset += offset.Normalized() * s.Distance;
                 var adj = s.Origin + offset;
-                return funcs.Min(f => f(adj)) - 1;
+                return funcs.Any(f => f(adj));
             }
             hints.AddForbiddenZone(combined, s.Activation);
         }

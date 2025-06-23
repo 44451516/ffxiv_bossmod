@@ -46,14 +46,14 @@ public enum SID : uint
     MeatShield = 2267
 }
 
-class SeabedCeremony(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.SeabedCeremony));
-class Seafoam(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Seafoam));
-class Bonebreaker(BossModule module) : Components.SingleTargetDelayableCast(module, ActionID.MakeSpell(AID.Bonebreaker));
-class FallingWater(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.FallingWater), 8);
-class FlyingFount(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.FlyingFount), 6);
-class CommandCurrent(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CommandCurrent), new AOEShapeCone(40, 15.Degrees()));
-class CoralTrident(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CoralTrident), new AOEShapeCone(6, 45.Degrees()));
-class RisingTide(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.RisingTide), new AOEShapeCross(50, 3));
+class SeabedCeremony(BossModule module) : Components.RaidwideCast(module, AID.SeabedCeremony);
+class Seafoam(BossModule module) : Components.RaidwideCast(module, AID.Seafoam);
+class Bonebreaker(BossModule module) : Components.SingleTargetDelayableCast(module, AID.Bonebreaker);
+class FallingWater(BossModule module) : Components.SpreadFromCastTargets(module, AID.FallingWater, 8);
+class FlyingFount(BossModule module) : Components.StackWithCastTargets(module, AID.FlyingFount, 6);
+class CommandCurrent(BossModule module) : Components.StandardAOEs(module, AID.CommandCurrent, new AOEShapeCone(40, 15.Degrees()));
+class CoralTrident(BossModule module) : Components.StandardAOEs(module, AID.CoralTrident, new AOEShapeCone(6, 45.Degrees()));
+class RisingTide(BossModule module) : Components.StandardAOEs(module, AID.RisingTide, new AOEShapeCross(50, 3));
 
 class Voidzones(BossModule module) : BossComponent(module)
 {
@@ -271,19 +271,19 @@ class Drains(BossModule module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        List<Func<WPos, float>> zones = [];
+        List<Func<WPos, bool>> zones = [];
         foreach (var drain in GetActiveDrains())
         {
             bool inDrain(WPos p) => p.AlmostEqual(drain.Position, 1.25f);
             var numBlockers = Raid.WithoutSlot().Count(p => inDrain(p.Position));
             if (numBlockers == 0 || numBlockers == 1 && inDrain(actor.Position))
-                zones.Add(ShapeDistance.Rect(drain.Position, default(Angle), 1.25f, 1.25f, 1.25f));
+                zones.Add(ShapeContains.Rect(drain.Position, default(Angle), 1.25f, 1.25f, 1.25f));
         }
         if (zones.Count == 0)
             return;
 
-        var zunion = ShapeDistance.Union(zones);
-        hints.AddForbiddenZone(p => -zunion(p), activation);
+        var zunion = ShapeContains.Union(zones);
+        hints.AddForbiddenZone(p => !zunion(p), activation);
     }
 }
 

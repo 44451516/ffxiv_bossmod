@@ -6,9 +6,10 @@ public enum OID : uint
 {
     Boss = 0x25E8, // R13.500, x1
     Helper = 0x2629, // R0.500, x12, mixed types
+    Button = 0x1EA1A1, // R2.000, x10, EventObj type
     Shadow = 0x25E9, // R13.500, x0 (spawn during fight)
     ArsenalUrolith = 0x25EB, // R3.000, x0 (spawn during fight)
-    Button = 0x1EA1A1
+    Ozmasphere = 0x25EA, // R1.000, x0 (spawn during fight)
 }
 
 public enum AID : uint
@@ -37,6 +38,9 @@ public enum AID : uint
     AccelerationBomb = 14250, // Boss->self, no cast, ???
     MeteorImpact = 14256, // ArsenalUrolith->self, 4.0s cast, range 20 circle
     Meteor = 14248, // Helper->location, no cast, range 10 circle
+
+    Explosion = 14242, // Ozmasphere->self, no cast, range 6 circle
+    Holy = 14249, // Boss->self, 4.0s cast, range 50 circle
 
     UrolithAuto = 872, // ArsenalUrolith->player, no cast, single-target
 }
@@ -72,7 +76,7 @@ class MeteorStack(BossModule module) : Components.UniformStackSpread(module, 10,
     }
 }
 
-class MourningStar(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.MourningStar1))
+class MourningStar(BossModule module) : Components.GenericAOEs(module, AID.MourningStar1)
 {
     private readonly List<(Actor Source, DateTime Activation)> Casts = [];
 
@@ -87,7 +91,7 @@ class MourningStar(BossModule module) : Components.GenericAOEs(module, ActionID.
     }
 }
 
-class Execration(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.Execration1))
+class Execration(BossModule module) : Components.GenericAOEs(module, AID.Execration1)
 {
     private readonly List<(WPos Origin, Angle Rotation, DateTime Activation)> Casts = [];
 
@@ -113,7 +117,7 @@ class Execration(BossModule module) : Components.GenericAOEs(module, ActionID.Ma
     }
 }
 
-class FlareStar(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.FlareStar1))
+class FlareStar(BossModule module) : Components.GenericAOEs(module, AID.FlareStar1)
 {
     private readonly List<(Actor Source, DateTime Activation)> Casts = [];
 
@@ -128,18 +132,23 @@ class FlareStar(BossModule module) : Components.GenericAOEs(module, ActionID.Mak
     }
 }
 
-class ShootingStar(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.ShootingStar1), 8, shape: new AOEShapeCircle(26))
+class ShootingStar(BossModule module) : Components.KnockbackFromCastTarget(module, AID.ShootingStar1, 8, shape: new AOEShapeCircle(26))
 {
-    private static readonly Angle ToCorner = Angle.FromDirection(new WDir(5, 12));
-
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var s in Sources(slot, actor).Where(s => s.Shape!.Check(actor.Position, s.Origin, s.Direction)))
         {
+            if (IsImmune(slot, s.Activation))
+                continue;
+
             var directionToBoss = Angle.FromDirection((Module.PrimaryActor.Position - s.Origin).Normalized());
-            // this is overly conservative but i'm an idiot
-            var i = ShapeDistance.Intersection([ShapeDistance.InvertedCone(s.Origin, 4, directionToBoss, ToCorner), ShapeDistance.InvertedCone(s.Origin, 4, directionToBoss + 180.Degrees(), ToCorner)]);
-            hints.AddForbiddenZone(i, s.Activation);
+            var rect = ShapeContains.InvertedRect(s.Origin, directionToBoss, 12, 12, 5);
+            hints.AddForbiddenZone(p =>
+            {
+                var dir = (p - s.Origin).Normalized();
+                var proj = p + dir * s.Distance;
+                return rect(proj);
+            }, s.Activation);
             break;
         }
     }
@@ -180,6 +189,9 @@ class StarAutos(BossModule module) : Components.GenericStackSpread(module)
     }
 }
 
+/*
+// TODO figure out a way to make this work decently without having access to ozma's full enmity table
+
 class CubeAutos(BossModule module) : Components.GenericBaitAway(module)
 {
     private bool Enabled;
@@ -208,19 +220,20 @@ class CubeAutos(BossModule module) : Components.GenericBaitAway(module)
         }
     }
 }
+*/
 
 class AccelerationBomb(BossModule module) : Components.StayMove(module)
 {
     public override void OnStatusGain(Actor actor, ActorStatus status)
     {
-        if ((SID)status.ID is SID.AccelerationBomb && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
-            PlayerStates[slot] = new(Requirement.Stay, status.ExpireAt);
+        if ((SID)status.ID is SID.AccelerationBomb)
+            SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Stay, status.ExpireAt));
     }
 
     public override void OnStatusLose(Actor actor, ActorStatus status)
     {
-        if ((SID)status.ID is SID.AccelerationBomb && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
-            PlayerStates[slot] = default;
+        if ((SID)status.ID is SID.AccelerationBomb)
+            ClearState(Raid.FindSlot(actor.InstanceID));
     }
 }
 
@@ -278,7 +291,7 @@ class BlackHole(BossModule module) : BossComponent(module)
         if (Activation == default)
             return;
 
-        var towers = ShapeDistance.Intersection(Buttons.Select(b => ShapeDistance.Donut(b, 2, 100)).ToList());
+        var towers = ShapeContains.Intersection([.. Buttons.Select(b => ShapeContains.Donut(b, 2, 100))]);
         hints.AddForbiddenZone(towers, Activation);
     }
 }
@@ -307,17 +320,61 @@ class MeteorBait(BossModule module) : Components.SpreadFromIcon(module, (uint)Ic
     {
         if (Spreads.Any(s => s.Target.InstanceID == actor.InstanceID))
         {
-            var drops = MeteorDropLocations.Select(m => ShapeDistance.InvertedCircle(Arena.Center + m, 1)).ToList();
-            hints.AddForbiddenZone(ShapeDistance.Intersection(drops), Spreads[0].Activation);
+            var drops = MeteorDropLocations.Select(m => ShapeContains.InvertedCircle(Arena.Center + m, 1)).ToList();
+            hints.AddForbiddenZone(ShapeContains.Intersection(drops), Spreads[0].Activation);
 
             // try to avoid other spreads if we can help it, but would rather drop two meteors in one spot
-            var otherSpreads = ActiveSpreadTargets.Exclude(actor).Select(t => ShapeDistance.Circle(t.Position, 15)).ToList();
-            hints.AddForbiddenZone(ShapeDistance.Union(otherSpreads), DateTime.MaxValue);
+            var otherSpreads = ActiveSpreadTargets.Exclude(actor).Select(t => ShapeContains.Circle(t.Position, 15)).ToList();
+            hints.AddForbiddenZone(ShapeContains.Union(otherSpreads), DateTime.MaxValue);
         }
     }
 }
-class MeteorImpact(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.MeteorImpact), 15);
+class MeteorImpact(BossModule module) : Components.SpreadFromCastTargets(module, AID.MeteorImpact, 15);
 class Urolith(BossModule module) : Components.Adds(module, (uint)OID.ArsenalUrolith, 1);
+
+class Ozmasphere(BossModule module) : Components.GenericAOEs(module, AID.Explosion)
+{
+    private readonly List<Actor> Balls = [];
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.Ozmasphere)
+            Balls.Add(actor);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action == WatchedAction)
+            Balls.Remove(caster);
+    }
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Balls.Select(b => new AOEInstance(new AOEShapeCircle(6), b.Position));
+}
+
+class Holy(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Holy, 3)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var src in Sources(slot, actor))
+        {
+            if (IsImmune(slot, src.Activation))
+                return;
+
+            var ringMidpointToPlatform = 60.Degrees() - Angle.FromDirection(new WDir(5, 25));
+
+            var kbZones = ShapeContains.Union([
+                ShapeContains.DonutSector(src.Origin, 22, 100, 180.Degrees(), ringMidpointToPlatform),
+                ShapeContains.DonutSector(src.Origin, 22, 100, 60.Degrees(), ringMidpointToPlatform),
+                ShapeContains.DonutSector(src.Origin, 22, 100, -60.Degrees(), ringMidpointToPlatform),
+                ShapeContains.Rect(src.Origin + new WDir(0, 33.5f), default(Angle), 5, 0, 5),
+                ShapeContains.Rect(src.Origin + new WDir(0, 33.5f).Rotate(120.Degrees()), 120.Degrees(), 5, 0, 5),
+                ShapeContains.Rect(src.Origin + new WDir(0, 33.5f).Rotate(-120.Degrees()), -120.Degrees(), 5, 0, 5),
+            ]);
+
+            hints.AddForbiddenZone(kbZones, src.Activation);
+        }
+    }
+}
 
 class ProtoOzmaStates : StateMachineBuilder
 {
@@ -325,7 +382,7 @@ class ProtoOzmaStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<StarAutos>()
-            .ActivateOnEnter<CubeAutos>()
+            //.ActivateOnEnter<CubeAutos>()
             .ActivateOnEnter<MourningStar>()
             .ActivateOnEnter<ShootingStar>()
             .ActivateOnEnter<Execration>()
@@ -336,6 +393,8 @@ class ProtoOzmaStates : StateMachineBuilder
             .ActivateOnEnter<AccelerationBomb>()
             .ActivateOnEnter<Urolith>()
             .ActivateOnEnter<MeteorStack>()
+            .ActivateOnEnter<Ozmasphere>()
+            .ActivateOnEnter<Holy>()
             ;
     }
 }
@@ -365,4 +424,3 @@ public class ProtoOzma(WorldState ws, Actor primary) : BAModule(ws, primary, Are
         Arena.ActorInsideBounds(Center, PrimaryActor.Rotation, ArenaColor.Enemy);
     }
 }
-

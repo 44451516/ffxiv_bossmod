@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Endwalker.Savage.P6SHegemone;
 
 // TODO: improve...
-class PathogenicCells(BossModule module) : Components.CastCounter(module, ActionID.MakeSpell(AID.PathogenicCellsAOE))
+class PathogenicCells(BossModule module) : Components.CastCounter(module, AID.PathogenicCellsAOE)
 {
     private readonly int[] _order = new int[PartyState.MaxPartySize];
 
@@ -15,8 +15,7 @@ class PathogenicCells(BossModule module) : Components.CastCounter(module, Action
     {
         if (iconID is >= (uint)IconID.Pathogenic1 and <= (uint)IconID.Pathogenic8)
         {
-            var slot = Raid.FindSlot(actor.InstanceID);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(actor, out var slot))
                 _order[slot] = (int)iconID - (int)IconID.Pathogenic1 + 1;
         }
     }

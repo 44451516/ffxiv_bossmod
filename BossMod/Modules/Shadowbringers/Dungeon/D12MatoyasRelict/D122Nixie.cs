@@ -23,8 +23,8 @@ public enum AID : uint
     Gurgle = 22930, // Helper->self, no cast, range 60 width 10 rect
 
     PitterPatter = 22920, // Boss->self, 3.0s cast, single-target
-    Sploosh = 22926, // Helper->self, no cast, range 6 circle, geysirs, no dmg, just throwing player around
-    FallDamage = 22934, // Helper->player, no cast, single-target
+    Sploosh = 22926, // Helper->self, no cast, range 6 circle, launches player
+    FallDamage = 22934, // Helper->player, no cast, single-target, physical damage bonk when hitting ground from geyser
 
     SinginInTheRain = 22921, // UnfinishedNixie->self, 40.0s cast, single-target
     SeaShantyVisual = 22922, // Boss->self, no cast, single-target
@@ -66,10 +66,10 @@ class Gurgle(BossModule module) : Components.GenericAOEs(module)
         (new(-20, -155), 90.Degrees()),
         (new(-20, -145), 90.Degrees()),
         (new(-20, -135), 90.Degrees()),
-        (new(20, -165), 90.Degrees()),
-        (new(20, -155), 90.Degrees()),
-        (new(20, -145), 90.Degrees()),
-        (new(20, -135), 90.Degrees()),
+        (new(20, -165), -90.Degrees()),
+        (new(20, -155), -90.Degrees()),
+        (new(20, -145), -90.Degrees()),
+        (new(20, -135), -90.Degrees()),
     ];
 
     public override void OnEventEnvControl(byte index, uint state)
@@ -88,16 +88,34 @@ class Gurgle(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class Sputter(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.Sputter), 6);
+class Sputter(BossModule module) : Components.SpreadFromCastTargets(module, AID.Sputter, 6);
 
-class Geyser(BossModule module) : BossComponent(module)
+class SeaShanty(BossModule module) : Components.CastCounter(module, AID.SeaShanty);
+
+class GeyserDanger(BossModule module) : Components.GenericAOEs(module, AID.Sploosh)
 {
-    private readonly List<Actor> Geysers = [];
-    private DateTime SplooshTime;
-    private BitMask floaters;
+    public readonly List<(Actor, DateTime)> Geysers = [];
 
-    private Actor? BestGeyser => Geysers.Count == 0 ? null : Geysers.MinBy(g => g.Position.Z);
+    public override void OnActorCreated(Actor actor)
+    {
+        if ((OID)actor.OID == OID.Geyser)
+            Geysers.Add((actor, WorldState.FutureTime(4.8f)));
+    }
 
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action == WatchedAction)
+        {
+            NumCasts++;
+            Geysers.RemoveAll(g => g.Item1.Position.AlmostEqual(caster.Position, 1));
+        }
+    }
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Geysers.Select(g => new AOEInstance(new AOEShapeCircle(6), g.Item1.Position, Activation: g.Item2));
+}
+
+class Bounds(BossModule module) : BossComponent(module)
+{
     public override void OnEventEnvControl(byte index, uint state)
     {
         if (index == 0x12)
@@ -108,10 +126,18 @@ class Geyser(BossModule module) : BossComponent(module)
             {
                 Arena.Center = Nixie.GroundCenter;
                 Arena.Bounds = Nixie.DefaultBounds;
-                floaters.Reset();
             }
         }
     }
+}
+
+class GeyserSafe(BossModule module) : BossComponent(module)
+{
+    private readonly List<Actor> Geysers = [];
+    private DateTime SplooshTime;
+    private BitMask floaters;
+
+    private Actor? BestGeyser => Geysers.Count == 0 ? null : Geysers.MinBy(g => g.Position.Z);
 
     public override void OnActorCreated(Actor actor)
     {
@@ -164,7 +190,7 @@ class Geyser(BossModule module) : BossComponent(module)
         if (floaters[slot])
             hints.AddForbiddenZone(new AOEShapeRect(19.5f, 19.5f, 19.5f), Nixie.GroundCenter);
         else if (BestGeyser is Actor g)
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(g.Position, 6), SplooshTime);
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(g.Position, 6), SplooshTime);
     }
 }
 
@@ -172,11 +198,27 @@ class NixieStates : StateMachineBuilder
 {
     public NixieStates(BossModule module) : base(module)
     {
-        TrivialPhase()
-            .ActivateOnEnter<Geyser>()
+        DeathPhase(0, SimplePhase);
+    }
+
+    private void SimplePhase(uint id)
+    {
+        Targetable(id, false, 37.4f, "Boss disappears")
+            .ActivateOnEnter<GeyserSafe>()
             .ActivateOnEnter<Crack>()
             .ActivateOnEnter<Sputter>()
-            .ActivateOnEnter<Gurgle>();
+            .ActivateOnEnter<Gurgle>()
+            .ActivateOnEnter<Bounds>()
+            .ActivateOnEnter<SeaShanty>()
+            .ClearHint(StateMachine.StateHint.DowntimeStart); // not worth the hassle, DowntimeIn would be 0 until the boss becomes targetable again, but we should be attacking adds asap
+
+        ComponentCondition<SeaShanty>(id + 0x10, 51, t => t.NumCasts > 0, "Death zone activate")
+            .DeactivateOnExit<GeyserSafe>();
+
+        Targetable(id + 0x20, true, 12.1f, "Boss reappears");
+
+        Timeout(id + 0x30, 9999, "Enrage")
+            .ActivateOnEnter<GeyserDanger>();
     }
 }
 
@@ -204,4 +246,3 @@ public class Nixie(WorldState ws, Actor primary) : BossModule(ws, primary, Groun
         Arena.Actors(Enemies(OID.UnfinishedNixie), ArenaColor.Enemy);
     }
 }
-

@@ -157,20 +157,17 @@ public abstract class AutoClear : ZoneModule
         {
             case (uint)WHM.SID.Surecast:
             case (uint)WAR.SID.ArmsLength:
-                var slot1 = World.Party.FindSlot(actor.InstanceID);
-                if (slot1 >= 0)
+                if (World.Party.TryFindSlot(actor.InstanceID, out var slot1))
                     _playerImmunes[slot1].RoleBuffExpire = status.ExpireAt;
                 break;
             case (uint)WAR.SID.InnerStrength:
-                var slot2 = World.Party.FindSlot(actor.InstanceID);
-                if (slot2 >= 0)
+                if (World.Party.TryFindSlot(actor.InstanceID, out var slot2))
                     _playerImmunes[slot2].JobBuffExpire = status.ExpireAt;
                 break;
             // Knockback Penalty floor effect
             case 1096:
             case 1512:
-                var slot3 = World.Party.FindSlot(actor.InstanceID);
-                if (slot3 >= 0)
+                if (World.Party.TryFindSlot(actor.InstanceID, out var slot3))
                     _playerImmunes[slot3].KnockbackPenalty = true;
                 break;
         }
@@ -410,7 +407,7 @@ public abstract class AutoClear : ZoneModule
         Actor? coffer = null;
         Actor? hoardLight = null;
         Actor? passage = null;
-        List<Func<WPos, float>> revealedTraps = [];
+        List<Func<WPos, bool>> revealedTraps = [];
 
         PomanderID? pomanderToUseHere = null;
 
@@ -449,7 +446,7 @@ public abstract class AutoClear : ZoneModule
                 passage = a;
 
             if (RevealedTrapOIDs.Contains(a.OID))
-                revealedTraps.Add(ShapeDistance.Circle(a.Position, 2));
+                revealedTraps.Add(ShapeContains.Circle(a.Position, 2));
         }
 
         var fullClear = false;
@@ -465,9 +462,9 @@ public abstract class AutoClear : ZoneModule
 
         if (_config.TrapHints && _trapsHidden)
         {
-            var traps = _trapsCurrentZone.Where(t => t.InCircle(player.Position, 30) && !IgnoreTraps.Any(b => b.AlmostEqual(t, 1))).Select(t => ShapeDistance.Circle(t, 2)).ToList();
+            var traps = _trapsCurrentZone.Where(t => t.InCircle(player.Position, 30) && !IgnoreTraps.Any(b => b.AlmostEqual(t, 1))).Select(t => ShapeContains.Circle(t, 2)).ToList();
             if (traps.Count > 0)
-                hints.AddForbiddenZone(ShapeDistance.Union(traps));
+                hints.AddForbiddenZone(ShapeContains.Union(traps));
         }
 
         if (coffer != null)
@@ -518,7 +515,7 @@ public abstract class AutoClear : ZoneModule
         }
 
         if (revealedTraps.Count > 0)
-            hints.AddForbiddenZone(ShapeDistance.Union(revealedTraps));
+            hints.AddForbiddenZone(ShapeContains.Union(revealedTraps));
 
         if (!IsPlayerTransformed(player) && canNavigate && _config.AutoMoveTreasure && hoardLight is Actor h && Palace.GetPomanderState(PomanderID.Intuition).Active)
             hints.GoalZones.Add(hints.GoalSingleTarget(h.Position, 2, 10));
@@ -622,7 +619,7 @@ public abstract class AutoClear : ZoneModule
             hints.AddForbiddenZone(p =>
             {
                 var offset = (p - origin) / map.PixelSize;
-                return map[(int)offset.X, (int)offset.Z] ? -10 : 10;
+                return map[(int)offset.X, (int)offset.Z];
             }, CastFinishAt(caster));
         }, d => _losCache.Remove(d.InstanceID));
 

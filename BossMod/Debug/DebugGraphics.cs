@@ -108,8 +108,10 @@ class DebugGraphics
         foreach (var v in _watchedRenderObjects)
         {
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.TextUnformatted($"0x{v.Key:X}");
-            ImGui.TableNextColumn(); DrawMods(v.Value);
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted($"0x{v.Key:X}");
+            ImGui.TableNextColumn();
+            DrawMods(v.Value);
         }
         ImGui.EndTable();
 
@@ -243,45 +245,64 @@ class DebugGraphics
         ImGui.TableHeadersRow();
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("VP");
-        ImGui.TableNextColumn(); DrawMatrix(camera->ViewMatrix * camera->RenderCamera->ProjectionMatrix);
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("VP");
+        ImGui.TableNextColumn();
+        DrawMatrix(camera->ViewMatrix * camera->RenderCamera->ProjectionMatrix);
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("P");
-        ImGui.TableNextColumn(); DrawMatrix(camera->RenderCamera->ProjectionMatrix);
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("P");
+        ImGui.TableNextColumn();
+        DrawMatrix(camera->RenderCamera->ProjectionMatrix);
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("P2");
-        ImGui.TableNextColumn(); DrawMatrix(camera->RenderCamera->ProjectionMatrix2);
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("P2");
+        ImGui.TableNextColumn();
+        DrawMatrix(camera->RenderCamera->ProjectionMatrix2);
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("V");
-        ImGui.TableNextColumn(); DrawMatrix(camera->ViewMatrix);
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("V");
+        ImGui.TableNextColumn();
+        DrawMatrix(camera->ViewMatrix);
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("V2");
-        ImGui.TableNextColumn(); DrawMatrix(camera->RenderCamera->ViewMatrix);
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("V2");
+        ImGui.TableNextColumn();
+        DrawMatrix(camera->RenderCamera->ViewMatrix);
 
         var altitude = MathF.Asin(camera->ViewMatrix.M23);
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("Camera Altitude");
-        ImGui.TableNextColumn(); ImGui.TextUnformatted(altitude.Radians().ToString());
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("Camera Altitude");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted(altitude.Radians().ToString());
 
         var azimuth = MathF.Atan2(camera->ViewMatrix.M13, camera->ViewMatrix.M33);
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("Camera Azimuth");
-        ImGui.TableNextColumn(); ImGui.TextUnformatted(azimuth.Radians().ToString());
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("Camera Azimuth");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted(azimuth.Radians().ToString());
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("Origin");
-        ImGui.TableNextColumn(); ImGui.TextUnformatted(Utils.Vec3String(camera->RenderCamera->Origin));
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("Origin");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted(Utils.Vec3String(camera->RenderCamera->Origin));
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("Near/far/aspect");
-        ImGui.TableNextColumn(); ImGui.TextUnformatted($"{camera->RenderCamera->NearPlane} / {camera->RenderCamera->FarPlane} / {camera->RenderCamera->AspectRatio}");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("Near/far/aspect");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted($"{camera->RenderCamera->NearPlane} / {camera->RenderCamera->FarPlane} / {camera->RenderCamera->AspectRatio}");
 
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("Projection flags");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("Projection flags");
         ImGui.TableNextColumn();
         if (ImGui.Button(camera->RenderCamera->IsOrtho ? $"ortho ({camera->RenderCamera->OrthoHeight})" : "perspective"))
             camera->RenderCamera->IsOrtho ^= true;
@@ -297,19 +318,25 @@ class DebugGraphics
         var ly = new Vector3(view.M12, view.M22, view.M32);
         var lz = new Vector3(view.M13, view.M23, view.M33);
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("View handedness");
-        ImGui.TableNextColumn(); ImGui.TextUnformatted($"{Vector3.Dot(lz, Vector3.Cross(lx, ly))}");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("View handedness");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted($"{Vector3.Dot(lz, Vector3.Cross(lx, ly))}");
 
         view.M44 = 1;
         FFXIVClientStructs.FFXIV.Common.Math.Matrix4x4.Invert(view, out var world);
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("W");
-        ImGui.TableNextColumn(); DrawMatrix(world);
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("W");
+        ImGui.TableNextColumn();
+        DrawMatrix(world);
 
         var device = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance();
         ImGui.TableNextRow();
-        ImGui.TableNextColumn(); ImGui.TextUnformatted("Viewport size");
-        ImGui.TableNextColumn(); ImGui.TextUnformatted($"{device->Width:f6} {device->Height:f6}");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted("Viewport size");
+        ImGui.TableNextColumn();
+        ImGui.TextUnformatted($"{device->Width:f6} {device->Height:f6}");
     }
 
     private void DrawMatrix(SharpDX.Matrix mtx)
@@ -335,8 +362,11 @@ class DebugGraphics
 
         ImGui.Checkbox("Circle", ref _overlayCircle);
         ImGui.DragFloat2("Center", ref _overlayCenter);
-        ImGui.DragFloat2("Step", ref _overlayStep);
+        ImGui.DragFloat2("Step", ref _overlayStep, 0.25f, 1, 10);
         ImGui.DragFloat2("Max offset", ref _overlayMaxOffset);
+
+        if (_overlayStep.X < 1 || _overlayStep.Y < 1)
+            return;
 
         int mx = (int)(_overlayMaxOffset.X / _overlayStep.X);
         int mz = (int)(_overlayMaxOffset.Y / _overlayStep.Y);

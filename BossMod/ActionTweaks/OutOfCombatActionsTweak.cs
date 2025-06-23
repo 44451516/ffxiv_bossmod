@@ -1,13 +1,13 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "自动非战斗实用行动", Parent = typeof(ActionTweaksConfig), Since = "0.0.0.245")]
+[ConfigDisplay(Name = "自动非战斗实用行动", Parent = typeof(ActionTweaksConfig), Since = "0.0.0.245",Order = -10)]
 class OutOfCombatActionsConfig : ConfigNode
 {
     [PropertyDisplay("启用该功能")]
     public bool Enabled = false;
 
     // changed name so that it's treated as a new option (that's set to false) since everyone hates this feature and it's extremely hard to find in the settings
-    [PropertyDisplay("在脱离战斗时自动使用速行", since: "0.0.0.294")]
+    [PropertyDisplay("在脱离战斗时自动使用速行", since: "0.0.0.294",depends: nameof(Enabled))]
     public bool AutoPeloton2 = false;
 }
 

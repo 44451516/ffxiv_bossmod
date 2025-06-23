@@ -44,7 +44,7 @@ class PathoPurge(BossModule module) : Components.GenericAOEs(module)
         base.AddAIHints(slot, actor, assignment, hints);
         // if next is cross and there are donuts after it, we still want to stay closer to it, to simplify getting to the next donut
         if (AOEs.Count >= 2 && AOEs[0].Shape == _shapeCross && AOEs.Skip(1).Any(aoe => aoe.Shape == _shapeDonut))
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(AOEs[0].Origin, 8), DateTime.MaxValue);
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(AOEs[0].Origin, 8), DateTime.MaxValue);
     }
 
     public override void OnActorCreated(Actor actor)
@@ -68,9 +68,9 @@ class PathoPurge(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class ImmuneResponseFront(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ImmuneResponseFrontAOE), new AOEShapeCone(40, 60.Degrees())); // TODO: verify angle
+class ImmuneResponseFront(BossModule module) : Components.StandardAOEs(module, AID.ImmuneResponseFrontAOE, new AOEShapeCone(40, 60.Degrees())); // TODO: verify angle
 
-class ImmuneResponseBack(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ImmuneResponseBackAOE), new AOEShapeCone(40, 120.Degrees())) // TODO: verify angle
+class ImmuneResponseBack(BossModule module) : Components.StandardAOEs(module, AID.ImmuneResponseBackAOE, new AOEShapeCone(40, 120.Degrees())) // TODO: verify angle
 {
     private readonly PathoPurge? _purge = module.FindComponent<PathoPurge>();
 
@@ -78,12 +78,12 @@ class ImmuneResponseBack(BossModule module) : Components.SelfTargetedAOEs(module
 }
 
 // for quarantine/disinfection, duty support always stacks at the middle
-class Disinfection(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(6), (uint)IconID.Disinfection, ActionID.MakeSpell(AID.Disinfection), 5.1f, true)
+class Disinfection(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(6), (uint)IconID.Disinfection, AID.Disinfection, 5.1f, true)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var b in ActiveBaitsOn(actor))
-            hints.AddForbiddenZone(ShapeDistance.Circle(Module.Center, 6), b.Activation);
+            hints.AddForbiddenZone(ShapeContains.Circle(Module.Center, 6), b.Activation);
     }
 }
 
@@ -95,7 +95,7 @@ class Quarantine(BossModule module) : Components.UniformStackSpread(module, 6, 0
     {
         foreach (var s in ActiveStacks)
             if (!s.ForbiddenPlayers[slot])
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Module.Center, 3), s.Activation); // stack neatly in center
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.Center, 3), s.Activation); // stack neatly in center
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
@@ -123,7 +123,7 @@ class Quarantine(BossModule module) : Components.UniformStackSpread(module, 6, 0
     }
 }
 
-class Cytolysis(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Cytolysis));
+class Cytolysis(BossModule module) : Components.RaidwideCast(module, AID.Cytolysis);
 
 class D061AntivirusXStates : StateMachineBuilder
 {

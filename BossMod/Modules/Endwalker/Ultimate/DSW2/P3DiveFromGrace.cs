@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
-class P3Geirskogul(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Geirskogul), new AOEShapeRect(62, 4))
+class P3Geirskogul(BossModule module) : Components.StandardAOEs(module, AID.Geirskogul, new AOEShapeRect(62, 4))
 {
     private readonly List<Actor> _predicted = [];
 
@@ -72,7 +72,7 @@ class P3GnashAndLash(BossModule module) : Components.GenericAOEs(module)
 // 2. if there are forward/backward jumps at given order, forward takes W spot, backward takes E spot (center takes S) - this can be changed by config
 // 3. otherwise, no specific assignments are assumed until player baits or soaks the tower
 // TODO: split into towers & bait-away?
-class P3DiveFromGrace(BossModule module) : Components.CastTowers(module, ActionID.MakeSpell(AID.DarkdragonDive), 5)
+class P3DiveFromGrace(BossModule module) : Components.CastTowers(module, AID.DarkdragonDive, 5)
 {
     private struct PlayerState
     {
@@ -124,6 +124,13 @@ class P3DiveFromGrace(BossModule module) : Components.CastTowers(module, ActionI
     {
         if (_haveDirections)
             hints.Add($"Arrows for: {(_ordersWithArrows.Any() ? string.Join(", ", _ordersWithArrows.SetBits()) : "none")}");
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+
+        // TODO: forbidden directions
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor) => _playerStates[playerSlot].JumpOrder == CurrentBaitOrder() ? PlayerPriority.Interesting : PlayerPriority.Normal;
@@ -205,8 +212,7 @@ class P3DiveFromGrace(BossModule module) : Components.CastTowers(module, ActionI
 
     private void AssignJumpOrder(Actor actor, int order)
     {
-        int slot = Raid.FindSlot(actor.InstanceID);
-        if (slot >= 0)
+        if (Raid.TryFindSlot(actor, out var slot))
         {
             _playerStates[slot].JumpOrder = order;
             _orderPlayers[order - 1].Set(slot);
@@ -216,8 +222,7 @@ class P3DiveFromGrace(BossModule module) : Components.CastTowers(module, ActionI
     private void AssignJumpDirection(Actor actor, int direction)
     {
         _haveDirections = true;
-        int slot = Raid.FindSlot(actor.InstanceID);
-        if (slot >= 0)
+        if (Raid.TryFindSlot(actor, out var slot))
         {
             _playerStates[slot].JumpDirection = direction;
             if (direction != 0 && _playerStates[slot].JumpOrder is var order && order > 0)
@@ -233,8 +238,7 @@ class P3DiveFromGrace(BossModule module) : Components.CastTowers(module, ActionI
 
     private void AssignLateSpot(ulong target, WPos pos)
     {
-        var slot = Raid.FindSlot(target);
-        if (slot >= 0 && _playerStates[slot].AssignedSpot == 0)
+        if (Raid.TryFindSlot(target, out var slot) && _playerStates[slot].AssignedSpot == 0)
             _playerStates[slot].AssignedSpot = TowerSpot(pos);
     }
 

@@ -112,8 +112,7 @@ class Rush(BossModule module) : Components.GenericBaitAway(module)
             CurrentBaits.RemoveAll(b => b.Source == source);
             CurrentBaits.Add(new(source, target, _shapeTether, Activation));
 
-            var slot = Raid.FindSlot(tether.Target);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(tether.Target, out var slot))
                 _unstretched[slot] = (TetherID)tether.ID == TetherID.RushShort;
         }
     }
@@ -148,7 +147,7 @@ class Rush(BossModule module) : Components.GenericBaitAway(module)
     }
 }
 
-class IceDart(BossModule module) : Components.BaitAwayTethers(module, new AOEShapeCircle(16), (uint)TetherID.IceDart, ActionID.MakeSpell(AID.IceDart), true)
+class IceDart(BossModule module) : Components.BaitAwayTethers(module, new AOEShapeCircle(16), (uint)TetherID.IceDart, AID.IceDart, true)
 {
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
@@ -160,7 +159,7 @@ class IceDart(BossModule module) : Components.BaitAwayTethers(module, new AOESha
     }
 }
 
-class RaisedTribute(BossModule module) : Components.GenericWildCharge(module, 4, ActionID.MakeSpell(AID.RaisedTribute), 80)
+class RaisedTribute(BossModule module) : Components.GenericWildCharge(module, 4, AID.RaisedTribute, 80)
 {
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
@@ -185,13 +184,13 @@ class RaisedTribute(BossModule module) : Components.GenericWildCharge(module, 4,
 
     public override void OnTethered(Actor source, ActorTetherInfo tether)
     {
-        if (tether.ID == (uint)TetherID.IceDart && Raid.FindSlot(source.InstanceID) is var slot && slot >= 0 && PlayerRoles[slot] != PlayerRole.Target)
+        if (tether.ID == (uint)TetherID.IceDart && Raid.TryFindSlot(source.InstanceID, out var slot) && PlayerRoles[slot] != PlayerRole.Target)
             PlayerRoles[slot] = PlayerRole.Avoid;
     }
 
     public override void OnUntethered(Actor source, ActorTetherInfo tether)
     {
-        if (tether.ID == (uint)TetherID.IceDart && Raid.FindSlot(source.InstanceID) is var slot && slot >= 0 && PlayerRoles[slot] != PlayerRole.Target)
+        if (tether.ID == (uint)TetherID.IceDart && Raid.TryFindSlot(source.InstanceID, out var slot) && PlayerRoles[slot] != PlayerRole.Target)
             PlayerRoles[slot] = PlayerRole.Share;
     }
 }

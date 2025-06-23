@@ -11,7 +11,7 @@ class PomMeteor(BossModule module) : BossComponent(module)
     private const float _towerRadius = 5;
     private const float _cometAvoidRadius = 6;
     private static readonly Angle[] _towerAngles = [180.Degrees(), 90.Degrees(), 0.Degrees(), -90.Degrees(), 135.Degrees(), 45.Degrees(), -45.Degrees(), -135.Degrees()];
-    private static readonly WDir[] _towerOffsets = _towerAngles.Select(a => 10 * a.ToDirection()).ToArray();
+    private static readonly WDir[] _towerOffsets = [.. _towerAngles.Select(a => 10 * a.ToDirection())];
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -21,7 +21,7 @@ class PomMeteor(BossModule module) : BossComponent(module)
         if (_cometsLeft > 0)
         {
             foreach (int i in _activeTowers.SetBits())
-                hints.AddForbiddenZone(ShapeDistance.Circle(Module.Center + _towerOffsets[i], _cometAvoidRadius));
+                hints.AddForbiddenZone(ShapeContains.Circle(Module.Center + _towerOffsets[i], _cometAvoidRadius));
         }
         else
         {
@@ -38,12 +38,12 @@ class PomMeteor(BossModule module) : BossComponent(module)
             {
                 if (!_activeTowers[soakedTower])
                     soakedTower += 4;
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Module.Center + _towerOffsets[soakedTower], _towerRadius), _towerActivation);
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.Center + _towerOffsets[soakedTower], _towerRadius), _towerActivation);
             }
             else
             {
                 foreach (int i in _activeTowers.SetBits())
-                    hints.AddForbiddenZone(ShapeDistance.Circle(Module.Center + _towerOffsets[i], _towerRadius), _towerActivation);
+                    hints.AddForbiddenZone(ShapeContains.Circle(Module.Center + _towerOffsets[i], _towerRadius), _towerActivation);
             }
         }
     }

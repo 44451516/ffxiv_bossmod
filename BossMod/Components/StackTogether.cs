@@ -8,18 +8,15 @@ public class StackTogether(BossModule module, uint iconId, float activationDelay
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if (iconID == Icon)
+        if (iconID == Icon && Raid.TryFindSlot(actor.InstanceID, out var slot))
         {
-            var slot = Raid.FindSlot(actor.InstanceID);
-            if (slot >= 0)
-            {
-                Targets.Set(slot);
-                if (Activation == default)
-                    Activation = WorldState.FutureTime(activationDelay);
-            }
+            Targets.Set(slot);
+            if (Activation == default)
+                Activation = WorldState.FutureTime(activationDelay);
         }
     }
 
+    // this type of mechanic is usually only indicated by an icon (which has a fixed animation length) and we only get a cast event from the server if someone fails the mechanic, so we just have to make an educated guess of when the mechanic has resolved
     public override void Update()
     {
         if (Activation != default && Activation < WorldState.CurrentTime)
@@ -49,7 +46,7 @@ public class StackTogether(BossModule module, uint iconId, float activationDelay
         if (!Targets[slot])
             return;
 
-        var otherTargets = ShapeDistance.Intersection(OtherTargets(slot, actor).Select(t => ShapeDistance.Donut(t.Position, radius, 100)).ToList());
+        var otherTargets = ShapeContains.Intersection([.. OtherTargets(slot, actor).Select(t => ShapeContains.Donut(t.Position, radius, 100))]);
         hints.AddForbiddenZone(otherTargets, Activation);
     }
 }

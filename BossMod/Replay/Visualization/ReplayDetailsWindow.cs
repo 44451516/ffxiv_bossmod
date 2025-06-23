@@ -23,6 +23,7 @@ class ReplayDetailsWindow : UIWindow
     private bool _azimuthOverride = true;
     private int _povSlot = PartyState.PlayerSlot;
     private readonly ConfigUI _config;
+    private readonly PartyRolesConfig _roles = Service.Config.Get<PartyRolesConfig>();
     private bool _showConfig;
     private bool _showDebug;
     private readonly EventList _events;
@@ -30,6 +31,7 @@ class ReplayDetailsWindow : UIWindow
 
     private readonly UITree _pfTree = new();
     private AIHintsVisualizer? _pfVisu;
+    private float _pfCushion;
     private float _pfTargetRadius = 3;
     private Positional _pfPositional = Positional.Any;
 
@@ -100,11 +102,21 @@ class ReplayDetailsWindow : UIWindow
             _mgr.ActiveModule.Draw(_azimuthOverride ? _azimuth.Degrees() : _mgr.WorldState.Client.CameraAzimuth, _povSlot, true, true);
             var drawTimerPost = DateTime.Now;
 
-            if (_showDebug && _hints.ForcedMovement != null && _mgr.ActiveModule.Raid[_povSlot] is var pc && pc != null)
+            if (_showDebug && _mgr.ActiveModule.Raid[_povSlot] is var pc && pc != null)
             {
-                var movementDest = pc.Position + new WDir(_hints.ForcedMovement.Value.XZ());
-                _mgr.ActiveModule.Arena.AddLine(pc.Position, movementDest, 0x80ff00ff);
-                _mgr.ActiveModule.Arena.AddCircle(movementDest, 0.5f, 0x80ff00ff);
+                if (_hints.ForcedMovement != null)
+                {
+                    var movementDest = pc.Position + new WDir(_hints.ForcedMovement.Value.XZ());
+                    _mgr.ActiveModule.Arena.AddLine(pc.Position, movementDest, 0x80ff00ff);
+                    _mgr.ActiveModule.Arena.AddCircle(movementDest, 0.5f, 0x80ff00ff);
+                }
+
+                var movement = _mgr.ActiveModule.CalculateMovementHintsForRaidMember(_povSlot, pc);
+                foreach (var (from, to, col) in movement)
+                {
+                    _mgr.ActiveModule.Arena.AddLine(from, to, (col & 0xffffff) | 0x80000000);
+                    _mgr.ActiveModule.Arena.AddCircle(to, 0.5f, (col & 0xffffff) | 0x80000000);
+                }
             }
 
             var compList = string.Join(", ", _mgr.ActiveModule.Components.Select(c => c.GetType().Name));
@@ -163,7 +175,7 @@ class ReplayDetailsWindow : UIWindow
             var player = _mgr.WorldState.Party.Player();
             if (player != null)
             {
-                var best = _hints.ActionsToExecute.FindBest(_mgr.WorldState, player, _mgr.WorldState.Client.Cooldowns, _mgr.WorldState.Client.AnimationLock, _hints, 0.02f);
+                var best = _hints.ActionsToExecute.FindBest(_mgr.WorldState, player, _mgr.WorldState.Client.Cooldowns, _mgr.WorldState.Client.AnimationLock, _hints, 0.02f, false);
                 ImGui.TextUnformatted($"! {best.Action} ({best.Priority:f2}) in {best.Delay:f3} @ {best.Target}");
             }
             foreach (var a in _hints.ActionsToExecute.Entries)
@@ -298,7 +310,7 @@ class ReplayDetailsWindow : UIWindow
         if (actor.HPMP.MaxHP > 0)
         {
             float frac = Math.Min((float)(actor.HPMP.CurHP + actor.HPMP.Shield) / actor.HPMP.MaxHP, 1);
-            ImGui.ProgressBar(frac, new(ImGui.GetColumnWidth(), 0), $"{frac * 100:f1}% ({actor.HPMP.CurHP} + {actor.HPMP.Shield} / {actor.HPMP.MaxHP}) [{actor.PendingHPDiffence} pending]");
+            ImGui.ProgressBar(frac, new(ImGui.GetColumnWidth(), 0), $"{frac:#0.#%} ({actor.HPMP.CurHP} + {actor.HPMP.Shield} / {actor.HPMP.MaxHP}) [{actor.PendingHPDifference} pending]");
         }
 
         ImGui.TableNextColumn();
@@ -357,9 +369,10 @@ class ReplayDetailsWindow : UIWindow
             return false;
 
         var resetPF = false;
-        ImGui.BeginTable("party", 11, ImGuiTableFlags.Resizable);
+        ImGui.BeginTable("party", 12, ImGuiTableFlags.Resizable);
         ImGui.TableSetupColumn("POV", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoResize, 25);
         ImGui.TableSetupColumn("Class", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoResize, 30);
+        ImGui.TableSetupColumn("Assign", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoResize, 50);
         ImGui.TableSetupColumn("X", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoResize, 90);
         ImGui.TableSetupColumn("Z", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoResize, 90);
         ImGui.TableSetupColumn("Rot", ImGuiTableColumnFlags.WidthFixed | ImGuiTableColumnFlags.NoResize, 90);
@@ -385,6 +398,11 @@ class ReplayDetailsWindow : UIWindow
 
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(player.Class.ToString());
+            ImGui.TableNextColumn();
+            var cid = _player.WorldState.Party.Members[slot].ContentId;
+            var currentRole = _roles[cid];
+            if (UICombo.Enum("", ref currentRole))
+                _roles.Assignments[cid] = currentRole;
 
             DrawCommonColumns(player);
 
@@ -422,7 +440,7 @@ class ReplayDetailsWindow : UIWindow
         }
     }
 
-    private void DrawEnemyTable(uint oid, ICollection<Actor> actors)
+    private void DrawEnemyTable(uint oid, List<Actor> actors)
     {
         var moduleInfo = _mgr.ActiveModule != null ? BossModuleRegistry.FindByOID(_mgr.ActiveModule.PrimaryActor.OID) : null;
         var oidName = moduleInfo?.ObjectIDType?.GetEnumName(oid);
@@ -482,11 +500,11 @@ class ReplayDetailsWindow : UIWindow
         if (player == null)
             return;
 
-        _pfVisu ??= new(_hints, _mgr.WorldState, player, _pfTargetRadius);
+        _pfVisu ??= new(_hints, _mgr.WorldState, player, _pfTargetRadius, _pfCushion);
         _pfVisu.Draw(_pfTree);
 
         bool rebuild = false;
-        //rebuild |= ImGui.SliderFloat("Zone cushion", ref _pfCushion, 0.1f, 5);
+        rebuild |= ImGui.SliderFloat("Zone cushion", ref _pfCushion, 0, 5);
         rebuild |= ImGui.SliderFloat("Ability range", ref _pfTargetRadius, 3, 25);
         rebuild |= UICombo.Enum("Ability positional", ref _pfPositional);
         if (rebuild)
@@ -561,12 +579,12 @@ class ReplayDetailsWindow : UIWindow
         if (enc == null)
             return;
 
+        var primaryActorName = enc.ParticipantsByOID.TryGetValue(enc.OID, out var primary) ? primary[0].NameAt(enc.Time.Start).name : null;
+
         var player = new ReplayPlayer(_player.Replay);
         player.WorldState.Frame.Timestamp = _player.Replay.Ops[0].Timestamp;
         player.AdvanceTo(enc.Time.Start, () => { });
-        using (var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, true, new FileInfo(_player.Replay.Path).Directory!, $"Split_{enc.OID}"))
-        {
-            player.AdvanceTo(enc.Time.End, () => { });
-        }
+        using var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, true, new FileInfo(_player.Replay.Path).Directory!, $"Encounter_{Utils.StringToIdentifier(primaryActorName ?? "unknown")}");
+        player.AdvanceTo(enc.Time.End, () => { });
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace BossMod.RealmReborn.Extreme.Ex3Titan;
 
-class Geocrush(BossModule module, float radius) : Components.CastCounter(module, ActionID.MakeSpell(AID.Geocrush))
+class Geocrush(BossModule module, float radius) : Components.CastCounter(module, AID.Geocrush)
 {
     private readonly float _radius = radius;
     private const float _ringWidth = 2;
@@ -15,9 +15,9 @@ class Geocrush(BossModule module, float radius) : Components.CastCounter(module,
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var ring = ShapeDistance.Donut(Module.Center, _radius - _ringWidth, _radius);
-        hints.AddForbiddenZone(p => -ring(p));
-        hints.PredictedDamage.Add((Raid.WithSlot().Mask(), new()));
+        var ring = ShapeContains.Donut(Module.Center, _radius - _ringWidth, _radius);
+        hints.AddForbiddenZone(p => !ring(p));
+        hints.AddPredictedDamage(Raid.WithSlot().Mask(), default);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)

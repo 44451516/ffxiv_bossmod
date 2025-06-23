@@ -38,8 +38,15 @@ public sealed class ClientState
     public record struct Stats(int SkillSpeed, int SpellSpeed, int Haste);
     public record struct Pet(ulong InstanceID, byte Order, byte Stance);
     public record struct DutyAction(ActionID Action, byte CurCharges, byte MaxCharges);
+    public record struct HateInfo(ulong InstanceID, Hate[] Targets)
+    {
+        // targets are sorted by enmity order, except that player is always first
+        // nonzero entries are always at the front of the array - there is space for 32 entries, but a maximum of 8 are currently used
+        public readonly Hate[] Targets = Targets;
+    }
+    public record struct Hate(ulong InstanceID, int Enmity);
 
-    public const int NumCooldownGroups = 82;
+    public const int NumCooldownGroups = 87;
     public const int NumClassLevels = 32; // see ClassJob.ExpArrayIndex
     public const int NumBlueMageSpells = 24;
 
@@ -49,8 +56,9 @@ public sealed class ClientState
     public float AnimationLock;
     public Combo ComboState;
     public Stats PlayerStats;
+    public float MoveSpeed = 6f;
     public readonly Cooldown[] Cooldowns = new Cooldown[NumCooldownGroups];
-    public readonly DutyAction[] DutyActions = new DutyAction[2];
+    public readonly DutyAction[] DutyActions = new DutyAction[5];
     public readonly byte[] BozjaHolster = new byte[(int)BozjaHolsterID.Count]; // number of copies in holster per item
     public readonly uint[] BlueMageSpells = new uint[NumBlueMageSpells];
     public readonly short[] ClassJobLevels = new short[NumClassLevels];
@@ -59,6 +67,14 @@ public sealed class ClientState
     public ulong FocusTargetId;
     public Angle ForcedMovementDirection; // used for temporary misdirection and spinning states
     public uint[] ContentKeyValueData = new uint[6]; // used for content-specific persistent player attributes, like bozja resistance rank
+    public HateInfo CurrentTargetHate = new(0, new Hate[32]);
+
+    // if an action has SecondaryCostType between 1 and 4, it's considered usable as long as the corresponding timer in this array is >0; the timer is set to 5 when certain ActionEffects are received and ticks down each frame
+    // 1: unknown - referenced in ActionManager code but not present in sheets, included for completeness
+    // 2: block
+    // 3: parry
+    // 4: dodge
+    public float[] ProcTimers = new float[4];
 
     public uint GetContentValue(uint key) => ContentKeyValueData[0] == key
         ? ContentKeyValueData[1]
@@ -103,12 +119,15 @@ public sealed class ClientState
         if (PlayerStats != default)
             yield return new OpPlayerStatsChange(PlayerStats);
 
+        if (MoveSpeed != 6f)
+            yield return new OpMoveSpeedChange(MoveSpeed);
+
         var cooldowns = Cooldowns.Select((v, i) => (i, v)).Where(iv => iv.v.Total > 0).ToList();
         if (cooldowns.Count > 0)
             yield return new OpCooldown(false, cooldowns);
 
         if (DutyActions.Any(a => a != default))
-            yield return new OpDutyActionsChange(DutyActions[0], DutyActions[1]);
+            yield return new OpDutyActionsChange(DutyActions);
 
         var bozjaHolster = BozjaHolster.Select((v, i) => ((BozjaHolsterID)i, v)).Where(iv => iv.v > 0).ToList();
         if (BozjaHolster.Any(count => count != 0))
@@ -131,6 +150,9 @@ public sealed class ClientState
 
         if (ForcedMovementDirection != default)
             yield return new OpForcedMovementDirectionChange(ForcedMovementDirection);
+
+        if (CurrentTargetHate.InstanceID != 0 || CurrentTargetHate.Targets.Any(t => t != default))
+            yield return new OpHateChange(CurrentTargetHate.InstanceID, CurrentTargetHate.Targets);
     }
 
     public void Tick(float dt)
@@ -233,6 +255,17 @@ public sealed class ClientState
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLST"u8).Emit(Value.SkillSpeed).Emit(Value.SpellSpeed).Emit(Value.Haste);
     }
 
+    public Event<OpMoveSpeedChange> MoveSpeedChanged = new();
+    public sealed record class OpMoveSpeedChange(float Speed) : WorldState.Operation
+    {
+        protected override void Exec(WorldState ws)
+        {
+            ws.Client.MoveSpeed = Speed;
+            ws.Client.MoveSpeedChanged.Fire(this);
+        }
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLMV"u8).Emit(Speed);
+    }
+
     public Event<OpCooldown> CooldownsChanged = new();
     public sealed record class OpCooldown(bool Reset, List<(int group, Cooldown value)> Cooldowns) : WorldState.Operation
     {
@@ -255,15 +288,24 @@ public sealed class ClientState
     }
 
     public Event<OpDutyActionsChange> DutyActionsChanged = new();
-    public sealed record class OpDutyActionsChange(DutyAction Slot0, DutyAction Slot1) : WorldState.Operation
+    public sealed record class OpDutyActionsChange(DutyAction[] Slots) : WorldState.Operation
     {
+        public readonly DutyAction[] Slots = Slots;
+
         protected override void Exec(WorldState ws)
         {
-            ws.Client.DutyActions[0] = Slot0;
-            ws.Client.DutyActions[1] = Slot1;
+            Array.Fill(ws.Client.DutyActions, default);
+            for (var i = 0; i < Slots.Length; i++)
+                ws.Client.DutyActions[i] = Slots[i];
             ws.Client.DutyActionsChanged.Fire(this);
         }
-        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLDA"u8).Emit(Slot0.Action).Emit(Slot0.CurCharges).Emit(Slot0.MaxCharges).Emit(Slot1.Action).Emit(Slot1.CurCharges).Emit(Slot1.MaxCharges);
+        public override void Write(ReplayRecorder.Output output)
+        {
+            output.EmitFourCC("CLDA"u8);
+            output.Emit((byte)Slots.Length);
+            foreach (var s in Slots)
+                output.Emit(s.Action).Emit(s.CurCharges).Emit(s.MaxCharges);
+        }
     }
 
     public Event<OpBozjaHolsterChange> BozjaHolsterChanged = new();
@@ -391,5 +433,39 @@ public sealed class ClientState
     {
         protected override void Exec(WorldState ws) => ws.Client.FateInfo.Fire(this);
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("FATE"u8).Emit(FateId).Emit(StartTime.Ticks);
+    }
+
+    public Event<OpHateChange> HateChanged = new();
+    public sealed record class OpHateChange(ulong InstanceID, Hate[] Targets) : WorldState.Operation
+    {
+        public readonly Hate[] Targets = Targets;
+        protected override void Exec(WorldState ws)
+        {
+            ws.Client.CurrentTargetHate = new(InstanceID, Targets);
+            ws.Client.HateChanged.Fire(this);
+        }
+        public override void Write(ReplayRecorder.Output output)
+        {
+            output.EmitFourCC("HATE"u8).EmitActor(InstanceID);
+            var countNonEmpty = Array.IndexOf(Targets, default);
+            output.Emit(countNonEmpty);
+            for (var i = 0; i < countNonEmpty; i++)
+                output.EmitActor(Targets[i].InstanceID).Emit(Targets[i].Enmity);
+        }
+    }
+
+    public Event<OpProcTimersChange> ProcTimersChanged = new();
+    public sealed record class OpProcTimersChange(float[] Value) : WorldState.Operation
+    {
+        public readonly float[] Value = Value;
+        protected override void Exec(WorldState ws)
+        {
+            ws.Client.ProcTimers = Value;
+            ws.Client.ProcTimersChanged.Fire(this);
+        }
+        public override void Write(ReplayRecorder.Output output)
+        {
+            output.EmitFourCC("CLPR"u8).Emit(Value[0]).Emit(Value[1]).Emit(Value[2]).Emit(Value[3]);
+        }
     }
 }

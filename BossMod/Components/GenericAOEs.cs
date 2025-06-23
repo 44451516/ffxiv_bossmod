@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Components;
 
 // generic component that shows arbitrary shapes representing avoidable aoes
-public abstract class GenericAOEs(BossModule module, ActionID aid = default, string warningText = "GTFO from aoe!") : CastCounter(module, aid)
+public abstract class GenericAOEs(BossModule module, Enum? aid = default, string warningText = "GTFO from aoe!") : CastCounter(module, aid)
 {
     public record struct AOEInstance(AOEShape Shape, WPos Origin, Angle Rotation = default, DateTime Activation = default, uint Color = 0, bool Risky = true)
     {
@@ -32,18 +32,37 @@ public abstract class GenericAOEs(BossModule module, ActionID aid = default, str
     }
 }
 
-// self-targeted aoe that happens at the end of the cast
-public class SelfTargetedAOEs(BossModule module, ActionID aid, AOEShape shape, int maxCasts = int.MaxValue) : GenericAOEs(module, aid)
+// standard AOE, targeted at some location (usually caster), resolves on cast event
+public class StandardAOEs(BossModule module, Enum aid, AOEShape shape, int maxCasts = int.MaxValue, string warningText = "GTFO from aoe!", bool highlightImminent = false) : GenericAOEs(module, aid, warningText)
 {
     public AOEShape Shape { get; init; } = shape;
     public int MaxCasts = maxCasts; // used for staggered aoes, when showing all active would be pointless
     public uint Color; // can be customized if needed
+    public uint ColorImminent = ArenaColor.Danger;
     public bool Risky = true; // can be customized if needed
     public readonly List<Actor> Casters = [];
 
+    public StandardAOEs(BossModule module, Enum aid, float radius, int maxCasts = int.MaxValue, string warningText = "GTFO from aoe!", bool highlightImminent = false) : this(module, aid, new AOEShapeCircle(radius), maxCasts, warningText, highlightImminent) { }
+
     public IEnumerable<Actor> ActiveCasters => Casters.Take(MaxCasts);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => ActiveCasters.Select(c => new AOEInstance(Shape, c.Position, c.CastInfo!.Rotation, Module.CastFinishAt(c.CastInfo), Color, Risky));
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        DateTime nextActivation = default;
+        foreach (var c in ActiveCasters)
+        {
+            var color = Color;
+            var thisActivation = Module.CastFinishAt(c.CastInfo);
+            if (highlightImminent)
+            {
+                if (nextActivation == default)
+                    nextActivation = thisActivation.AddSeconds(0.5f);
+                if (thisActivation < nextActivation)
+                    color = ColorImminent;
+            }
+            yield return new AOEInstance(Shape, c.CastInfo!.LocXZ, c.CastInfo!.Rotation, thisActivation, color, Risky);
+        }
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -58,58 +77,32 @@ public class SelfTargetedAOEs(BossModule module, ActionID aid, AOEShape shape, i
     }
 }
 
-// self-targeted aoe that uses current caster's rotation instead of rotation from cast-info - used by legacy modules written before i've reversed real cast rotation
-public class SelfTargetedLegacyRotationAOEs(BossModule module, ActionID aid, AOEShape shape, int maxCasts = int.MaxValue) : GenericAOEs(module, aid)
+// standard AOE where multiple action IDs should be grouped together as logically the same action
+public class GroupedAOEs(BossModule module, Enum[] aids, AOEShape shape, int maxCasts = int.MaxValue, bool highlightImminent = false) : StandardAOEs(module, aids[0], shape, maxCasts, highlightImminent: highlightImminent)
 {
-    public AOEShape Shape { get; init; } = shape;
-    public int MaxCasts = maxCasts; // used for staggered aoes, when showing all active would be pointless
-    public readonly List<Actor> Casters = [];
-
-    public IEnumerable<Actor> ActiveCasters => Casters.Take(MaxCasts);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => ActiveCasters.Select(c => new AOEInstance(Shape, c.Position, c.Rotation, Module.CastFinishAt(c.CastInfo)));
+    public readonly List<ActionID> IDs = [.. aids.Select(ActionID.MakeSpell)];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (IDs.Contains(spell.Action))
             Casters.Add(caster);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (IDs.Contains(spell.Action))
             Casters.Remove(caster);
     }
-}
 
-// location-targeted aoe that happens at the end of the cast
-public class LocationTargetedAOEs(BossModule module, ActionID aid, float radius, string warningText = "GTFO from puddle!", int maxCasts = int.MaxValue) : GenericAOEs(module, aid, warningText)
-{
-    public AOEShapeCircle Shape { get; init; } = new(radius);
-    public int MaxCasts = maxCasts; // used for staggered aoes, when showing all active would be pointless
-    public uint Color; // can be customized if needed
-    public bool Risky = true; // can be customized if needed
-    public readonly List<Actor> Casters = [];
-
-    public IEnumerable<Actor> ActiveCasters => Casters.Take(MaxCasts);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => ActiveCasters.Select(c => new AOEInstance(Shape, c.CastInfo!.LocXZ, c.CastInfo.Rotation, Module.CastFinishAt(c.CastInfo), Color, Risky));
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
-            Casters.Add(caster);
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action == WatchedAction)
-            Casters.Remove(caster);
+        if (IDs.Contains(spell.Action))
+            NumCasts++;
     }
 }
 
 // 'charge at location' aoes that happen at the end of the cast
-public class ChargeAOEs(BossModule module, ActionID aid, float halfWidth) : GenericAOEs(module, aid)
+public class ChargeAOEs(BossModule module, Enum aid, float halfWidth) : GenericAOEs(module, aid)
 {
     public float HalfWidth { get; init; } = halfWidth;
     public readonly List<(Actor caster, AOEShape shape, Angle direction)> Casters = [];

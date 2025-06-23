@@ -1,8 +1,8 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW1;
 
-class HeavensflameAOE(BossModule module) : Components.CastCounter(module, ActionID.MakeSpell(AID.HeavensflameAOE));
+class HeavensflameAOE(BossModule module) : Components.CastCounter(module, AID.HeavensflameAOE);
 
-class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.FaithUnmoving), 16)
+class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID.FaithUnmoving, 16)
 {
     private readonly WPos[] _playerAdjustedPositions = new WPos[PartyState.MaxPartySize];
     private readonly int[] _playerIcons = new int[PartyState.MaxPartySize]; // 0 = unassigned, 1 = circle/red, 2 = triangle/green, 3 = cross/blue, 4 = square/purple
@@ -85,8 +85,7 @@ class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTar
         };
         if (icon != 0)
         {
-            var slot = Raid.FindSlot(actor.InstanceID);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(actor, out var slot))
                 _playerIcons[slot] = icon;
         }
     }
@@ -113,9 +112,9 @@ class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTar
         {
             case DSW1Config.HeavensflameHints.Waymarks:
                 {
-                    if (WorldState.Waymarks[(int)Waymark.A + (icon - 1)] is var alt1 && alt1 != null)
+                    if (WorldState.Waymarks.GetFieldMark((int)Waymark.A + (icon - 1)) is var alt1 && alt1 != null)
                         yield return new(alt1.Value.XZ());
-                    if (WorldState.Waymarks[(int)Waymark.N1 + (icon - 1)] is var alt2 && alt2 != null)
+                    if (WorldState.Waymarks.GetFieldMark((int)Waymark.N1 + (icon - 1)) is var alt2 && alt2 != null)
                         yield return new(alt2.Value.XZ());
                 }
                 break;

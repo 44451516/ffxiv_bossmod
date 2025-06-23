@@ -18,12 +18,12 @@ public enum OID : uint
     DirtPile = 0x1EAEAE
 }
 
-class Tribulation(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 3, ActionID.MakeSpell(AID.Tribulation), m => m.Enemies(OID.DirtPile).Where(x => x.EventState != 7), 0);
-class ImmortalAnathema(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.ImmortalAnathema));
-class DarkPulse(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.DarkPulse), 6);
-class DarkWell(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.DarkWell), 5);
-class DarkShock(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.DarkShock), 6);
-class Shadowbolt(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.Shadowbolt));
+class Tribulation(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 3, AID.Tribulation, m => m.Enemies(OID.DirtPile).Where(x => x.EventState != 7), 0);
+class ImmortalAnathema(BossModule module) : Components.RaidwideCast(module, AID.ImmortalAnathema);
+class DarkPulse(BossModule module) : Components.StackWithCastTargets(module, AID.DarkPulse, 6);
+class DarkWell(BossModule module) : Components.SpreadFromCastTargets(module, AID.DarkWell, 5);
+class DarkShock(BossModule module) : Components.StandardAOEs(module, AID.DarkShock, 6);
+class Shadowbolt(BossModule module) : Components.SingleTargetCast(module, AID.Shadowbolt);
 
 // not sure about radius, sweep trigger is incredibly janky
 // filter out brooms who are too far outside the arena since they don't affect players and the AOE lingering on minimap is annoying
@@ -33,8 +33,8 @@ class Sweep(BossModule module) : Components.PersistentVoidzone(module, 4, m => m
     {
         foreach (var t in Sources(Module))
         {
-            hints.AddForbiddenZone(ShapeDistance.Capsule(t.Position, t.Rotation, 2, 4));
-            hints.AddForbiddenZone(ShapeDistance.Capsule(t.Position, t.Rotation, 6, 4), WorldState.FutureTime(2));
+            hints.AddForbiddenZone(ShapeContains.Capsule(t.Position, t.Rotation, 2, 4));
+            hints.AddForbiddenZone(ShapeContains.Capsule(t.Position, t.Rotation, 6, 4), WorldState.FutureTime(2));
         }
     }
 }
@@ -69,8 +69,7 @@ class DeepClean(BossModule module) : Components.GenericAOEs(module)
         if (modelState == 27 && animState1 == 1)
         {
             var c = Cleanings.MinBy(e => (e.Actor.Position - actor.Position).Length());
-            if (c != null)
-                c.CleanedAt = WorldState.CurrentTime;
+            c?.CleanedAt = WorldState.CurrentTime;
         }
     }
 

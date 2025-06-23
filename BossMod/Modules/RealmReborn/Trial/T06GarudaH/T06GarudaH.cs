@@ -45,26 +45,26 @@ class Friction(BossModule module) : BossComponent(module)
     {
         if (Module.PrimaryActor.CastInfo == null) // don't forbid standing near monoliths while boss is casting to allow avoiding aoes
             foreach (var m in ((T06GarudaH)Module).ActiveMonoliths)
-                hints.AddForbiddenZone(ShapeDistance.Circle(m.Position, 5));
+                hints.AddForbiddenZone(ShapeContains.Circle(m.Position, 5));
     }
 }
 
-class Downburst(BossModule module) : Components.Cleave(module, ActionID.MakeSpell(AID.Downburst), new AOEShapeCone(11.7f, 60.Degrees()));
-class Slipstream(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Slipstream), new AOEShapeCone(11.7f, 45.Degrees()));
+class Downburst(BossModule module) : Components.Cleave(module, AID.Downburst, new AOEShapeCone(11.7f, 60.Degrees()));
+class Slipstream(BossModule module) : Components.StandardAOEs(module, AID.Slipstream, new AOEShapeCone(11.7f, 45.Degrees()));
 
-class MistralShriek(BossModule module) : Components.CastLineOfSightAOE(module, ActionID.MakeSpell(AID.MistralShriek), 24.7f, true)
+class MistralShriek(BossModule module) : Components.CastLineOfSightAOE(module, AID.MistralShriek, 24.7f, true)
 {
     public override IEnumerable<Actor> BlockerActors() => ((T06GarudaH)Module).ActiveMonoliths;
 }
 
-class MistralSong(BossModule module) : Components.CastLineOfSightAOE(module, ActionID.MakeSpell(AID.MistralSong), 31.7f, true)
+class MistralSong(BossModule module) : Components.CastLineOfSightAOE(module, AID.MistralSong, 31.7f, true)
 {
     public override IEnumerable<Actor> BlockerActors() => ((T06GarudaH)Module).ActiveMonoliths;
 }
 
-class AerialBlast(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.AerialBlast));
-class GreatWhirlwind(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.GreatWhirlwind), 8);
-class EyeOfTheStorm(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.EyeOfTheStorm), new AOEShapeDonut(12, 25));
+class AerialBlast(BossModule module) : Components.RaidwideCast(module, AID.AerialBlast);
+class GreatWhirlwind(BossModule module) : Components.StandardAOEs(module, AID.GreatWhirlwind, 8);
+class EyeOfTheStorm(BossModule module) : Components.StandardAOEs(module, AID.EyeOfTheStorm, new AOEShapeDonut(12, 25));
 
 class T06GarudaHStates : StateMachineBuilder
 {

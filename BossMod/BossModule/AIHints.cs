@@ -25,6 +25,9 @@ public sealed class AIHints
         public bool ShouldBeDispelled; // if set, AI will try to cast a dispel action; only relevant for foray content
         public bool StayAtLongRange; // if set, players with ranged attacks don't bother coming closer than max range (TODO: reconsider)
         public bool Spikes; // if set, autoattacks will be prevented
+
+        // easier to read
+        public bool AllowDOTs { get => !ForbidDOTs; set => ForbidDOTs = !value; }
     }
 
     public enum SpecialMode
@@ -33,6 +36,19 @@ public sealed class AIHints
         Pyretic, // pyretic/acceleration bomb type of effects - no movement, no actions, no casting allowed at activation time
         Freezing, // should be moving at activation time
         Misdirection, // temporary misdirection - if current time is greater than activation, use special pathfinding codepath
+    }
+
+    public enum PredictedDamageType
+    {
+        None,
+        Tankbuster, // cast is expected to do a decent amount of damage, tank AI should use mitigation
+        Raidwide, // cast is expected to hit everyone and deal minor damage; also used for spread components
+        Shared, // cast is expected to hit multiple players; modules might have special behavior when intentionally taking this damage solo
+    }
+
+    public record struct DamagePrediction(BitMask Players, DateTime Activation, PredictedDamageType Type = PredictedDamageType.None)
+    {
+        public readonly BitMask Players = Players;
     }
 
     public static readonly ArenaBounds DefaultBounds = new ArenaBoundsSquare(30);
@@ -62,13 +78,16 @@ public sealed class AIHints
 
     // positioning: list of shapes that are either forbidden to stand in now or will be in near future
     // AI will try to move in such a way to avoid standing in any forbidden zone after its activation or outside of some restricted zone after its activation, even at the cost of uptime
-    public List<(Func<WPos, float> shapeDistance, DateTime activation, ulong Source)> ForbiddenZones = [];
+    public List<(Func<WPos, bool> containsFn, DateTime activation, ulong Source)> ForbiddenZones = [];
 
     // positioning: list of goal functions
     // AI will try to move to reach non-forbidden point with highest goal value (sum of values returned by all functions)
     // guideline: rotation modules should return 1 if it would use single-target action from that spot, 2 if it is also a positional, 3 if it would use aoe that would hit minimal viable number of targets, +1 for each extra target
     // other parts of the code can return small (e.g. 0.01) values to slightly (de)prioritize some positions, or large (e.g. 1000) values to effectively soft-override target position (but still utilize pathfinding)
     public List<Func<WPos, float>> GoalZones = [];
+
+    // AI will treat the pixels inside these shapes as unreachable and not try to pathfind through them (unlike imminent forbidden zones)
+    public List<Func<WPos, bool>> TemporaryObstacles = [];
 
     // positioning: next positional hint (TODO: reconsider, maybe it should be a list prioritized by in-gcds, and imminent should be in-gcds instead? or maybe it should be property of an enemy? do we need correct?)
     public (Actor? Target, Positional Pos, bool Imminent, bool Correct) RecommendedPositional;
@@ -85,7 +104,7 @@ public sealed class AIHints
 
     // predicted incoming damage (raidwides, tankbusters, etc.)
     // AI will attempt to shield & mitigate
-    public List<(BitMask players, DateTime activation)> PredictedDamage = [];
+    public List<DamagePrediction> PredictedDamage = [];
 
     // list of party members with cleansable debuffs that are dangerous enough to sacrifice a GCD to cleanse them, i.e. doom, throttle, some types of vuln debuff, etc
     public BitMask ShouldCleanse;
@@ -118,6 +137,7 @@ public sealed class AIHints
         InteractWithTarget = null;
         ForbiddenZones.Clear();
         GoalZones.Clear();
+        TemporaryObstacles.Clear();
         RecommendedPositional = default;
         ForbiddenDirections.Clear();
         ImminentSpecialMode = default;
@@ -153,7 +173,7 @@ public sealed class AIHints
             h.Priority = Math.Max(h.Priority, 0);
     }
 
-    public void SetPriority(Actor actor, int priority)
+    public void SetPriority(Actor? actor, int priority)
     {
         if (FindEnemy(actor) is { } enemy)
             enemy.Priority = priority;
@@ -162,8 +182,10 @@ public sealed class AIHints
     public void InteractWithOID(WorldState ws, uint oid) => InteractWithTarget = ws.Actors.FirstOrDefault(a => a.OID == oid && a.IsTargetable);
     public void InteractWithOID<OID>(WorldState ws, OID oid) where OID : Enum => InteractWithOID(ws, (uint)(object)oid);
 
-    public void AddForbiddenZone(Func<WPos, float> shapeDistance, DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((shapeDistance, activation, source));
-    public void AddForbiddenZone(AOEShape shape, WPos origin, Angle rot = new(), DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((shape.Distance(origin, rot), activation, source));
+    public void AddForbiddenZone(Func<WPos, bool> containsFn, DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((containsFn, activation, source));
+    public void AddForbiddenZone(AOEShape shape, WPos origin, Angle rot = new(), DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((shape.CheckFn(origin, rot), activation, source));
+
+    public void AddPredictedDamage(BitMask players, DateTime activation, PredictedDamageType type = PredictedDamageType.Raidwide) => PredictedDamage.Add(new(players, activation, type));
 
     public void AddSpecialMode(SpecialMode mode, DateTime activation)
     {
@@ -179,12 +201,14 @@ public sealed class AIHints
         HighestPotentialTargetPriority = Math.Max(0, PotentialTargets.FirstOrDefault()?.Priority ?? 0);
         ForbiddenZones.SortBy(e => e.activation);
         ForbiddenDirections.SortBy(e => e.activation);
-        PredictedDamage.SortBy(e => e.activation);
+        PredictedDamage.SortBy(e => e.Activation);
     }
 
     public void InitPathfindMap(Pathfinding.Map map)
     {
         PathfindMapBounds.PathfindMap(map, PathfindMapCenter);
+        foreach (var o in TemporaryObstacles)
+            map.BlockPixelsInside(o, -1000);
         if (PathfindMapObstacles.Bitmap != null)
         {
             var offX = -PathfindMapObstacles.Rect.Left;

@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Savage.P6SHegemone;
 
-class Transmission(BossModule module) : Components.CastCounter(module, ActionID.MakeSpell(AID.ReekHavoc))
+class Transmission(BossModule module) : Components.CastCounter(module, AID.ReekHavoc)
 {
     private readonly DateTime[] _infectionExpire = new DateTime[PartyState.MaxPartySize]; // when status expires, it will be replaced with stun - we show aoes for last few seconds only
     private BitMask _snakeInfection; // hits front
@@ -64,8 +64,7 @@ class Transmission(BossModule module) : Components.CastCounter(module, ActionID.
         {
             case SID.Glossomorph:
             case SID.Chelomorph:
-                var slot = Raid.FindSlot(actor.InstanceID);
-                if (slot >= 0)
+                if (Raid.TryFindSlot(actor, out var slot))
                     _infectionExpire[slot] = status.ExpireAt;
                 break;
             case SID.OutOfControlSnake:

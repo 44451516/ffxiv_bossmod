@@ -23,10 +23,10 @@ public enum SID : uint
     DeepFreeze = 3479, // Boss->10BB/player, extra=0x1
 }
 
-class SheetOfIce(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.SheetOfIce), 5);
-class PillarImpact(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PillarImpact), new AOEShapeCircle(6.5f));
-class PillarPierce(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PillarPierce), new AOEShapeRect(82.5f, 2));
-class Cauterize(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Cauterize), new AOEShapeRect(55, 10));
+class SheetOfIce(BossModule module) : Components.StandardAOEs(module, AID.SheetOfIce, 5);
+class PillarImpact(BossModule module) : Components.StandardAOEs(module, AID.PillarImpact, new AOEShapeCircle(6.5f));
+class PillarPierce(BossModule module) : Components.StandardAOEs(module, AID.PillarPierce, new AOEShapeRect(82.5f, 2));
+class Cauterize(BossModule module) : Components.StandardAOEs(module, AID.Cauterize, new AOEShapeRect(55, 10));
 
 class Prey(BossModule module) : BossComponent(module)
 {
@@ -54,10 +54,10 @@ class Prey(BossModule module) : BossComponent(module)
         else
         {
             // prevent premature swap, even though it doesn't really matter, because the debuff generally falls off with plenty of time left
-            hints.AddForbiddenZone(ShapeDistance.Circle(partner.Position, 5), WorldState.FutureTime(1));
+            hints.AddForbiddenZone(ShapeContains.Circle(partner.Position, 5), WorldState.FutureTime(1));
 
             if (Module.PrimaryActor.IsTargetable)
-                hints.AddForbiddenZone(Cleave.Distance(Module.PrimaryActor.Position, Module.PrimaryActor.AngleTo(partner)), WorldState.FutureTime(1));
+                hints.AddForbiddenZone(Cleave.CheckFn(Module.PrimaryActor.Position, Module.PrimaryActor.AngleTo(partner)), WorldState.FutureTime(1));
         }
     }
 

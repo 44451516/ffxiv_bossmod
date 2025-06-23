@@ -1,10 +1,10 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex3Sphene;
 
-class Aeroquell(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.Aeroquell), 5, 4);
+class Aeroquell(BossModule module) : Components.StackWithCastTargets(module, AID.Aeroquell, 5, 4);
 class AeroquellTwister(BossModule module) : Components.PersistentVoidzone(module, 5, m => m.Enemies(OID.Twister));
 class MissingLink(BossModule module) : Components.Chains(module, (uint)TetherID.MissingLink, default, 25);
 
-class WindOfChange(BossModule module) : Components.Knockback(module, ActionID.MakeSpell(AID.WindOfChange), true)
+class WindOfChange(BossModule module) : Components.Knockback(module, AID.WindOfChange, true)
 {
     private readonly Angle[] _directions = new Angle[PartyState.MaxPartySize];
     private DateTime _activation;
@@ -23,7 +23,7 @@ class WindOfChange(BossModule module) : Components.Knockback(module, ActionID.Ma
             SID.EastWindOfChange => -90.Degrees(),
             _ => default
         };
-        if (dir != default && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if (dir != default && Raid.TryFindSlot(actor.InstanceID, out var slot))
         {
             _directions[slot] = dir;
             _activation = status.ExpireAt;
@@ -35,7 +35,7 @@ class WindOfChange(BossModule module) : Components.Knockback(module, ActionID.Ma
         if (spell.Action == WatchedAction)
         {
             ++NumCasts;
-            if (Raid.FindSlot(spell.MainTargetID) is var slot && slot >= 0)
+            if (Raid.TryFindSlot(spell.MainTargetID, out var slot))
                 _directions[slot] = default;
         }
     }

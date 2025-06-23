@@ -4,7 +4,7 @@ using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player)
+public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player, PotionType.Intelligence)
 {
     public enum Track { Motif = SharedTrack.Count, Holy, Hammer }
     public enum MotifStrategy { Combat, Downtime, Instant }
@@ -20,7 +20,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
             .AddOption(MotifStrategy.Downtime, "Downtime", "Cast motifs in combat if there are no targets nearby")
             .AddOption(MotifStrategy.Instant, "Instant", "Only cast motifs when they are instant (out of combat)");
 
-        def.DefineSimple(Track.Holy, "Holy").AddAssociatedActions(AID.HolyInWhite);
+        def.DefineSimple(Track.Holy, "Holy").AddAssociatedActions(AID.HolyInWhite, AID.CometInBlack);
         def.DefineSimple(Track.Hammer, "Hammer").AddAssociatedActions(AID.HammerStamp);
 
         return def;
@@ -139,6 +139,9 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
 
         BestLineTarget = SelectTarget(strategy, primaryTarget, 25, Is25yRectTarget).Best;
 
+        if (!Player.InCombat && Player.CastInfo is { Action: var act } && (AID)act.ID is AID.PomMotif or AID.WingMotif or AID.ClawMotif or AID.MawMotif or AID.HammerMotif or AID.StarrySkyMotif)
+            Hints.ForceCancelCast = true;
+
         var motifOk = IsMotifOk(strategy);
 
         if (motifOk)
@@ -169,8 +172,8 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID is LeylinesOID && x.OwnerID == Player.InstanceID) is Actor ll)
             Hints.GoalZones.Add(p => p.InCircle(ll.Position, 8) ? 0.5f : 0);
 
-        if (!Player.InCombat && primaryTarget != null && Paint == 0)
-            PushGCD(AID.RainbowDrip, primaryTarget, GCDPriority.Standard);
+        //if (!Player.InCombat && primaryTarget != null && Paint == 0)
+        //    PushGCD(AID.RainbowDrip, primaryTarget, GCDPriority.Standard);
 
         if (Player.InCombat && primaryTarget != null)
         {
@@ -187,7 +190,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
 
             PushOGCD(BestPortrait, BestLineTarget);
 
-            if (Player.HPMP.CurMP <= 7000)
+            if (MP <= Player.HPMP.MaxMP * 0.7f)
                 PushOGCD(AID.LucidDreaming, Player);
         }
 
@@ -241,11 +244,11 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
 
     private bool IsMotifOk(StrategyValues strategy)
     {
-        if (Player.MountId > 0)
-            return false;
-
         if (!Player.InCombat)
             return true;
+
+        if (Utils.IsNonBossFate(World.Client.ActiveFate.ID))
+            return !Player.InCombat;
 
         // spend buffs instead of casting motifs
         if (Hyperphantasia > 0 || SpectrumLeft > GCD || RainbowBright > GCD || Starstruck > GCD)
@@ -281,7 +284,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
 
     private void Hammer(StrategyValues strategy)
     {
-        if (HammerTime.Stacks == 0)
+        if (HammerTime.Stacks == 0 || strategy.Option(Track.Hammer).As<OffensiveStrategy>() == OffensiveStrategy.Delay)
             return;
 
         var prio = GCDPriority.HammerMove;
@@ -303,7 +306,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
 
     private void Holy(StrategyValues strategy)
     {
-        if (Paint == 0)
+        if (Paint == 0 || strategy.Option(Track.Holy).As<OffensiveStrategy>() == OffensiveStrategy.Delay)
             return;
 
         var prio = GCDPriority.HolyMove;

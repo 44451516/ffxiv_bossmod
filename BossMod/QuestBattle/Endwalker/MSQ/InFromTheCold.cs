@@ -1,6 +1,4 @@
-﻿using BossMod.Autorotation;
-
-namespace BossMod.QuestBattle.Endwalker.MSQ;
+﻿namespace BossMod.QuestBattle.Endwalker.MSQ;
 
 class ImperialAI(WorldState ws) : UnmanagedRotation(ws, 3)
 {
@@ -52,7 +50,7 @@ internal class InFromTheCold(WorldState ws) : QuestBattle(ws)
     {
         foreach (var h in hints.PotentialTargets.Where(p => p.Actor.Position.InCircle(player.Position, 40)))
             if (!h.Actor.InCombat && !h.Actor.Position.AlmostEqual(new(111, -317), 10))
-                hints.AddForbiddenZone(ShapeDistance.Cone(h.Actor.Position, 8.5f + h.Actor.HitboxRadius, h.Actor.Rotation, 45.Degrees()));
+                hints.AddForbiddenZone(ShapeContains.Cone(h.Actor.Position, 8.5f + h.Actor.HitboxRadius, h.Actor.Rotation, 45.Degrees()));
 
         _ai.Execute(player, hints);
     }
@@ -69,7 +67,7 @@ internal class InFromTheCold(WorldState ws) : QuestBattle(ws)
             .Named("Medkit")
             .Hints((player, hints) => hints.PrioritizeTargetsByOID(0x3507))
             .WithInteract(0x3507)
-            .With(obj => obj.OnDutyActionsChange += (op) => obj.CompleteIf(op.Slot0.Action.ID == 27315)),
+            .With(obj => obj.OnDutyActionsChange += (op) => obj.CompleteIf(op.Slots[0].Action.ID == 27315)),
 
         new QuestObjective(ws)
             .Named("F")

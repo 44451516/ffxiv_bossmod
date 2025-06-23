@@ -38,30 +38,48 @@ public enum AID : uint
 
 public enum IconID : uint
 {
-    Icon218 = 218, // player
+    Tankbuster = 218, // player
 }
 
-//class DreamsOfIce(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.DreamsOfIce), new AOEShapeCircle(6));
-class Epode(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Epode), new AOEShapeRect(70, 6, 70));
+class Epode(BossModule module) : Components.StandardAOEs(module, AID.Epode, new AOEShapeRect(70, 6));
 
-class EruptionForteAOE(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.EruptionForteAOE), 8);
+class EruptionForteAOE(BossModule module) : Components.StandardAOEs(module, AID.EruptionForteAOE, 8);
 
-class LeftFiragaForte(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LeftFiragaForte), new AOEShapeRect(40, 40, DirectionOffset: 90.Degrees()));
-class RightFiragaForte(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.RightFiragaForte), new AOEShapeRect(40, 40, DirectionOffset: -90.Degrees()));
+class FiragaForte(BossModule module) : Components.GroupedAOEs(module, [AID.LeftFiragaForte, AID.RightFiragaForte], new AOEShapeRect(40, 10));
 
-class ThundagaForte1(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.ThundagaForte1), 15);
+class ThundagaForte1(BossModule module) : Components.StandardAOEs(module, AID.ThundagaForte1, 15);
 
-class DarkForte(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.DarkForte));
-class Entracte(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Entracte));
+class DarkForte(BossModule module) : Components.SingleTargetCast(module, AID.DarkForte);
+class Entracte(BossModule module) : Components.RaidwideCast(module, AID.Entracte);
 
-class DreamsOfIce(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 6, ActionID.MakeSpell(AID.DreamsOfIce), m => m.Enemies(OID.Ice).Where(v => v.EventState != 7), 0.1f);
-
-class CurtainCall(BossModule module) : Components.CastLineOfSightAOE(module, ActionID.MakeSpell(AID.CurtainCall), 60, false)
+class CurtainCall(BossModule module) : Components.GenericLineOfSightAOE(module, AID.CurtainCall, 60, true)
 {
-    public override IEnumerable<Actor> BlockerActors() => Module.Enemies(OID.Ice).Where(a => !a.IsDead);
+    public override void OnEventEnvControl(byte index, uint state)
+    {
+        if (index == 5)
+        {
+            switch (state)
+            {
+                // ice appears
+                case 0x00020001:
+                    Modify(Module.PrimaryActor.Position, [(Arena.Center, 6)], Module.CastFinishAt(Module.PrimaryActor.CastInfo));
+                    break;
+                // ice disappears - this just removes the blocker, cast is already finished at this point
+                case 0x00080004:
+                    Modify(null, []);
+                    break;
+            }
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action == WatchedAction)
+            Modify(null, Blockers);
+    }
 }
 
-class ThundagaForte(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.Strophe))
+class ThundagaForte(BossModule module) : Components.GenericAOEs(module, AID.Strophe)
 {
     private readonly List<Actor> _castersThundagaForte2 = [];
     private readonly List<Actor> _castersThundagaForte3 = [];
@@ -99,15 +117,13 @@ class D053AmonStates : StateMachineBuilder
     public D053AmonStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            //.ActivateOnEnter<DreamsOfIce>()
+            // .ActivateOnEnter<DreamsOfIce>()
             .ActivateOnEnter<Epode>()
             .ActivateOnEnter<EruptionForteAOE>()
-            .ActivateOnEnter<LeftFiragaForte>()
-            .ActivateOnEnter<RightFiragaForte>()
+            .ActivateOnEnter<FiragaForte>()
             .ActivateOnEnter<CurtainCall>()
             .ActivateOnEnter<ThundagaForte1>()
             .ActivateOnEnter<ThundagaForte>()
-            //.ActivateOnEnter<ThundagaForte3>()
             .ActivateOnEnter<DarkForte>()
             .ActivateOnEnter<Entracte>();
     }

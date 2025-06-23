@@ -27,8 +27,8 @@ public enum AID : uint
     ToTheSlaughter = 17559, // Boss->self, 4.0s cast, range 40 180-degree cone
 }
 
-class ScaldingTank(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.ScaldingTank1), 6);
-class ToTheSlaughter(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ToTheSlaughter), new AOEShapeCone(40, 90.Degrees()));
+class ScaldingTank(BossModule module) : Components.StackWithCastTargets(module, AID.ScaldingTank1, 6);
+class ToTheSlaughter(BossModule module) : Components.StandardAOEs(module, AID.ToTheSlaughter, new AOEShapeCone(40, 90.Degrees()));
 class Exsanguination(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(Actor Actor, float Inner)> Casters = [];
@@ -55,11 +55,11 @@ class Exsanguination(BossModule module) : Components.GenericAOEs(module)
             Casters.RemoveAll(c => c.Actor == caster);
     }
 }
-class CaptiveBolt(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CaptiveBolt), new AOEShapeRect(50, 5), maxCasts: 4);
-class AetherochemicalGrenado(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.AetherochemicalGrenado), 8);
-class DiffractiveLaser(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.DiffractiveLaser), new AOEShapeRect(45, 2));
-class SnakeShot(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.SnakeShot), new AOEShapeCone(20, 120.Degrees()));
-class CullingBlade(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CullingBlade1), new AOEShapeCone(60, 15.Degrees()))
+class CaptiveBolt(BossModule module) : Components.StandardAOEs(module, AID.CaptiveBolt, new AOEShapeRect(50, 5), maxCasts: 4);
+class AetherochemicalGrenado(BossModule module) : Components.StandardAOEs(module, AID.AetherochemicalGrenado, 8);
+class DiffractiveLaser(BossModule module) : Components.StandardAOEs(module, AID.DiffractiveLaser, new AOEShapeRect(45, 2));
+class SnakeShot(BossModule module) : Components.StandardAOEs(module, AID.SnakeShot, new AOEShapeCone(20, 120.Degrees()));
+class CullingBlade(BossModule module) : Components.StandardAOEs(module, AID.CullingBlade1, new AOEShapeCone(60, 15.Degrees()))
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -67,7 +67,7 @@ class CullingBlade(BossModule module) : Components.SelfTargetedAOEs(module, Acti
 
         // zone rasterization can end up missing the arena center since it only contains the tips of a bunch of very pointy triangles
         if (Casters.FirstOrDefault() is Actor c)
-            hints.AddForbiddenZone(ShapeDistance.Circle(c.Position, 0.5f), Module.CastFinishAt(c.CastInfo));
+            hints.AddForbiddenZone(ShapeContains.Circle(c.Position, 0.5f), Module.CastFinishAt(c.CastInfo));
     }
 }
 class TerminusEst(BossModule module) : Components.GenericAOEs(module)

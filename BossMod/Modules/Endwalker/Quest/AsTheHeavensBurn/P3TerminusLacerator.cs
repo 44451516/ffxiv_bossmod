@@ -21,24 +21,24 @@ public enum AID : uint
     ForcefulImpact = 27029, // 35EF->location, 5.0s cast, range 7 circle
 }
 
-class DeadlyImpact(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.DeadlyImpact), 10, maxCasts: 6);
-class BlackStar(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.BlackStar));
+class DeadlyImpact(BossModule module) : Components.StandardAOEs(module, AID.DeadlyImpact, 10, maxCasts: 6);
+class BlackStar(BossModule module) : Components.RaidwideCast(module, AID.BlackStar);
 
-class ForcefulImpact(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.ForcefulImpactAOE), 7);
-class ForcefulImpactKB(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.ForcefulImpactKB), 10, stopAtWall: true)
+class ForcefulImpact(BossModule module) : Components.StandardAOEs(module, AID.ForcefulImpactAOE, 7);
+class ForcefulImpactKB(BossModule module) : Components.KnockbackFromCastTarget(module, AID.ForcefulImpactKB, 10, stopAtWall: true)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (Casters.FirstOrDefault() is Actor c)
-            hints.PredictedDamage.Add((WorldState.Party.WithSlot().Mask(), Module.CastFinishAt(c.CastInfo)));
+            hints.AddPredictedDamage(WorldState.Party.WithSlot().Mask(), Module.CastFinishAt(c.CastInfo));
     }
 }
-class MutableLaws1(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.MutableLawsBig), 15);
-class MutableLaws2(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.MutableLawsSmall), 6);
-class AccursedTongue(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.AccursedTongue), 6);
-class ForcefulImpact2(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.ForcefulImpact), 7);
-class Shock(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Shock), new AOEShapeCircle(10), maxCasts: 6);
-class Depress(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.Depress), 7);
+class MutableLaws1(BossModule module) : Components.StandardAOEs(module, AID.MutableLawsBig, 15);
+class MutableLaws2(BossModule module) : Components.StandardAOEs(module, AID.MutableLawsSmall, 6);
+class AccursedTongue(BossModule module) : Components.SpreadFromCastTargets(module, AID.AccursedTongue, 6);
+class ForcefulImpact2(BossModule module) : Components.StandardAOEs(module, AID.ForcefulImpact, 7);
+class Shock(BossModule module) : Components.StandardAOEs(module, AID.Shock, new AOEShapeCircle(10), maxCasts: 6);
+class Depress(BossModule module) : Components.StackWithCastTargets(module, AID.Depress, 7);
 
 class TerminusLaceratorStates : StateMachineBuilder
 {
@@ -75,4 +75,3 @@ public class TerminusLacerator(WorldState ws, Actor primary) : BossModule(ws, pr
         Arena.Actor(BossP2, ArenaColor.Enemy);
     }
 }
-

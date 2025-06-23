@@ -148,35 +148,35 @@ class Magnetism(BossModule module) : Components.Knockback(module, ignoreImmunes:
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var forbidden = new List<Func<WPos, float>>();
+        var forbidden = new List<Func<WPos, bool>>();
         if (IsKnockback(actor, Shape.Circle, MagneticPole.Plus) || IsKnockback(actor, Shape.Circle, MagneticPole.Minus))
-            forbidden.Add(ShapeDistance.InvertedCircle(Arena.Center, 10));
+            forbidden.Add(ShapeContains.InvertedCircle(Arena.Center, 10));
         else if (IsPull(actor, Shape.Circle, MagneticPole.Plus) || IsPull(actor, Shape.Circle, MagneticPole.Minus))
-            forbidden.Add(ShapeDistance.Circle(Arena.Center, 13));
+            forbidden.Add(ShapeContains.Circle(Arena.Center, 13));
         else if (IsKnockback(actor, Shape.Rect, MagneticPole.Plus) || IsKnockback(actor, Shape.Rect, MagneticPole.Minus))
-            forbidden.Add(ShapeDistance.InvertedCircle(Arena.Center, 6));
+            forbidden.Add(ShapeContains.InvertedCircle(Arena.Center, 6));
         else if (IsPull(actor, Shape.Rect, MagneticPole.Plus) || IsPull(actor, Shape.Rect, MagneticPole.Minus))
-            forbidden.Add(ShapeDistance.Rect(Arena.Center, rotation, 15, 15, 12));
+            forbidden.Add(ShapeContains.Rect(Arena.Center, rotation, 15, 15, 12));
         if (forbidden.Count > 0)
-            hints.AddForbiddenZone(p => forbidden.Select(f => f(p)).Max(), activation);
+            hints.AddForbiddenZone(p => forbidden.Any(f => f(p)), activation);
     }
 }
 
-class Cleave(BossModule module, AID aid) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(aid), new AOEShapeRect(40, 3));
+class Cleave(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeRect(40, 3));
 class ElectromagneticRelease1(BossModule module) : Cleave(module, AID.ElectromagneticRelease1);
 class GroundAndPound1(BossModule module) : Cleave(module, AID.GroundAndPound1);
 class GroundAndPound2(BossModule module) : Cleave(module, AID.GroundAndPound2);
 class DynamicPoundMinus(BossModule module) : Cleave(module, AID.DynamicPoundMinus);
 class DynamicPoundPlus(BossModule module) : Cleave(module, AID.DynamicPoundPlus);
 
-class Circles(BossModule module, AID aid) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(aid), new AOEShapeCircle(8));
+class Circles(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeCircle(8));
 class ElectromagneticRelease2(BossModule module) : Circles(module, AID.ElectromagneticRelease2);
 class DynamicScraplineMinus(BossModule module) : Circles(module, AID.DynamicScraplineMinus);
 class DynamicScraplinePlus(BossModule module) : Circles(module, AID.DynamicScraplinePlus);
 class RollingScrapline(BossModule module) : Circles(module, AID.RollingScrapline);
 class Shock(BossModule module) : Circles(module, AID.Shock);
 
-class ShockingForce(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.ShockingForce), 6, 4, 4);
+class ShockingForce(BossModule module) : Components.StackWithCastTargets(module, AID.ShockingForce, 6, 4, 4);
 
 class D021BarnabasStates : StateMachineBuilder
 {

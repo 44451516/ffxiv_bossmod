@@ -65,6 +65,7 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
         var tethers = filter != null ? r.EncounterTethers(filter) : r.Tethers;
         var icons = filter != null ? r.EncounterIcons(filter) : r.Icons;
         var envControls = filter != null ? r.EncounterEnvControls(filter) : r.EnvControls;
+        var dirus = filter != null ? r.EncounterDirectorUpdates(filter) : r.DirectorUpdates;
 
         foreach (var n in _tree.Node("Participants"))
         {
@@ -91,7 +92,7 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
         }
 
         bool haveActions = actions.Any();
-        bool actionIsCrap(Replay.Action a) => a.Source.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo;
+        bool actionIsCrap(Replay.Action a) => a.Source.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo || a.Source.AllyAt(a.Timestamp) || Service.LuminaRow<Lumina.Excel.Sheets.Action>(a.ID.ID)?.ActionCategory.RowId == 1;
         foreach (var n in _tree.Node("Interesting actions", !haveActions))
         {
             DrawActions(actions.Where(a => !actionIsCrap(a)), tp, aidType);
@@ -136,6 +137,18 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
                 _tree.LeafNodes(envControls.Where(ec => ec.Index == index), ec => $"{tp(ec.Timestamp)}: {ec.Index:X2} = {ec.State:X8}");
             }
         }
+
+        foreach (var n in _tree.Node("Director updates", !dirus.Any()))
+        {
+            if (dirus.Any())
+                foreach (var n2 in _tree.Node("All"))
+                    _tree.LeafNodes(dirus, d => $"{tp(d.Timestamp)}: {d.UpdateID:X8} [0x{d.Param1:X}, 0x{d.Param2:X}, 0x{d.Param3:X}, 0x{d.Param4:X}]");
+
+            foreach (var ix in _tree.Nodes(new SortedSet<uint>(dirus.Select(d => d.UpdateID)), index => new($"ID {index:X4}")))
+            {
+                _tree.LeafNodes(dirus.Where(d => d.UpdateID == ix), d => $"{tp(d.Timestamp)}: {d.UpdateID:X8} [0x{d.Param1:X}, 0x{d.Param2:X}, 0x{d.Param3:X}, 0x{d.Param4:X}]");
+            }
+        }
     }
 
     private void DrawParticipants(IEnumerable<Replay.Participant> list, IEnumerable<Replay.Action> actions, IEnumerable<Replay.Status> statuses, Func<DateTime, string> tp, DateTime reference, Replay.Encounter? filter, Type? aidType, Type? sidType)
@@ -165,6 +178,18 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
             foreach (var an in _tree.Node("Targetable", p.TargetableHistory.Count == 0))
             {
                 _tree.LeafNodes(p.TargetableHistory, r => $"{tp(r.Key)} = {r.Value}");
+            }
+            foreach (var an in _tree.Node("EObjAnim", p.EventObjectAnimation.Count == 0))
+            {
+                _tree.LeafNodes(p.EventObjectAnimation, r => $"{tp(r.Key)} = {r.Value:X8}");
+            }
+            foreach (var an in _tree.Node("Event state", p.EventState.Count == 0))
+            {
+                _tree.LeafNodes(p.EventState, r => $"{tp(r.Key)} = {r.Value}");
+            }
+            foreach (var an in _tree.Node("Action timeline events", p.ActionTimeline.Count == 0))
+            {
+                _tree.LeafNodes(p.ActionTimeline, r => $"{tp(r.Key)} = {r.Value:X4}");
             }
         }
     }

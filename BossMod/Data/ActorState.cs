@@ -1,4 +1,4 @@
-﻿namespace BossMod;
+﻿﻿namespace BossMod;
 
 // a set of existing actors in world; part of the world state structure
 // TODO: consider indexing by spawnindex?..
@@ -8,6 +8,8 @@ public sealed class ActorState : IEnumerable<Actor>
 
     public IEnumerator<Actor> GetEnumerator() => _actors.Values.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => _actors.Values.GetEnumerator();
+
+    public const int StatusIDDirectionalDisregard = 3808;
 
     public Actor? Find(ulong instanceID) => instanceID is not 0 and not 0xE0000000 ? _actors.GetValueOrDefault(instanceID) : null;
 
@@ -23,7 +25,7 @@ public sealed class ActorState : IEnumerable<Actor>
     {
         foreach (var act in this)
         {
-            yield return new OpCreate(act.InstanceID, act.OID, act.SpawnIndex, act.Name, act.NameID, act.Type, act.Class, act.Level, act.PosRot, act.HitboxRadius, act.HPMP, act.IsTargetable, act.IsAlly, act.OwnerID, act.FateID);
+            yield return new OpCreate(act.InstanceID, act.OID, act.SpawnIndex, act.LayoutID, act.Name, act.NameID, act.Type, act.Class, act.Level, act.PosRot, act.HitboxRadius, act.HPMP, act.IsTargetable, act.IsAlly, act.OwnerID, act.FateID);
             if (act.IsDead)
                 yield return new OpDead(act.InstanceID, true);
             if (act.InCombat)
@@ -58,7 +60,9 @@ public sealed class ActorState : IEnumerable<Actor>
         {
             act.PrevPosRot = act.PosRot;
             if (act.CastInfo != null)
+            {
                 act.CastInfo.ElapsedTime = Math.Min(act.CastInfo.ElapsedTime + frame.Duration, act.CastInfo.AdjustedTotalTime);
+            }
             RemovePendingEffects(act, (in PendingEffect p) => p.Expiration < ts);
         }
     }
@@ -122,20 +126,21 @@ public sealed class ActorState : IEnumerable<Actor>
 
     // implementation of operations
     public Event<Actor> Added = new();
-    public sealed record class OpCreate(ulong InstanceID, uint OID, int SpawnIndex, string Name, uint NameID, ActorType Type, Class Class, int Level, Vector4 PosRot, float HitboxRadius,
+    public sealed record class OpCreate(ulong InstanceID, uint OID, int SpawnIndex, uint LayoutID, string Name, uint NameID, ActorType Type, Class Class, int Level, Vector4 PosRot, float HitboxRadius,
         ActorHPMP HPMP, bool IsTargetable, bool IsAlly, ulong OwnerID, uint FateID)
         : Operation(InstanceID)
     {
         protected override void ExecActor(WorldState ws, Actor actor) { }
         protected override void Exec(WorldState ws)
         {
-            var actor = ws.Actors._actors[InstanceID] = new Actor(InstanceID, OID, SpawnIndex, Name, NameID, Type, Class, Level, PosRot, HitboxRadius, HPMP, IsTargetable, IsAlly, OwnerID, FateID);
+            var actor = ws.Actors._actors[InstanceID] = new Actor(InstanceID, OID, SpawnIndex, LayoutID, Name, NameID, Type, Class, Level, PosRot, HitboxRadius, HPMP, IsTargetable, IsAlly, OwnerID, FateID);
             ws.Actors.Added.Fire(actor);
         }
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("ACT+"u8)
             .Emit(InstanceID, "X8")
             .Emit(OID, "X")
             .Emit(SpawnIndex)
+            .Emit(LayoutID, "X")
             .Emit(Name)
             .Emit(NameID)
             .Emit((ushort)Type, "X4")
@@ -438,11 +443,19 @@ public sealed class ActorState : IEnumerable<Actor>
         {
             ref var prev = ref actor.Statuses[Index];
             if (prev.ID != 0 && (prev.ID != Value.ID || prev.SourceID != Value.SourceID))
+            {
                 ws.Actors.StatusLose.Fire(actor, Index);
+                if (prev.ID == StatusIDDirectionalDisregard)
+                    actor.Omnidirectional = false;
+            }
             actor.Statuses[Index] = Value;
             actor.PendingStatuses.RemoveAll(s => s.StatusId == Value.ID && s.Effect.SourceInstanceId == Value.SourceID);
             if (Value.ID != 0)
+            {
                 ws.Actors.StatusGain.Fire(actor, Index);
+                if (Value.ID == StatusIDDirectionalDisregard)
+                    actor.Omnidirectional = true;
+            }
         }
         public override void Write(ReplayRecorder.Output output)
         {

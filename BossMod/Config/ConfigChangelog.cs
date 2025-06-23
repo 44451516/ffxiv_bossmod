@@ -1,5 +1,6 @@
 ﻿using Dalamud.Interface.Utility.Raii;
 using ImGuiNET;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace BossMod;
@@ -13,18 +14,18 @@ abstract class ChangelogNotice
 {
     public abstract Version Since { get; }
     public abstract void Draw();
-}
 
-class AIMigrationNotice : ChangelogNotice
-{
-    public override Version Since => new(0, 0, 0, 289);
-
-    private void Bullet(string txt)
+    protected void Bullet(string txt)
     {
         ImGui.Bullet();
         ImGui.SameLine();
         ImGui.TextWrapped(txt);
     }
+}
+
+class AIMigrationNotice : ChangelogNotice
+{
+    public override Version Since => new(0, 0, 0, 289);
 
     public override void Draw()
     {
@@ -47,11 +48,33 @@ class AIMigrationNotice : ChangelogNotice
     }
 }
 
+class MultiPresetNotice : ChangelogNotice
+{
+    public override Version Since => new(0, 2, 3, 0);
+
+    public override void Draw()
+    {
+        ImGui.TextWrapped("You can now enable multiple presets at once.");
+        Bullet("A new built-in preset has been added - VBM AI. This provides the same functionality as the legacy AI feature. It will try to dodge AOEs and automatically target enemies.");
+        Bullet("The existing /vbm ar commands have unchanged behavior. For example, /vbm ar set <preset> will enable the given preset and disable all others. To use multi-preset functionality, you can use the new subcommands 'activate', 'deactivate', and 'togglemulti'.");
+    }
+}
+
+class DashSafetyNotice : ChangelogNotice
+{
+    public override Version Since => new(0, 2, 5, 1);
+
+    public override void Draw()
+    {
+        ImGui.TextWrapped($"The option \"Try to prevent dashing into AOEs\" is now enabled by default. You can disable it in Settings -> Action Tweaks.");
+    }
+}
+
 public class ConfigChangelogWindow : UIWindow
 {
     private readonly Version PreviousVersion;
-    private readonly List<VersionedField> Fields;
-    private readonly List<ChangelogNotice> Notices;
+    private readonly List<VersionedField> Fields = [];
+    private readonly List<ChangelogNotice> Notices = [];
 
     private int StuffCount => Fields.Count + Notices.Count;
 
@@ -62,13 +85,8 @@ public class ConfigChangelogWindow : UIWindow
         if (Service.Config.AssemblyVersion != PreviousVersion)
         {
             Service.Config.Modified.Fire();
-            Fields = GetAllFields().Where(f => f.AddedVersion > PreviousVersion).ToList();
-            Notices = GetNotices().Where(f => f.Since > PreviousVersion).ToList();
-        }
-        else
-        {
-            Fields = [];
-            Notices = [];
+            Fields = [.. GetAllFields().Where(f => f.AddedVersion > PreviousVersion)];
+            Notices = [.. GetNotices().Where(f => f.Since > PreviousVersion)];
         }
 
         if (StuffCount == 0)
@@ -171,22 +189,13 @@ public class ConfigChangelogWindow : UIWindow
 
     private static Version GetCurrentPluginVersion()
     {
-#if DEBUG
-        // version is always 0.0.0.0 in debug, making it useless for testing
-        return new(0, 0, 0, 999);
-#else
-        return Assembly.GetExecutingAssembly().GetName().Version!;
-#endif
+        return Service.IsDev ? new(999, 0, 0, 0) : Assembly.GetExecutingAssembly().GetName().Version!;
     }
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1024:Use properties where appropriate")]
+    [SuppressMessage("Design", "CA1024:Use properties where appropriate", Justification = "fuck it")]
     private static Version GetPreviousPluginVersion()
     {
-#if DEBUG
-        // change value to something sensible if you want to test the changelog stuff
-        return new(0, 0, 0, 999);
-#else
-        return Service.Config.AssemblyVersion;
-#endif
+        // change to a smaller value to test changelog
+        return Service.IsDev ? new(999, 0, 0, 0) : Service.Config.AssemblyVersion;
     }
 }

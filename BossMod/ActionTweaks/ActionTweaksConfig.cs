@@ -35,7 +35,7 @@ public sealed class ActionTweaksConfig : ConfigNode
         M12
     }
     
-    [PropertyDisplay("按住此键可在施法时允许移动", tooltip: "需要同时启用上面的设置")]
+    [PropertyDisplay("按住此键可在施法时允许移动", depends: nameof(PreventMovingWhileCasting))]
     public ModifierKey MoveEscapeHatch = ModifierKey.None;
 
     [PropertyDisplay("当目标死亡时自动取消施法")]
@@ -61,7 +61,13 @@ public sealed class ActionTweaksConfig : ConfigNode
     [PropertyDisplay("为手动按下的技能使用自定义队列", tooltip: "此设置可以更好地与自动循环结合，并防止在自动循环过程中按下治疗技能时出现三次编织或GCD漂移的情况")]
     public bool UseManualQueue = false;
 
-    [PropertyDisplay("自动管理自动攻击", tooltip: "此设置可防止在倒计时期间过早开始自动攻击，而是在拉怪时、切换目标时以及使用任何不显式取消自动攻击的动作时自动开始它们。")]
+    [PropertyDisplay ("尝试防止冲入范围性技能区域",tooltip:"如果定向冲刺（如战士的 ' 猛攻 '）会将你带入危险区域，则阻止其自动使用。在没有模块的副本中，此功能可能无法按预期工作。\n\n 如果启用了 ' 对手动按下的动作使用自定义队列 '，此选项也将适用于手动按下的冲刺。",since:"0.0.0.290")]
+    public bool DashSafety = true;
+
+    [PropertyDisplay("Apply the previous option to all dashes, not just gap closers", tooltip: "Includes backdashes (e.g. SAM Yaten), teleports (e.g. NIN Shukuchi), and fixed-length dashes (e.g. DRG Elusive Jump)", depends: nameof(DashSafety))]
+    public bool DashSafetyExtra = true;
+
+    [PropertyDisplay("Automatically manage auto attacks", tooltip: "This setting prevents starting autos early during countdown, starts them automatically at pull, when switching targets and when using any actions that don't explicitly cancel autos.")]
     public bool AutoAutos = false;
     
     [PropertyDisplay("自动下坐骑以执行技能")]
@@ -81,7 +87,4 @@ public sealed class ActionTweaksConfig : ConfigNode
 
     [PropertyDisplay("地面目标技能的自动目标选择")]
     public GroundTargetingMode GTMode = GroundTargetingMode.Manual;
-
-    [PropertyDisplay("Try to prevent dashing into AOEs", tooltip: "Prevent automatic use of damaging gap closers (like WAR Onslaught) if they would move you into a dangerous area. May not work as expected in instances that do not have modules.", since: "0.0.0.290")]
-    public bool PreventDangerousDash = false;
 }

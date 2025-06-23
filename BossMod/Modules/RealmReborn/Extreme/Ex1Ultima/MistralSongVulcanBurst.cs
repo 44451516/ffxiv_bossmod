@@ -1,6 +1,6 @@
 ﻿namespace BossMod.RealmReborn.Extreme.Ex1Ultima;
 
-class MistralSongVulcanBurst(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.MistralSong))
+class MistralSongVulcanBurst(BossModule module) : Components.GenericAOEs(module, AID.MistralSong)
 {
     public bool Active { get; private set; }
     private Actor? _garuda; // non-null while mechanic is active
@@ -33,11 +33,11 @@ class MistralSongVulcanBurst(BossModule module) : Components.GenericAOEs(module,
             var a2 = Angle.FromDirection(p2 - Module.PrimaryActor.Position);
             if (a2.Rad > a1.Rad)
                 a2 -= 360.Degrees();
-            hints.AddForbiddenZone(ShapeDistance.Cone(Module.PrimaryActor.Position, 40, (a1 + a2) / 2, (a1 - a2) / 2), _resolve);
+            hints.AddForbiddenZone(ShapeContains.Cone(Module.PrimaryActor.Position, 40, (a1 + a2) / 2, (a1 - a2) / 2), _resolve);
         }
         else
         {
-            hints.AddForbiddenZone(_shape.Distance(_garuda!.Position, _garuda.Rotation), _resolve);
+            hints.AddForbiddenZone(_shape.CheckFn(_garuda!.Position, _garuda.Rotation), _resolve);
         }
     }
 

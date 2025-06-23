@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P3TemporalStasis(BossModule module) : Components.GenericBaitAway(module, ActionID.MakeSpell(AID.FlarethrowerP3))
+class P3TemporalStasis(BossModule module) : Components.GenericBaitAway(module, AID.FlarethrowerP3)
 {
     public enum Mechanic { None, AvoidDamage, StayClose, StayFar }
 
@@ -111,8 +111,7 @@ class P3TemporalStasis(BossModule module) : Components.GenericBaitAway(module, A
 
     private void AssignMechanic(Actor actor, Mechanic mechanic)
     {
-        var slot = Raid.FindSlot(actor.InstanceID);
-        if (slot >= 0)
+        if (Raid.TryFindSlot(actor, out var slot))
             _playerMechanics[slot] = mechanic;
     }
 

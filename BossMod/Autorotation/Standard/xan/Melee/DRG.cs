@@ -1,12 +1,13 @@
-﻿using BossMod.DRG;
+﻿using BossMod.Data;
+using BossMod.DRG;
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan<AID, TraitID>(manager, player)
+public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan<AID, TraitID>(manager, player, PotionType.Strength)
 {
-    public enum Track { Dive = SharedTrack.Count }
+    public enum Track { Dive = SharedTrack.Count, Iainuki, Zeninage }
 
     public enum DiveStrategy
     {
@@ -25,6 +26,9 @@ public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan
             .AddOption(DiveStrategy.Allow, "Allow", "Use dives according to standard rotation")
             .AddOption(DiveStrategy.NoMove, "NoMove", "Disallow dive actions that move you to the target")
             .AddOption(DiveStrategy.NoLock, "NoLock", "Disallow dive actions that prevent you from moving (all except Mirage Dive)");
+
+        def.AbilityTrack(Track.Iainuki, "Iainuki", "PSAM: Use Iainuki during burst");
+        def.AbilityTrack(Track.Zeninage, "Zeninage", "PSAM: Use Zeninage during burst (costs 10,000 gil)");
 
         return def;
     }
@@ -51,6 +55,13 @@ public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan
     private Enemy? BestAOETarget;
     private Enemy? BestLongAOETarget;
     private Enemy? BestDiveTarget;
+
+    protected override float GetCastTime(AID aid)
+    {
+        if ((uint)aid == (uint)PhantomID.Iainuki)
+            return 1.3f;
+        return base.GetCastTime(aid);
+    }
 
     public override void Exec(StrategyValues strategy, Enemy? primaryTarget)
     {
@@ -95,6 +106,12 @@ public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan
         }
 
         GoalZoneCombined(strategy, 3, Hints.GoalAOERect(primaryTarget.Actor, 10, 2), AID.DoomSpike, minAoe: 3, maximumActionRange: 20);
+
+        if (LotD > GCD && PowerSurge > GCD && LanceCharge > GCD && strategy.Enabled(Track.Zeninage) && PhantomReadyIn(PhantomID.Zeninage) <= GCD)
+            PushGCD((AID)(uint)PhantomID.Zeninage, primaryTarget, priority: 100);
+
+        if (strategy.Enabled(Track.Iainuki) && PhantomReadyIn(PhantomID.Iainuki) <= GCD && PhantomReadyIn(PhantomID.Zeninage) > GCD)
+            PushGCD((AID)(uint)PhantomID.Iainuki, primaryTarget, priority: 90);
 
         if (NumAOETargets > 2)
         {
@@ -169,8 +186,6 @@ public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan
         var posOk = PosLockOk(strategy);
         var bestSingleTarget = primaryTarget.Priority >= 0 ? primaryTarget : null;
 
-        static bool posCheck(float animationLock) => true; //  Hints.PositionStoredIn > AnimLock + animationLock;
-
         if (NextPositionalImminent && !NextPositionalCorrect)
             Hints.ActionsToExecute.Push(ActionID.MakeSpell(AID.TrueNorth), Player, ActionQueue.Priority.Low - 20, delay: GCD - 0.8f);
 
@@ -180,31 +195,32 @@ public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan
             PushOGCD(AID.BattleLitany, Player);
         }
 
+        // ok to use WT outside of buffs, otherwise we might overcap and waste one
+        if (ShouldWT(strategy))
+            PushOGCD(AID.WyrmwindThrust, BestLongAOETarget);
+
         // delay all damaging ogcds until we've used lance charge
         // first one (jump) unlocks at level 30, same as lance charge, so we don't need extra checks
         // TODO check if this is actually a good idea
         if (CanWeave(AID.LanceCharge))
             return;
 
-        if (ShouldWT(strategy))
-            PushOGCD(AID.WyrmwindThrust, BestLongAOETarget);
-
-        if (NastrondReady == 0)
+        if (NastrondReady == 0 && strategy.BuffsOk())
             PushOGCD(AID.Geirskogul, BestLongAOETarget);
 
-        if (DiveReady == 0 && posOk && posCheck(0.6f))
+        if (DiveReady == 0 && posOk)
             PushOGCD(AID.Jump, bestSingleTarget);
 
         if (LanceCharge > GCD && ShouldLifeSurge())
             PushOGCD(AID.LifeSurge, Player);
 
-        if (moveOk && strategy.BuffsOk() && posCheck(0.8f))
+        if (moveOk && strategy.BuffsOk())
             PushOGCD(AID.DragonfireDive, BestDiveTarget);
 
         if (NastrondReady > 0)
             PushOGCD(AID.Nastrond, BestLongAOETarget);
 
-        if (LotD > AnimLock && moveOk && posCheck(1.5f))
+        if (LotD > AnimLock && moveOk)
         {
             // stardiver: 1.5 + delay
             // regular GCD: 0.6 + delay

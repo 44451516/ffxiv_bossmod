@@ -3,7 +3,7 @@
 // common parts of various forbidden fruit / harvest mechanics
 // platform id's: 0 = W, 1 = S, 2 = E
 // TODO: show knockback for bird tethers, something for bull/minotaur tethers...
-class ForbiddenFruitCommon(BossModule module, ActionID watchedAction) : Components.GenericAOEs(module, watchedAction)
+class ForbiddenFruitCommon(BossModule module, Enum watchedAction) : Components.GenericAOEs(module, watchedAction)
 {
     public int NumAssignedTethers { get; private set; }
     public bool MinotaursBaited { get; private set; }
@@ -127,8 +127,7 @@ class ForbiddenFruitCommon(BossModule module, ActionID watchedAction) : Componen
     {
         if ((TetherID)tether.ID is TetherID.Bull or TetherID.MinotaurClose or TetherID.MinotaurFar or TetherID.Bird)
         {
-            int slot = Raid.FindSlot(tether.Target);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(tether.Target, out var slot))
             {
                 TetherSources[slot] = source;
                 ++NumAssignedTethers;

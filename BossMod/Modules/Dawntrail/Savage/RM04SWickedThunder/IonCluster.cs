@@ -117,7 +117,7 @@ class ElectronStream(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class ElectronStreamCurrent(BossModule module) : Components.GenericAOEs(module, ActionID.MakeSpell(AID.AxeCurrent))
+class ElectronStreamCurrent(BossModule module) : Components.GenericAOEs(module, AID.AxeCurrent)
 {
     private readonly SID[] _status = new SID[PartyState.MaxPartySize];
     private DateTime _activation;
@@ -210,8 +210,7 @@ class ElectronStreamCurrent(BossModule module) : Components.GenericAOEs(module, 
     {
         if ((SID)status.ID is SID.RemoteCurrent or SID.ProximateCurrent or SID.SpinningConductor or SID.RoundhouseConductor or SID.ColliderConductor)
         {
-            var slot = Raid.FindSlot(actor.InstanceID);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(actor.InstanceID, out var slot))
                 _status[slot] = (SID)status.ID;
             _activation = status.ExpireAt;
         }

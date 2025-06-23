@@ -25,7 +25,6 @@ public sealed class Plugin : IDalamudPlugin
     private readonly WorldStateGameSync _wsSync;
     private readonly RotationModuleManager _rotation;
     private readonly AI.AIManager _ai;
-    private readonly AI.Broadcast _broadcast;
     private readonly IPCProvider _ipc;
     private readonly DTRProvider _dtr;
     private readonly SlashCommandProvider _slashCmd;
@@ -52,11 +51,14 @@ public sealed class Plugin : IDalamudPlugin
                 GetMethod("Get")!.Invoke(null, BindingFlags.Default, null, [], null);
         var dalamudStartInfo = dalamudRoot?.GetType().GetProperty("StartInfo", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(dalamudRoot) as DalamudStartInfo;
         var gameVersion = dalamudStartInfo?.GameVersion?.ToString() ?? "unknown";
+#if LOCAL_CS
         InteropGenerator.Runtime.Resolver.GetInstance.Setup(sigScanner.SearchBase, gameVersion, new(dalamud.ConfigDirectory.FullName + "/cs.json"));
         FFXIVClientStructs.Interop.Generated.Addresses.Register();
         InteropGenerator.Runtime.Resolver.GetInstance.Resolve();
+#endif
 
         dalamud.Create<Service>();
+        Service.IsDev = dalamud.IsDev;
         Service.LogHandlerDebug = (string msg) => Service.Logger.Debug(msg);
         Service.LogHandlerVerbose = (string msg) => Service.Logger.Verbose(msg);
         Service.LuminaGameData = dataManager.GameData;
@@ -64,12 +66,15 @@ public sealed class Plugin : IDalamudPlugin
         //Service.Device = pluginInterface.UiBuilder.Device;
         Service.Condition.ConditionChange += OnConditionChanged;
         MultiboxUnlock.Exec();
-        Network.IDScramble.Initialize();
         Camera.Instance = new();
 
         Service.Config.Initialize();
         Service.Config.LoadFromFile(dalamud.ConfigFile);
-        Service.Config.Modified.Subscribe(() => Service.Config.SaveToFile(dalamud.ConfigFile));
+        Service.Config.Modified.Subscribe(() =>
+        {
+            Service.Log($"saving configuration to {dalamud.ConfigFile}");
+            Service.Config.SaveToFile(dalamud.ConfigFile);
+        });
 
         ActionDefinitions.Instance.UnlockCheck = QuestUnlocked; // ensure action definitions are initialized and set unlock check functor (we don't really store the quest progress in clientstate, for now at least)
 
@@ -85,7 +90,6 @@ public sealed class Plugin : IDalamudPlugin
         _wsSync = new(_ws, _amex);
         _rotation = new(_rotationDB, _bossmod, _hints);
         _ai = new(_rotation, _amex, _movementOverride);
-        _broadcast = new();
         _ipc = new(_rotation, _amex, _movementOverride, _ai);
         _dtr = new(_rotation, _ai);
         _slashCmd = new(commandManager, "/vbm");
@@ -98,7 +102,7 @@ public sealed class Plugin : IDalamudPlugin
         _wndReplay = new(_ws, _bossmod, _rotationDB, replayDir);
         _wndRotation = new(_rotation, _amex, () => OpenConfigUI("Autorotation Presets"));
         _wndAI = new(_ai);
-        _wndDebug = new(_ws, _rotation, _zonemod, _amex, _movementOverride, _hintsBuilder, dalamud);
+        _wndDebug = new(_ws, _rotation, _zonemod, _amex, _movementOverride, _hintsBuilder, dalamud) { IsOpen = Service.IsDev };
 
         dalamud.UiBuilder.DisableAutomaticUiHide = true;
         dalamud.UiBuilder.Draw += DrawUI;
@@ -161,18 +165,38 @@ public sealed class Plugin : IDalamudPlugin
 
     private void RegisterAutorotationSlashCommands(SlashCommandHandler cmd)
     {
-        void SetOrToggle(Preset preset, bool toggle)
+        void SetOrToggle(Preset preset, bool toggle, bool exclusive)
         {
-            var newPreset = toggle && _rotation.Preset == preset ? null : preset;
-            Service.Log($"Console: {(toggle ? "toggle" : "set")} changes preset from '{_rotation.Preset?.Name ?? "<n/a>"}' to '{newPreset?.Name ?? "<n/a>"}'");
-            _rotation.Preset = newPreset;
+            if (toggle)
+            {
+                var verb = _rotation.Presets.Contains(preset) ? "disables" : "enables";
+                Service.Log($"Console: toggle {verb} preset '{preset.Name}'");
+                _rotation.Toggle(preset, exclusive);
+            }
+            else
+            {
+                Service.Log($"Console: set activates preset '{preset.Name}'");
+                _rotation.Activate(preset, exclusive);
+            }
         }
 
-        void SetOrToggleByName(ReadOnlySpan<char> presetName, bool toggle)
+        void SetOrToggleByName(ReadOnlySpan<char> presetName, bool toggle, bool exclusive)
         {
             var preset = _rotation.Database.Presets.FindPresetByName(presetName);
             if (preset != null)
-                SetOrToggle(preset, toggle);
+                SetOrToggle(preset, toggle, exclusive);
+            else
+                Service.ChatGui.PrintError($"Failed to find preset '{presetName}'");
+        }
+
+        void ClearByName(ReadOnlySpan<char> presetName)
+        {
+            var preset = _rotation.Database.Presets.FindPresetByName(presetName);
+            if (preset != null)
+            {
+                Service.Log($"Console: unset deactivates preset '{preset.Name}'");
+                _rotation.Deactivate(preset);
+            }
             else
                 Service.ChatGui.PrintError($"Failed to find preset '{presetName}'");
         }
@@ -180,24 +204,40 @@ public sealed class Plugin : IDalamudPlugin
         cmd.SetSimpleHandler("toggle autorotation ui", () => _wndRotation.SetVisible(!_wndRotation.IsOpen));
         cmd.AddSubcommand("clear").SetSimpleHandler("clear current preset; autorotation will do nothing unless plan is active", () =>
         {
-            Service.Log($"Console: clearing autorotation preset '{_rotation.Preset?.Name ?? "<n/a>"}'");
-            _rotation.Preset = null;
+            Service.Log($"Console: clearing autorotation preset(s) '{_rotation.PresetNames}'");
+            _rotation.Clear();
         });
         cmd.AddSubcommand("disable").SetSimpleHandler("force disable autorotation; no actions will be executed automatically even if plan is active", () =>
         {
-            Service.Log($"Console: force-disabling from preset '{_rotation.Preset?.Name ?? "<n/a>"}'");
-            _rotation.Preset = RotationModuleManager.ForceDisable;
+            Service.Log($"Console: force-disabling from presets '{_rotation.PresetNames}'");
+            _rotation.SetForceDisabled();
         });
-        cmd.AddSubcommand("set").SetComplexHandler("<preset>", "start executing specified preset", preset =>
+        cmd.AddSubcommand("set").SetComplexHandler("<preset>", "start executing specified preset, and deactivate others", preset =>
         {
-            SetOrToggleByName(preset, false);
+            SetOrToggleByName(preset, false, true);
             return true;
         });
         var toggle = cmd.AddSubcommand("toggle");
-        toggle.SetSimpleHandler("force disable autorotation if not already; otherwise clear overrides", () => SetOrToggle(RotationModuleManager.ForceDisable, true));
+        toggle.SetSimpleHandler("force disable autorotation if not already; otherwise clear overrides", () => SetOrToggle(RotationModuleManager.ForceDisable, true, true));
         toggle.SetComplexHandler("<preset>", "start executing specified preset unless it's already active; clear otherwise", preset =>
         {
-            SetOrToggleByName(preset, true);
+            SetOrToggleByName(preset, true, true);
+            return true;
+        });
+
+        cmd.AddSubcommand("activate").SetComplexHandler("<preset>", "add specified preset to active list", preset =>
+        {
+            SetOrToggleByName(preset, false, false);
+            return true;
+        });
+        cmd.AddSubcommand("deactivate").SetComplexHandler("<preset>", "remove specified preset from active list", preset =>
+        {
+            ClearByName(preset);
+            return true;
+        });
+        cmd.AddSubcommand("togglemulti").SetComplexHandler("<preset>", "if specified preset is in active list, disable it, otherwise enable it", preset =>
+        {
+            SetOrToggleByName(preset, true, false);
             return true;
         });
     }
@@ -248,6 +288,11 @@ public sealed class Plugin : IDalamudPlugin
         });
     }
 
+    private void VbmaiHandler(string _, string __)
+    {
+        Service.ChatGui.PrintError("/vbmai: Legacy AI mode is deprecated. Please use /vbm cfg AIConfig (args...) instead. This command will be removed in a future update.");
+    }
+
     private void OpenConfigUI(string showTab = "")
     {
         _configUI.ShowTab(showTab);
@@ -268,7 +313,6 @@ public sealed class Plugin : IDalamudPlugin
         _amex.QueueManualActions();
         _rotation.Update(_amex.AnimationLockDelayEstimate, _movementOverride.IsMoving());
         _ai.Update();
-        _broadcast.Update();
         _amex.FinishActionGather();
 
         bool uiHidden = Service.GameGui.GameUiHidden || Service.Condition[ConditionFlag.OccupiedInCutSceneEvent] || Service.Condition[ConditionFlag.WatchingCutscene78] || Service.Condition[ConditionFlag.WatchingCutscene];
@@ -313,7 +357,7 @@ public sealed class Plugin : IDalamudPlugin
         {
             //Service.Log($"[ExecHints] Jumping...");
             FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance()->UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 2);
-            _throttleJump = _ws.CurrentTime.AddMilliseconds(100);
+            _throttleJump = _ws.FutureTime(0.1f);
         }
 
         if (CheckInteractRange(_ws.Party.Player(), _hints.InteractWithTarget))
@@ -357,6 +401,6 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnConditionChanged(ConditionFlag flag, bool value)
     {
-        Service.Log($"Condition chage: {flag}={value}");
+        Service.Log($"Condition change: {flag}={value}");
     }
 }

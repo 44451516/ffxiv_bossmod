@@ -3,7 +3,7 @@
 // AI idea: we want to run as a group and pop all orbs, without necessarily involving tanks
 // for 1/2 casts, we first try to stack S of boss, since everyone is somewhat close to that point, to get knocked back to the south edge; we then pop S orb and E orb(s) in order S->N
 // for 3 cast, we immune knockbacks and stack where two south orbs spawn to immediately handle two pairs; we then run to pop N orbs
-class AethericBoom(BossModule module) : Components.CastHint(module, ActionID.MakeSpell(AID.AethericBoom), "Knockback + orbs")
+class AethericBoom(BossModule module) : Components.CastHint(module, AID.AethericBoom, "Knockback + orbs")
 {
     private bool _waitingForOrbs;
     private readonly List<Actor> _activeOrbs = [];
@@ -59,7 +59,7 @@ class AethericBoom(BossModule module) : Components.CastHint(module, ActionID.Mak
         {
             // current MT should not be doing this mechanic
             foreach (var orb in _activeOrbs)
-                hints.AddForbiddenZone(ShapeDistance.Circle(orb.Position, 3));
+                hints.AddForbiddenZone(ShapeContains.Circle(orb.Position, 3));
             return;
         }
 
@@ -68,7 +68,7 @@ class AethericBoom(BossModule module) : Components.CastHint(module, ActionID.Mak
             if (NumCasts < 2)
             {
                 // first or second cast in progress => stack S of boss to be knocked back roughly in same direction
-                hints.AddForbiddenZone(ShapeDistance.Cone(Module.PrimaryActor.Position, 50, 180.Degrees(), 170.Degrees()));
+                hints.AddForbiddenZone(ShapeContains.Cone(Module.PrimaryActor.Position, 50, 180.Degrees(), 170.Degrees()));
             }
             else
             {
@@ -90,12 +90,12 @@ class AethericBoom(BossModule module) : Components.CastHint(module, ActionID.Mak
             if (actor.Role is Role.Melee or Role.Tank && Raid.WithoutSlot().InRadius(nextOrb.Position, _explosionRadius).Count() > 5)
             {
                 // pop the orb
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(nextOrb.Position, 1.5f));
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(nextOrb.Position, 1.5f));
             }
             else
             {
                 // run closer to the orb
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(nextOrb.Position + nextOrb.Rotation.ToDirection(), _explosionRadius - 2));
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(nextOrb.Position + nextOrb.Rotation.ToDirection(), _explosionRadius - 2));
             }
         }
     }
@@ -125,11 +125,11 @@ class AethericBoom(BossModule module) : Components.CastHint(module, ActionID.Mak
         if (orbsCount == 3 && assignment is PartyRolesConfig.Assignment.M1 or PartyRolesConfig.Assignment.M2)
         {
             // sacrifice melees on side orbs, this sucks but whatever
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(new(10 * x, -2), 1.5f));
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(new(10 * x, -2), 1.5f));
         }
         else
         {
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(new(2 * x, 10), 1.5f));
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(new(2 * x, 10), 1.5f));
         }
     }
 }

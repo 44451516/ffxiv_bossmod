@@ -29,25 +29,22 @@ public enum AID : uint
     PerfectContrition = 15630, // 27CD->self, 6.0s cast, range 5-15 donut
 }
 
-class Catechism(BossModule module) : Components.SingleTargetCastDelay(module, ActionID.MakeSpell(AID.Catechism), ActionID.MakeSpell(AID.Catechism2), 0.5f);
-class SacramentOfPenance(BossModule module) : Components.RaidwideCastDelay(module, ActionID.MakeSpell(AID.SacramentOfPenance), ActionID.MakeSpell(AID.SacramentOfPenance2), 0.5f);
-class PerfectContrition(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PerfectContrition), new AOEShapeDonut(5, 15));
+class Catechism(BossModule module) : Components.SingleTargetCastDelay(module, AID.Catechism, AID.Catechism2, 0.5f);
+class SacramentOfPenance(BossModule module) : Components.RaidwideCastDelay(module, AID.SacramentOfPenance, AID.SacramentOfPenance2, 0.5f);
+class PerfectContrition(BossModule module) : Components.StandardAOEs(module, AID.PerfectContrition, new AOEShapeDonut(5, 15));
 
 class JudgmentDay(BossModule module) : Components.GenericTowers(module)
 {
-    public override void OnActorEState(Actor actor, ushort state)
+    public override void OnActorCreated(Actor actor)
     {
-        if (state is 0x01C or 0x02C)
-        {
-            if (!Towers.Any(t => t.Position.AlmostEqual(actor.Position, 1)))
-                Towers.Add(new(actor.Position, 5, 1, 1));
-        }
+        if ((OID)actor.OID == OID.Towers)
+            Towers.Add(new(actor.Position, 5, activation: WorldState.FutureTime(7.7f)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.Judged or AID.FoundWanting && Towers.Count > 0)
-            Towers.RemoveAt(0);
+        if ((AID)spell.Action.ID is AID.Judged or AID.FoundWanting)
+            Towers.RemoveAll(t => t.Position.AlmostEqual(caster.Position, 1));
     }
 }
 
@@ -131,5 +128,5 @@ class D053ForgivenWhimsyStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 659, NameID = 8261)]
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Malediktus, xan", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 659, NameID = 8261)]
 public class D053ForgivenWhimsy(WorldState ws, Actor primary) : BossModule(ws, primary, new(-240, -50), new ArenaBoundsSquare(15));

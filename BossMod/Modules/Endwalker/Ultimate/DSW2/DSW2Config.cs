@@ -107,13 +107,14 @@ public class DSW2Config() : ConfigNode()
     [PropertyCombo("CCW", "CW")]
     public bool P2Sanctity2NonPreyTowerCW = false;
 
-    [PropertyDisplay("P3 Dive from Grace: look west for arrows rather than east (so forward arrow takes E spot, backward arrow takes W spot")]
+    [PropertyDisplay("P3 Dive from Grace: look west for arrows rather than east (so forward arrow takes E spot, backward arrow takes W spot)")]
     public bool P3DiveFromGraceLookWest = false;
 
     [PropertyDisplay("P3 enumeration towers: assignments")]
     [GroupDetails(["NW Flex", "NE Flex", "SE Flex", "SW Flex", "NW Stay", "NE Stay", "SE Stay", "SW Stay"])]
     [GroupPreset("LPDU", [1, 3, 6, 0, 2, 4, 5, 7])]
     [GroupPreset("LPDU but CCW", [0, 2, 5, 7, 1, 3, 4, 6])]
+    [GroupPreset("NA", [1, 3, 4, 6, 0, 2, 5, 7])]
     public GroupAssignmentUnique P3DarkdragonDiveCounterGroups = GroupAssignmentUnique.Default();
 
     [PropertyDisplay("P3 enumeration towers: prefer flexing to CCW tower (rather than to CW)")]

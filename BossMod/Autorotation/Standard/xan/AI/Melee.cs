@@ -21,11 +21,11 @@ public class MeleeAI(RotationModuleManager manager, Actor player) : AIBase(manag
             return;
 
         // second wind
-        if (strategy.Enabled(Track.SecondWind) && Player.InCombat && Player.PredictedHPRatio <= 0.5)
+        if (strategy.Enabled(Track.SecondWind) && Player.InCombat && Player.PendingHPRatio <= 0.5)
             Hints.ActionsToExecute.Push(ActionID.MakeSpell(ClassShared.AID.SecondWind), Player, ActionQueue.Priority.Medium);
 
         // bloodbath
-        if (strategy.Enabled(Track.Bloodbath) && Player.InCombat && Player.PredictedHPRatio <= 0.3)
+        if (strategy.Enabled(Track.Bloodbath) && Player.InCombat && Player.PendingHPRatio <= 0.3)
             Hints.ActionsToExecute.Push(ActionID.MakeSpell(ClassShared.AID.Bloodbath), Player, ActionQueue.Priority.Medium);
 
         // low blow
@@ -36,9 +36,6 @@ public class MeleeAI(RotationModuleManager manager, Actor player) : AIBase(manag
                 Hints.ActionsToExecute.Push(ActionID.MakeSpell(ClassShared.AID.LegSweep), stunnableEnemy.Actor, ActionQueue.Priority.Minimal);
         }
 
-        if (Player.Class == Class.SAM)
-            AISAM();
-
         if (Player.FindStatus(2324) != null && Bossmods.ActiveModule?.Info?.GroupType is BossModuleInfo.GroupType.BozjaDuel)
         {
             var gcdLength = ActionSpeed.GCDRounded(World.Client.PlayerStats.SkillSpeed, World.Client.PlayerStats.Haste, Player.Level);
@@ -48,12 +45,6 @@ public class MeleeAI(RotationModuleManager manager, Actor player) : AIBase(manag
         }
 
         ExecLB(strategy, primaryTarget);
-    }
-
-    private void AISAM()
-    {
-        if (Hints.PredictedDamage.Any(x => x.players[0] && x.activation < World.FutureTime(4)))
-            Hints.ActionsToExecute.Push(ActionID.MakeSpell(BossMod.SAM.AID.ThirdEye), Player, ActionQueue.Priority.Low);
     }
 
     private void ExecLB(StrategyValues strategy, Actor? primaryTarget)

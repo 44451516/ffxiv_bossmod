@@ -36,11 +36,11 @@ public enum IconID : uint
     RedTankBuster = 218, // player
 }
 
-class AeroBlast(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.AeroBlast), "Raidwide");
-class MarkXLILineCannon(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.MarkXLIQuickFiringCannon), new AOEShapeRect(40, 2));
-class MarkXLILocationCannon(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.MarkXLIIIMiniCannon), 17, "Proximity aoe, get out!");
-class CerulemTankAOE(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CeruleumExplosion), new AOEShapeCircle(12));
-class HeavySwingTB(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.HeavySwing), "Tank Buster");
+class AeroBlast(BossModule module) : Components.RaidwideCast(module, AID.AeroBlast, "Raidwide");
+class MarkXLILineCannon(BossModule module) : Components.StandardAOEs(module, AID.MarkXLIQuickFiringCannon, new AOEShapeRect(40, 2));
+class MarkXLILocationCannon(BossModule module) : Components.StandardAOEs(module, AID.MarkXLIIIMiniCannon, 17);
+class CerulemTankAOE(BossModule module) : Components.StandardAOEs(module, AID.CeruleumExplosion, new AOEShapeCircle(12));
+class HeavySwingTB(BossModule module) : Components.SingleTargetCast(module, AID.HeavySwing, "Tank Buster");
 
 class Bomb1(BossModule module) : Components.Adds(module, (uint)OID.AuxiliaryCeruleumTank);
 

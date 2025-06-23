@@ -24,7 +24,7 @@ class UITest
             TransparentColor = [0, 0, 0],
         };
 
-        if (args.Length > 0 && args[0] == "-w")
+        if (args.Length > 0 && args[0] == "-w" && false)
         {
             // windowed mode
             windowInfo.XPos = 100;
@@ -45,12 +45,12 @@ class UITest
         using var scene = new SimpleImGuiScene(RendererFactory.RendererBackend.DirectX11, windowInfo);
         scene.Renderer.ClearColor = new Vector4(0, 0, 0, 0);
 
-        InitializeDalamudStyle();
+        InitDalamud();
 
         Service.LogHandlerDebug = msg => Debug.WriteLine(msg);
         Service.LogHandlerVerbose = msg => Debug.WriteLine(msg);
         Service.LuminaGameData = new(FindGameDataPath());
-        //Service.LuminaGameData.Options.PanicOnSheetChecksumMismatch = false; // TODO: remove - temporary workaround until lumina is updated
+        Service.LuminaGameData.Options.PanicOnSheetChecksumMismatch = false; // TODO: remove - temporary workaround until lumina is updated
         Service.LuminaGameData.Options.RsvResolver = Service.LuminaRSV.TryGetValue;
         Service.WindowSystem = new("uitest");
         typeof(Service).GetProperty("Texture")!.SetValue(null, new OfflineTextureProvider(scene.Renderer));
@@ -78,6 +78,11 @@ class UITest
         {
             // this hack is needed to ensure we use correct global scale
             newFrame.Invoke();
+
+            // dalamud trying to draw a fadeout effect causes a deadlock in uidev as the TextureManager service isn't present
+            foreach (var w in Service.WindowSystem.Windows)
+                w.DisableFadeInFadeOut = true;
+
             Service.WindowSystem.Draw();
         };
 
@@ -93,8 +98,17 @@ class UITest
         ActionDefinitions.Instance.Dispose();
     }
 
-    private static unsafe void InitializeDalamudStyle()
+    private static unsafe void InitDalamud()
     {
+        // we have to manually provide a singleton instance of ServiceContainer, otherwise WindowSystem.Draw() will deadlock
+        var dala = Assembly.GetAssembly(typeof(Dalamud.Game.ActionKind))!;
+        var wrapper = dala.GetType("Dalamud.Service`1[Dalamud.IoC.Internal.ServiceContainer]")!;
+        var cont = dala.GetType("Dalamud.IoC.Internal.ServiceContainer")!;
+
+        var provideFn = wrapper.GetMethod("Provide", BindingFlags.Static | BindingFlags.Public);
+        provideFn!.Invoke(null, [Activator.CreateInstance(cont)]);
+        // provideFn!.Invoke(null, [Activator.CreateInstance(texManager)]);
+
         // all of this is taken straight from dalamud
         ImFontConfigPtr fontConfig = ImGuiNative.ImFontConfig_ImFontConfig();
         fontConfig.MergeMode = true;

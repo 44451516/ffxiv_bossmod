@@ -1,6 +1,7 @@
 ﻿namespace BossMod.AI;
 
-[ConfigDisplay(Name = "AI配置", Order = 7)]
+
+[ConfigDisplay(Name = "AI配置", Order = 8)]
 sealed class AIConfig : ConfigNode
 {
     public enum Slot

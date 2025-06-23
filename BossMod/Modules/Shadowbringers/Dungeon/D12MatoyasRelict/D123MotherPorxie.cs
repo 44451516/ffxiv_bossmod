@@ -49,13 +49,13 @@ public enum IconID : uint
     Spreadmarker = 169, // player
 }
 
-class TenderLoin(BossModule module) : Components.RaidwideCastDelay(module, ActionID.MakeSpell(AID.TenderLoinVisual), ActionID.MakeSpell(AID.TenderLoin), 0.8f);
-class MincedMeat(BossModule module) : Components.SingleTargetCastDelay(module, ActionID.MakeSpell(AID.MincedMeatVisual), ActionID.MakeSpell(AID.MincedMeat), 0.9f);
-class OpenFlame(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, ActionID.MakeSpell(AID.OpenFlame), 5, 6.7f);
-class MeatMallet(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.MeatMallet), 30);
-class BarbequeCircle(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.BarbequeCircle), 5);
-class BarbequeRect(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.BarbequeRect), new AOEShapeRect(50, 2.5f));
-class Buffet(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Buffet), new AOEShapeRect(40, 3));
+class TenderLoin(BossModule module) : Components.RaidwideCastDelay(module, AID.TenderLoinVisual, AID.TenderLoin, 0.8f);
+class MincedMeat(BossModule module) : Components.SingleTargetCastDelay(module, AID.MincedMeatVisual, AID.MincedMeat, 0.9f);
+class OpenFlame(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, AID.OpenFlame, 5, 6.7f);
+class MeatMallet(BossModule module) : Components.StandardAOEs(module, AID.MeatMallet, 30);
+class BarbequeCircle(BossModule module) : Components.StandardAOEs(module, AID.BarbequeCircle, 5);
+class BarbequeRect(BossModule module) : Components.StandardAOEs(module, AID.BarbequeRect, new AOEShapeRect(50, 2.5f));
+class Buffet(BossModule module) : Components.StandardAOEs(module, AID.Buffet, new AOEShapeRect(40, 3));
 
 class HuffAndPuff(BossModule module) : Components.Knockback(module, stopAtWall: true)
 {
@@ -128,7 +128,7 @@ class HuffAndPuff(BossModule module) : Components.Knockback(module, stopAtWall: 
         foreach (var movement in CalculateMovements(slot, actor))
         {
             var offset = movement.from - movement.to;
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(p.Position + offset, 5), Module.CastFinishAt(p.CastInfo));
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(p.Position + offset, 5), Module.CastFinishAt(p.CastInfo));
             break;
         }
     }
@@ -183,4 +183,3 @@ public class MotherPorxie(WorldState ws, Actor primary) : BossModule(ws, primary
         Arena.Actors(Enemies(OID.AeolianCaveSprite), ArenaColor.Enemy);
     }
 }
-

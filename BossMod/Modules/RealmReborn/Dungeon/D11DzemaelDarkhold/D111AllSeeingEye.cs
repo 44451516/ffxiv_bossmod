@@ -25,10 +25,10 @@ public enum SID : uint
     Invincibility = 325, // none->Boss, extra=0x0
 }
 
-class CursedGaze(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CursedGaze), new AOEShapeCone(8.7f, 45.Degrees()));
-class DreadGaze(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.DreadGaze), new AOEShapeCone(8.7f, 45.Degrees()));
-class Thunderstrike(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Thunderstrike), new AOEShapeRect(11.2f, 1.5f));
-class Condemnation(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Condemnation), new AOEShapeCone(7.3f, 45.Degrees()));
+class CursedGaze(BossModule module) : Components.StandardAOEs(module, AID.CursedGaze, new AOEShapeCone(8.7f, 45.Degrees()));
+class DreadGaze(BossModule module) : Components.StandardAOEs(module, AID.DreadGaze, new AOEShapeCone(8.7f, 45.Degrees()));
+class Thunderstrike(BossModule module) : Components.StandardAOEs(module, AID.Thunderstrike, new AOEShapeRect(11.2f, 1.5f));
+class Condemnation(BossModule module) : Components.StandardAOEs(module, AID.Condemnation, new AOEShapeCone(7.3f, 45.Degrees()));
 
 // try to always stay in active crystal closest to boss
 class Positioning(BossModule module) : BossComponent(module)
@@ -39,7 +39,7 @@ class Positioning(BossModule module) : BossComponent(module)
         {
             var closestCrystal = Module.Enemies(OID.Crystal).Closest(Module.PrimaryActor.Position);
             if (closestCrystal != null)
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(closestCrystal.Position, 8)); // TODO: verify range
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(closestCrystal.Position, 8)); // TODO: verify range
         }
     }
 }

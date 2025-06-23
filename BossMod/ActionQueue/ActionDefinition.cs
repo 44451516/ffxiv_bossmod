@@ -61,7 +61,7 @@ public enum ActionAspect : byte
 // because of that, we need to reimplement a lot of the logic here - this has to be synchronized to the code whenever game changes
 public sealed record class ActionDefinition(ActionID ID)
 {
-    public delegate bool ConditionDelegate(WorldState ws, Actor player, Actor? target, AIHints hints);
+    public delegate bool ConditionDelegate(WorldState ws, Actor player, ActionQueue.Entry action, AIHints hints);
     public delegate Actor? SmartTargetDelegate(WorldState ws, Actor player, Actor? target, AIHints hints);
     public delegate Angle? TransformAngleDelegate(WorldState ws, Actor player, Actor? target, AIHints hints);
 
@@ -168,11 +168,11 @@ public sealed class ActionDefinitions : IDisposable
     public static readonly ActionID IDSprint = new(ActionType.Spell, 3);
     public static readonly ActionID IDAutoAttack = new(ActionType.Spell, 7);
     public static readonly ActionID IDAutoShot = new(ActionType.Spell, 8);
-    public static readonly ActionID IDPotionStr = new(ActionType.Item, 1044162); // hq grade 2 gemdraught of strength
-    public static readonly ActionID IDPotionDex = new(ActionType.Item, 1044163); // hq grade 2 gemdraught of dexterity
-    public static readonly ActionID IDPotionVit = new(ActionType.Item, 1044164); // hq grade 2 gemdraught of vitality
-    public static readonly ActionID IDPotionInt = new(ActionType.Item, 1044165); // hq grade 2 gemdraught of intelligence
-    public static readonly ActionID IDPotionMnd = new(ActionType.Item, 1044166); // hq grade 2 gemdraught of mind
+    public static readonly ActionID IDPotionStr = new(ActionType.Item, 1045995); // hq grade 3 gemdraught of strength
+    public static readonly ActionID IDPotionDex = new(ActionType.Item, 1045996); // hq grade 3 gemdraught of dexterity
+    public static readonly ActionID IDPotionVit = new(ActionType.Item, 1045997); // hq grade 3 gemdraught of vitality
+    public static readonly ActionID IDPotionInt = new(ActionType.Item, 1045998); // hq grade 3 gemdraught of intelligence
+    public static readonly ActionID IDPotionMnd = new(ActionType.Item, 1045999); // hq grade 3 gemdraught of mind
 
     // content specific consumables
     public static readonly ActionID IDPotionSustaining = new(ActionType.Item, 20309);
@@ -248,6 +248,22 @@ public sealed class ActionDefinitions : IDisposable
         foreach (var act in typeof(EurekaActionID).GetEnumValues())
             if ((uint)act > 0)
                 RegisterSpell((EurekaActionID)act);
+
+        for (var i = 1u; i <= 6u; i++)
+        {
+            var petAction = new ActionID(ActionType.PetAction, i);
+            var def = new ActionDefinition(petAction)
+            {
+                CastAnimLock = 0,
+                InstantAnimLock = 0,
+            };
+            if (i == 3) // PetAction 3 "Place" is area-targeted
+            {
+                def.Range = 30;
+                def.AllowedTargets = ActionTargets.Area;
+            }
+            Register(def.ID, def);
+        }
     }
 
     public void Dispose()
@@ -267,11 +283,11 @@ public sealed class ActionDefinitions : IDisposable
     public static Actor? FindEsunaTarget(WorldState ws) => ws.Party.WithoutSlot().FirstOrDefault(p => p.Statuses.Any(s => Utils.StatusIsRemovable(s.ID)));
     public static Actor? SmartTargetEsunable(WorldState ws, Actor player, Actor? primaryTarget, AIHints hints) => SmartTargetFriendly(primaryTarget) ?? FindEsunaTarget(ws) ?? player;
 
-    // check if dashing to target will put the player inside a forbidden zone
-    // TODO should we check if dash trajectory will cross any zones with imminent activation?
-    public static bool PreventDashIfDangerous(WorldState _, Actor player, Actor? target, AIHints hints)
+    public static bool DashToTargetCheck(WorldState _, Actor player, ActionQueue.Entry action, AIHints hints)
     {
-        if (target == null || !Service.Config.Get<ActionTweaksConfig>().PreventDangerousDash)
+        var cfg = Service.Config.Get<ActionTweaksConfig>();
+        var target = action.Target;
+        if (target == null || !cfg.DashSafety)
             return false;
 
         // if there are pending knockbacks, god only knows where we would be sent after using a gapcloser
@@ -282,14 +298,66 @@ public sealed class ActionDefinitions : IDisposable
         var dist = player.DistanceToHitbox(target);
         var dir = player.DirectionTo(target).Normalized();
         var src = player.Position;
-        var proj = dist > 0 ? src + dir * MathF.Max(0, dist) : src;
 
-        // dash might yeet us off the arena
-        // TODO make *this* configurable?
-        if (!hints.PathfindMapBounds.Contains(proj - hints.PathfindMapCenter))
+        return IsDashDangerous(src, src + dir * MathF.Max(0, dist), hints);
+    }
+
+    public static bool DashToPositionCheck(WorldState _, Actor player, ActionQueue.Entry action, AIHints hints)
+    {
+        var cfg = Service.Config.Get<ActionTweaksConfig>();
+        if (action.TargetPos == default || !cfg.DashSafety || !cfg.DashSafetyExtra)
+            return false;
+
+        if (player.PendingKnockbacks.Count > 0)
             return true;
 
-        return hints.ForbiddenZones.Any(d => d.shapeDistance(proj) < 0);
+        return IsDashDangerous(player.Position, new WPos(action.TargetPos.XZ()), hints);
+    }
+
+    public static ActionDefinition.ConditionDelegate DashFixedDistanceCheck(float range, bool backwards = false)
+        => (ws, player, act, hints) =>
+        {
+            var cfg = Service.Config.Get<ActionTweaksConfig>();
+            if (!cfg.DashSafety || !cfg.DashSafetyExtra)
+                return false;
+
+            if (player.PendingKnockbacks.Count > 0)
+                return true;
+
+            var dir = act.FacingAngle ?? player.Rotation;
+
+            var dest = player.Position + dir.ToDirection() * range * (backwards ? -1 : 1);
+
+            return IsDashDangerous(player.Position, dest, hints);
+        };
+
+    public static ActionDefinition.ConditionDelegate BackdashCheck(float range)
+         => (ws, player, act, hints) =>
+        {
+            var cfg = Service.Config.Get<ActionTweaksConfig>();
+            if (act.Target == null || !cfg.DashSafety || !cfg.DashSafetyExtra)
+                return false;
+
+            if (player.PendingKnockbacks.Count > 0)
+                return true;
+
+            var dir = act.Target.DirectionTo(player).Normalized();
+
+            return IsDashDangerous(player.Position, player.Position + dir * range, hints);
+        };
+
+    // check if dashing to target will put the player inside a forbidden zone
+    public static bool IsDashDangerous(WPos from, WPos to, AIHints hints)
+    {
+        var center = hints.PathfindMapCenter;
+        if (!hints.PathfindMapBounds.Contains(to - center))
+            return true;
+
+        // if arena is a weird shape, try to ensure player won't dash out of it
+        if (from != to && hints.PathfindMapBounds is ArenaBoundsCustom && hints.PathfindMapBounds.IntersectRay(from - center, to - from) is >= 0 and < float.MaxValue)
+            return true;
+
+        return hints.ForbiddenZones.Any(d => d.containsFn(to));
     }
 
     public BitMask SpellAllowedClasses(Lumina.Excel.Sheets.Action data)
@@ -484,6 +552,7 @@ public sealed class ActionDefinitions : IDisposable
     {
         var trait = TraitData(traitId)!;
         _definitions[aid].MaxChargesOverride.Add((trait.Value, trait.Level, trait.Quest.RowId));
+        _definitions[aid].MaxChargesOverride.SortByReverse(c => c.Level);
     }
     public void RegisterChargeIncreaseTrait<AID, TraitID>(AID aid, TraitID traitId) where AID : Enum where TraitID : Enum => RegisterChargeIncreaseTrait(ActionID.MakeSpell(aid), (uint)(object)traitId);
 }

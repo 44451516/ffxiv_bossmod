@@ -54,8 +54,8 @@ public enum SID : uint
 }
 
 class SludgeVoidzone(BossModule module) : Components.PersistentVoidzone(module, 9.8f, m => m.Enemies(OID.SludgeVoidzone).Where(z => z.EventState != 7));
-class ScavengersDaughter(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.ScavengersDaughter));
-class HeadCrusher(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.HeadCrusher));
+class ScavengersDaughter(BossModule module) : Components.RaidwideCast(module, AID.ScavengersDaughter);
+class HeadCrusher(BossModule module) : Components.SingleTargetCast(module, AID.HeadCrusher);
 
 class Chains(BossModule module) : BossComponent(module)
 {
@@ -136,7 +136,6 @@ class Aethersup(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         switch ((AID)spell.Action.ID)
@@ -182,7 +181,7 @@ class PendulumFlare(BossModule module) : Components.GenericBaitAway(module)
     {
         base.AddAIHints(slot, actor, assignment, hints);
         if (target == actor && targeted)
-            hints.AddForbiddenZone(ShapeDistance.Rect(Module.Center, target.Position, 18));
+            hints.AddForbiddenZone(ShapeContains.Rect(Module.Center, target.Position, 18));
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -193,10 +192,10 @@ class PendulumFlare(BossModule module) : Components.GenericBaitAway(module)
     }
 }
 
-class PendulumAOE(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.PendulumAOE3), 15);
-class LeftKnout(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LeftKnout), new AOEShapeCone(24, 105.Degrees()));
-class RightKnout(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.RightKnout), new AOEShapeCone(24, 105.Degrees()));
-class Taphephobia(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.Taphephobia2), 6);
+class PendulumAOE(BossModule module) : Components.StandardAOEs(module, AID.PendulumAOE3, 15);
+class LeftKnout(BossModule module) : Components.StandardAOEs(module, AID.LeftKnout, new AOEShapeCone(24, 105.Degrees()));
+class RightKnout(BossModule module) : Components.StandardAOEs(module, AID.RightKnout, new AOEShapeCone(24, 105.Degrees()));
+class Taphephobia(BossModule module) : Components.SpreadFromCastTargets(module, AID.Taphephobia2, 6);
 
 // TODO: create and use generic 'line stack' component
 class IntoTheLight(BossModule module) : Components.GenericBaitAway(module)
@@ -217,7 +216,7 @@ class IntoTheLight(BossModule module) : Components.GenericBaitAway(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (CurrentBaits.Count > 0 && actor != target)
-            hints.AddForbiddenZone(ShapeDistance.InvertedRect(Module.PrimaryActor.Position, (target!.Position - Module.PrimaryActor.Position).Normalized(), 50, 0, 4));
+            hints.AddForbiddenZone(ShapeContains.InvertedRect(Module.PrimaryActor.Position, (target!.Position - Module.PrimaryActor.Position).Normalized(), 50, 0, 4));
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)

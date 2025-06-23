@@ -46,7 +46,7 @@ class ConductionPoint : Components.UniformStackSpread
 
 class ForkedFissures : Components.GenericWildCharge
 {
-    public ForkedFissures(BossModule module) : base(module, 5, ActionID.MakeSpell(AID.ForkedFissures), 40)
+    public ForkedFissures(BossModule module) : base(module, 5, AID.ForkedFissures, 40)
     {
         Array.Fill(PlayerRoles, PlayerRole.Share);
     }
@@ -57,8 +57,7 @@ class ForkedFissures : Components.GenericWildCharge
         {
             case AID.ConductionPoint:
                 Source = caster;
-                var slot = Raid.FindSlot(spell.MainTargetID);
-                if (slot >= 0)
+                if (Raid.TryFindSlot(spell.MainTargetID, out var slot))
                     PlayerRoles[slot] = PlayerRole.TargetNotFirst;
                 break;
             case AID.ForkedFissures:

@@ -68,7 +68,7 @@ class P2Cauterize(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if ((IconID)iconID is IconID.Cauterize && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if ((IconID)iconID is IconID.Cauterize && Raid.TryFindSlot(actor.InstanceID, out var slot))
         {
             BaitOrder[slot] = ++NumBaitsAssigned;
         }
@@ -103,4 +103,4 @@ class P2Cauterize(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class P2Hypernova(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, ActionID.MakeSpell(AID.Hypernova), m => m.Enemies(OID.VoidzoneHypernova).Where(z => z.EventState != 7), 1.4f);
+class P2Hypernova(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, AID.Hypernova, m => m.Enemies(OID.VoidzoneHypernova).Where(z => z.EventState != 7), 1.4f);

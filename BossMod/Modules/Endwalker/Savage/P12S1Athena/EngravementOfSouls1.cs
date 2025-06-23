@@ -31,7 +31,7 @@ class EngravementOfSouls1Spread(BossModule module) : Components.UniformStackSpre
             SID.AstralbrightSoul => DebuffType.Dark,
             _ => DebuffType.None
         };
-        if (type != DebuffType.None && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if (type != DebuffType.None && Raid.TryFindSlot(actor.InstanceID, out var slot))
         {
             _states[slot].Debuff = type;
             AddSpread(actor, WorldState.FutureTime(10.1f));
@@ -54,7 +54,7 @@ class EngravementOfSouls1Spread(BossModule module) : Components.UniformStackSpre
                     WDir[] offsets = [new(+1, -1), new(+1, +1), new(-1, +1), new(-1, -1)]; // CW from N
                     var relevantTether = _states[slot].Debuff == DebuffType.Light ? EngravementOfSoulsTethers.TetherType.Dark : EngravementOfSoulsTethers.TetherType.Light;
                     var expectedPositions = _tethers.States.Where(s => s.Source != null).Select(s => (s.Source!.Position + 40 * s.Source.Rotation.ToDirection(), s.Tether == relevantTether)).ToList();
-                    var offsetsOrdered = (Raid[slot]?.Class.IsSupport() ?? false) ? offsets.AsEnumerable() : offsets.Reverse();
+                    var offsetsOrdered = (Raid[slot]?.Class.IsSupport() ?? false) ? offsets.AsEnumerable() : Enumerable.Reverse(offsets);
                     var positionsOrdered = offsetsOrdered.Select(d => Module.Center + 7 * d);
                     var firstMatch = positionsOrdered.First(p => expectedPositions.MinBy(ep => (ep.Item1 - p).LengthSq()).Item2);
                     _states[slot].CachedSafespot = firstMatch;

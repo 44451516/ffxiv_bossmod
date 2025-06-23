@@ -94,6 +94,7 @@ public class Map
     }
 
     public int GridToIndex(int x, int y) => y * Width + x;
+    public int GridToIndex((int x, int y) p) => GridToIndex(p.x, p.y);
     public (int x, int y) IndexToGrid(int index) => (index % Width, index / Width);
     public (int x, int y) FracToGrid(Vector2 frac) => ((int)MathF.Floor(frac.X), (int)MathF.Floor(frac.Y));
     public (int x, int y) WorldToGrid(WPos world) => FracToGrid(WorldToGridFrac(world));
@@ -109,12 +110,12 @@ public class Map
     }
 
     // block all pixels for which function returns value smaller than threshold ('inside' shape + extra cushion)
-    public void BlockPixelsInside(Func<WPos, float> shape, float maxG, float threshold)
+    public void BlockPixelsInside(Func<WPos, bool> shape, float maxG)
     {
         MaxG = MathF.Max(MaxG, maxG);
         foreach (var (x, y, center) in EnumeratePixels())
         {
-            if (shape(center) < threshold)
+            if (shape(center))
             {
                 ref var pixel = ref PixelMaxG[y * Width + x];
                 pixel = MathF.Min(pixel, maxG);

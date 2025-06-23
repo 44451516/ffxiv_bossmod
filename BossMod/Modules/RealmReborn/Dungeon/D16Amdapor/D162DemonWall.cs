@@ -15,18 +15,18 @@ public enum AID : uint
     Repel = 1047, // Boss->self, 3.0s cast, range 40+R 180?-degree cone knockback 20 (non-immunable)
 }
 
-class LiquefyCenter(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LiquefyCenter), new AOEShapeRect(50, 4));
-class LiquefySides(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LiquefySides), new AOEShapeRect(50, 3.5f));
+class LiquefyCenter(BossModule module) : Components.StandardAOEs(module, AID.LiquefyCenter, new AOEShapeRect(50, 4));
+class LiquefySides(BossModule module) : Components.StandardAOEs(module, AID.LiquefySides, new AOEShapeRect(50, 3.5f));
 
-class Repel(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.Repel), 20, true)
+class Repel(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Repel, 20, true)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         // custom hint: stay in narrow zone in center
         if (Casters.Count > 0)
         {
-            var safe = ShapeDistance.Rect(Module.PrimaryActor.Position, 0.Degrees(), 50, -2, 1);
-            hints.AddForbiddenZone(p => -safe(p));
+            var safe = ShapeContains.Rect(Module.PrimaryActor.Position, 0.Degrees(), 50, -2, 1);
+            hints.AddForbiddenZone(p => !safe(p));
         }
     }
 }

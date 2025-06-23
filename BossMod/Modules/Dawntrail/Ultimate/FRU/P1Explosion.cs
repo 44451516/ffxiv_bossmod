@@ -1,8 +1,8 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
-class P1ExplosionBurntStrikeFire(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ExplosionBurntStrikeFire), new AOEShapeRect(40, 5, 40));
-class P1ExplosionBurntStrikeLightning(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ExplosionBurntStrikeLightning), new AOEShapeRect(40, 5, 40));
-class P1ExplosionBurnout(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ExplosionBurnout), new AOEShapeRect(40, 10, 40));
+class P1ExplosionBurntStrikeFire(BossModule module) : Components.StandardAOEs(module, AID.ExplosionBurntStrikeFire, new AOEShapeRect(40, 5, 40));
+class P1ExplosionBurntStrikeLightning(BossModule module) : Components.StandardAOEs(module, AID.ExplosionBurntStrikeLightning, new AOEShapeRect(40, 5, 40));
+class P1ExplosionBurnout(BossModule module) : Components.StandardAOEs(module, AID.ExplosionBurnout, new AOEShapeRect(40, 10, 40));
 
 // TODO: non-fixed conga?
 class P1Explosion(BossModule module) : Components.GenericTowers(module)
@@ -27,12 +27,12 @@ class P1Explosion(BossModule module) : Components.GenericTowers(module)
             var horizOffset = !_lineDone
                 ? (_isWideLine && actor.Class == Class.WAR && actor.FindStatus(WAR.SID.PrimalRend) != null ? 17 : 0)
                 : (_config.P1ExplosionsTankbusterCheese ? 7 : 0);
-            hints.AddForbiddenZone(ShapeDistance.HalfPlane(Module.Center - horizOffset * TowerDir, -TowerDir), Activation);
+            hints.AddForbiddenZone(ShapeContains.HalfPlane(Module.Center - horizOffset * TowerDir, -TowerDir), Activation);
 
             if (!_config.P1ExplosionsTankbusterCheese)
             {
                 var vertDir = new WDir(0, role == 0 ? -1 : +1);
-                hints.AddForbiddenZone(ShapeDistance.HalfPlane(Module.Center + 5 * vertDir, vertDir), Activation);
+                hints.AddForbiddenZone(ShapeContains.HalfPlane(Module.Center + 5 * vertDir, vertDir), Activation);
             }
         }
         else
@@ -44,9 +44,9 @@ class P1Explosion(BossModule module) : Components.GenericTowers(module)
                 var needSoak = _lineDone || _isWideLine && actor.Role is Role.Healer or Role.Ranged;
                 ref var t = ref Towers.Ref(index);
                 if (needSoak)
-                    hints.AddForbiddenZone(ShapeDistance.InvertedCircle(t.Position, t.Radius), t.Activation);
+                    hints.AddForbiddenZone(ShapeContains.InvertedCircle(t.Position, t.Radius), t.Activation);
                 else
-                    hints.AddForbiddenZone(ShapeDistance.InvertedRect(new(Module.Center.X, t.Position.Z), TowerDir, 20, 0, t.Radius), t.Activation);
+                    hints.AddForbiddenZone(ShapeContains.InvertedRect(new(Module.Center.X, t.Position.Z), TowerDir, 20, 0, t.Radius), t.Activation);
             }
         }
     }

@@ -8,7 +8,7 @@ class P2MirrorMirrorReflectedScytheKickBlue : Components.GenericAOEs
 
     private static readonly AOEShapeDonut _shape = new(4, 20);
 
-    public P2MirrorMirrorReflectedScytheKickBlue(BossModule module) : base(module, ActionID.MakeSpell(AID.ReflectedScytheKickBlue))
+    public P2MirrorMirrorReflectedScytheKickBlue(BossModule module) : base(module, AID.ReflectedScytheKickBlue)
     {
         foreach (var (slot, group) in Service.Config.Get<FRUConfig>().P2MirrorMirror1SpreadSpots.Resolve(Raid))
             _rangedSpots[slot] = group >= 4;
@@ -24,7 +24,7 @@ class P2MirrorMirrorReflectedScytheKickBlue : Components.GenericAOEs
             // main tank should drag the boss away
             // note: before mirror appears, we want to stay near center (to minimize movement no matter where mirror appears), so this works fine if blue mirror is zero
             // TODO: verify distance calculation - we want boss to be at least 4m away from center
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Module.Center - 16 * _blueMirror, 1), DateTime.MaxValue);
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.Center - 16 * _blueMirror, 1), DateTime.MaxValue);
         }
     }
 
@@ -55,7 +55,7 @@ class P2MirrorMirrorReflectedScytheKickBlue : Components.GenericAOEs
     }
 }
 
-class P2MirrorMirrorReflectedScytheKickRed(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ReflectedScytheKickRed), new AOEShapeDonut(4, 20))
+class P2MirrorMirrorReflectedScytheKickRed(BossModule module) : Components.StandardAOEs(module, AID.ReflectedScytheKickRed, new AOEShapeDonut(4, 20))
 {
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
@@ -63,7 +63,7 @@ class P2MirrorMirrorReflectedScytheKickRed(BossModule module) : Components.SelfT
     }
 }
 
-class P2MirrorMirrorHouseOfLight(BossModule module) : Components.GenericBaitAway(module, ActionID.MakeSpell(AID.HouseOfLight))
+class P2MirrorMirrorHouseOfLight(BossModule module) : Components.GenericBaitAway(module, AID.HouseOfLight)
 {
     public readonly record struct Source(Actor Actor, DateTime Activation);
 
@@ -120,7 +120,7 @@ class P2MirrorMirrorHouseOfLight(BossModule module) : Components.GenericBaitAway
                 _ => default
             };
         }
-        hints.AddForbiddenZone(ShapeDistance.InvertedCone(origin.Actor.Position, 4, dir, 15.Degrees()), origin.Activation);
+        hints.AddForbiddenZone(ShapeContains.InvertedCone(origin.Actor.Position, 4, dir, 15.Degrees()), origin.Activation);
     }
 
     public override void OnEventEnvControl(byte index, uint state)
@@ -203,7 +203,7 @@ class P2MirrorMirrorBanish : P2Banish
     {
         var prepos = PrepositionLocation(slot, assignment);
         if (prepos != null)
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(prepos.Value, 1), DateTime.MaxValue);
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(prepos.Value, 1), DateTime.MaxValue);
         else
             base.AddAIHints(slot, actor, assignment, hints);
     }

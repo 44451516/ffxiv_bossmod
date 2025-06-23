@@ -31,11 +31,16 @@ public class GenericStackSpread(BossModule module, bool alwaysShowSpreads = fals
     public IEnumerable<Stack> ActiveStacks => IncludeDeadTargets ? Stacks : Stacks.Where(s => !s.Target.IsDead);
     public IEnumerable<Spread> ActiveSpreads => IncludeDeadTargets ? Spreads : Spreads.Where(s => !s.Target.IsDead);
 
+    public bool EnableHints = true;
+
     public bool IsStackTarget(Actor? actor) => Stacks.Any(s => s.Target == actor);
     public bool IsSpreadTarget(Actor? actor) => Spreads.Any(s => s.Target == actor);
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
+        if (!EnableHints)
+            return;
+
         if (Spreads.FindIndex(s => s.Target == actor) is var iSpread && iSpread >= 0)
         {
             hints.Add("Spread!", Raid.WithoutSlot().InRadiusExcluding(actor, Spreads[iSpread].Radius).Any());
@@ -86,56 +91,63 @@ public class GenericStackSpread(BossModule module, bool alwaysShowSpreads = fals
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
+        if (!EnableHints)
+            return;
+
         // forbid standing next to spread markers
         // TODO: think how to improve this, current implementation works, but isn't particularly good - e.g. nearby players tend to move to same spot, turn around, etc.
         // ideally we should provide per-mechanic spread spots, but for simple cases we should try to let melee spread close and healers/rdd spread far from main target...
         foreach (var spreadFrom in ActiveSpreads.Where(s => s.Target != actor))
-            hints.AddForbiddenZone(ShapeDistance.Circle(spreadFrom.Target.Position, spreadFrom.Radius + ExtraAISpreadThreshold), spreadFrom.Activation);
+            hints.AddForbiddenZone(ShapeContains.Circle(spreadFrom.Target.Position, spreadFrom.Radius + ExtraAISpreadThreshold), spreadFrom.Activation);
 
         // if player has spread himself, stay away from everyone else
         var actorSpread = Spreads.FirstOrDefault(s => s.Target == actor);
         if (actorSpread.Target != null)
             foreach (var p in Raid.WithoutSlot().Exclude(actor))
-                hints.AddForbiddenZone(ShapeDistance.Circle(p.Position, actorSpread.Radius), actorSpread.Activation);
+                hints.AddForbiddenZone(ShapeContains.Circle(p.Position, actorSpread.Radius), actorSpread.Activation);
 
         foreach (var avoid in ActiveStacks.Where(s => s.Target != actor && s.ForbiddenPlayers[slot]))
-            hints.AddForbiddenZone(ShapeDistance.Circle(avoid.Target.Position, avoid.Radius), avoid.Activation);
+            hints.AddForbiddenZone(ShapeContains.Circle(avoid.Target.Position, avoid.Radius), avoid.Activation);
 
         if (Stacks.FirstOrDefault(s => s.Target == actor) is var actorStack && actorStack.Target != null)
         {
             // forbid standing next to other stack markers
             foreach (var stackWith in ActiveStacks.Where(s => s.Target != actor))
-                hints.AddForbiddenZone(ShapeDistance.Circle(stackWith.Target.Position, stackWith.Radius), stackWith.Activation);
+                hints.AddForbiddenZone(ShapeContains.Circle(stackWith.Target.Position, stackWith.Radius), stackWith.Activation);
             // and try to stack with closest non-stack/spread player
             var closest = Raid.WithoutSlot().Where(p => p != actor && !IsSpreadTarget(p) && !IsStackTarget(p)).Closest(actor.Position);
             if (closest != null)
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(closest.Position, actorStack.Radius * 0.5f), actorStack.Activation);
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(closest.Position, actorStack.Radius * 0.5f), actorStack.Activation);
         }
         else if (actorSpread.Target == null)
         {
             // TODO: handle multi stacks better...
             var closestStack = ActiveStacks.Where(s => !s.ForbiddenPlayers[slot]).MinBy(s => (s.Target.Position - actor.Position).LengthSq());
             if (closestStack.Target != null)
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(closestStack.Target.Position, closestStack.Radius), closestStack.Activation);
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(closestStack.Target.Position, closestStack.Radius), closestStack.Activation);
         }
+
+        var spreadMask = new BitMask();
+        var stackMask = new BitMask();
 
         if (RaidwideOnResolve)
         {
-            DateTime firstActivation = DateTime.MaxValue;
-            BitMask damageMask = new();
+            var firstActivation = DateTime.MaxValue;
             foreach (var s in ActiveSpreads)
             {
-                damageMask.Set(Raid.FindSlot(s.Target.InstanceID));
+                spreadMask.Set(Raid.FindSlot(s.Target.InstanceID));
                 firstActivation = firstActivation < s.Activation ? firstActivation : s.Activation;
             }
             foreach (var s in ActiveStacks)
             {
-                damageMask |= Raid.WithSlot().Mask() & ~s.ForbiddenPlayers; // assume everyone will take damage except forbidden players (so-so assumption really...)
+                stackMask |= Raid.WithSlot().Mask() & ~s.ForbiddenPlayers; // assume everyone will take damage except forbidden players (so-so assumption really...)
                 firstActivation = firstActivation < s.Activation ? firstActivation : s.Activation;
             }
 
-            if (damageMask.Any())
-                hints.PredictedDamage.Add((damageMask, firstActivation));
+            if (spreadMask.Any())
+                hints.AddPredictedDamage(spreadMask, firstActivation, AIHints.PredictedDamageType.Raidwide);
+            if (stackMask.Any())
+                hints.AddPredictedDamage(stackMask, firstActivation, AIHints.PredictedDamageType.Shared);
         }
     }
 
@@ -165,7 +177,7 @@ public class GenericStackSpread(BossModule module, bool alwaysShowSpreads = fals
             {
                 if (Arena.Config.ShowOutlinesAndShadows)
                     Arena.AddCircle(s.Target.Position, s.Radius, 0xFF000000, 2);
-                Arena.AddCircle(s.Target.Position, s.Radius, ArenaColor.Safe);
+                Arena.AddCircle(s.Target.Position, s.Radius, s.ForbiddenPlayers[pcSlot] ? ArenaColor.Danger : ArenaColor.Safe);
             }
             foreach (var s in ActiveSpreads)
             {
@@ -196,11 +208,11 @@ public class UniformStackSpread(BossModule module, float stackRadius, float spre
 }
 
 // spread/stack mechanic that selects targets by casts
-public class CastStackSpread(BossModule module, ActionID stackAID, ActionID spreadAID, float stackRadius, float spreadRadius, int minStackSize = 2, int maxStackSize = int.MaxValue, bool alwaysShowSpreads = false)
+public class CastStackSpread(BossModule module, Enum? stackAID, Enum? spreadAID, float stackRadius, float spreadRadius, int minStackSize = 2, int maxStackSize = int.MaxValue, bool alwaysShowSpreads = false)
     : UniformStackSpread(module, stackRadius, spreadRadius, minStackSize, maxStackSize, alwaysShowSpreads)
 {
-    public ActionID StackAction { get; init; } = stackAID;
-    public ActionID SpreadAction { get; init; } = spreadAID;
+    public ActionID StackAction { get; init; } = ActionID.MakeSpell(stackAID);
+    public ActionID SpreadAction { get; init; } = ActionID.MakeSpell(spreadAID);
     public int NumFinishedStacks { get; protected set; }
     public int NumFinishedSpreads { get; protected set; }
 
@@ -232,19 +244,19 @@ public class CastStackSpread(BossModule module, ActionID stackAID, ActionID spre
 }
 
 // generic 'spread from targets of specific cast' mechanic
-public class SpreadFromCastTargets(BossModule module, ActionID aid, float radius, bool drawAllSpreads = true) : CastStackSpread(module, default, aid, 0, radius, alwaysShowSpreads: drawAllSpreads);
+public class SpreadFromCastTargets(BossModule module, Enum aid, float radius, bool drawAllSpreads = true) : CastStackSpread(module, default, aid, 0, radius, alwaysShowSpreads: drawAllSpreads);
 
 // generic 'stack with targets of specific cast' mechanic
-public class StackWithCastTargets(BossModule module, ActionID aid, float radius, int minStackSize = 2, int maxStackSize = int.MaxValue) : CastStackSpread(module, aid, default, radius, 0, minStackSize, maxStackSize);
+public class StackWithCastTargets(BossModule module, Enum aid, float radius, int minStackSize = 2, int maxStackSize = int.MaxValue) : CastStackSpread(module, aid, default, radius, 0, minStackSize, maxStackSize);
 
 // spread/stack mechanic that selects targets by icon and finishes by cast event
-public class IconStackSpread(BossModule module, uint stackIcon, uint spreadIcon, ActionID stackAID, ActionID spreadAID, float stackRadius, float spreadRadius, float activationDelay, int minStackSize = 2, int maxStackSize = int.MaxValue, bool alwaysShowSpreads = false)
+public class IconStackSpread(BossModule module, uint stackIcon, uint spreadIcon, Enum? stackAID, Enum? spreadAID, float stackRadius, float spreadRadius, float activationDelay, int minStackSize = 2, int maxStackSize = int.MaxValue, bool alwaysShowSpreads = false)
     : UniformStackSpread(module, stackRadius, spreadRadius, minStackSize, maxStackSize, alwaysShowSpreads)
 {
     public uint StackIcon { get; init; } = stackIcon;
     public uint SpreadIcon { get; init; } = spreadIcon;
-    public ActionID StackAction { get; init; } = stackAID;
-    public ActionID SpreadAction { get; init; } = spreadAID;
+    public ActionID StackAction { get; init; } = ActionID.MakeSpell(stackAID);
+    public ActionID SpreadAction { get; init; } = ActionID.MakeSpell(spreadAID);
     public float ActivationDelay { get; init; } = activationDelay;
     public int NumFinishedStacks { get; protected set; }
     public int NumFinishedSpreads { get; protected set; }
@@ -277,7 +289,7 @@ public class IconStackSpread(BossModule module, uint stackIcon, uint spreadIcon,
 }
 
 // generic 'spread from actors with specific icon' mechanic
-public class SpreadFromIcon(BossModule module, uint icon, ActionID aid, float radius, float activationDelay, bool drawAllSpreads = true) : IconStackSpread(module, 0, icon, default, aid, 0, radius, activationDelay, alwaysShowSpreads: drawAllSpreads);
+public class SpreadFromIcon(BossModule module, uint icon, Enum? aid, float radius, float activationDelay, bool drawAllSpreads = true) : IconStackSpread(module, 0, icon, default, aid, 0, radius, activationDelay, alwaysShowSpreads: drawAllSpreads);
 
 // generic 'stack with actors with specific icon' mechanic
-public class StackWithIcon(BossModule module, uint icon, ActionID aid, float radius, float activationDelay, int minStackSize = 2, int maxStackSize = int.MaxValue) : IconStackSpread(module, icon, 0, aid, default, radius, 0, activationDelay, minStackSize, maxStackSize);
+public class StackWithIcon(BossModule module, uint icon, Enum aid, float radius, float activationDelay, int minStackSize = 2, int maxStackSize = int.MaxValue) : IconStackSpread(module, icon, 0, aid, default, radius, 0, activationDelay, minStackSize, maxStackSize);

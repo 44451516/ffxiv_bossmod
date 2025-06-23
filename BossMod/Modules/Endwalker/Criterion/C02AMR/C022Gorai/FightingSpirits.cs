@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Criterion.C02AMR.C022Gorai;
 
-class FightingSpirits(BossModule module, AID aid) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(aid), 16);
+class FightingSpirits(BossModule module, AID aid) : Components.KnockbackFromCastTarget(module, aid, 16);
 class NFightingSpirits(BossModule module) : FightingSpirits(module, AID.NFightingSpiritsAOE);
 class SFightingSpirits(BossModule module) : FightingSpirits(module, AID.SFightingSpiritsAOE);
 
@@ -43,7 +43,7 @@ class WorldlyPursuitBait(BossModule module) : Components.GenericBaitAway(module,
             IconID.Order4 => 3,
             _ => -1,
         };
-        if (order >= 0 && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if (order >= 0 && Raid.TryFindSlot(actor.InstanceID, out var slot))
         {
             _order[slot] = order;
         }

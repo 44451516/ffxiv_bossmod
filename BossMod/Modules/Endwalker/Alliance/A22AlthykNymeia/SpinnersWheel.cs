@@ -19,7 +19,7 @@ class SpinnersWheelSelect(BossModule module) : BossComponent(module)
     }
 }
 
-class SpinnersWheelGaze(BossModule module, bool inverted, AID aid, SID sid) : Components.GenericGaze(module, ActionID.MakeSpell(aid), inverted)
+class SpinnersWheelGaze(BossModule module, bool inverted, AID aid, SID sid) : Components.GenericGaze(module, aid, inverted)
 {
     private readonly SID _sid = sid;
     private readonly Actor? _source = module.Enemies(OID.Nymeia).FirstOrDefault();
@@ -53,12 +53,10 @@ class SpinnersWheelStayMove(BossModule module) : Components.StayMove(module)
         switch ((SID)status.ID)
         {
             case SID.ArcaneFever:
-                if (Raid.FindSlot(actor.InstanceID) is var feverSlot && feverSlot >= 0)
-                    PlayerStates[feverSlot] = new(Requirement.Stay, status.ExpireAt);
+                SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Stay, status.ExpireAt));
                 break;
             case SID.FeverReversed:
-                if (Raid.FindSlot(actor.InstanceID) is var revSlot && revSlot >= 0)
-                    PlayerStates[revSlot] = new(Requirement.Move, status.ExpireAt);
+                SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Move, status.ExpireAt));
                 break;
             case SID.Pyretic:
             case SID.FreezingUp:
@@ -72,7 +70,7 @@ class SpinnersWheelStayMove(BossModule module) : Components.StayMove(module)
         if ((SID)status.ID is SID.Pyretic or SID.FreezingUp)
         {
             --ActiveDebuffs;
-            if (Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+            if (Raid.TryFindSlot(actor.InstanceID, out var slot))
                 PlayerStates[slot] = default;
         }
     }

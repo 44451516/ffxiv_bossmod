@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Shadowbringers.Foray.DelubrumReginae.DRS7StygimolochLord;
 
-class FatefulWords(BossModule module) : Components.Knockback(module, ActionID.MakeSpell(AID.FatefulWordsAOE), true)
+class FatefulWords(BossModule module) : Components.Knockback(module, AID.FatefulWordsAOE, true)
 {
     private readonly Kind[] _mechanics = new Kind[PartyState.MaxPartySize];
 
@@ -31,8 +31,7 @@ class FatefulWords(BossModule module) : Components.Knockback(module, ActionID.Ma
 
     private void AssignMechanic(Actor actor, Kind mechanic)
     {
-        var slot = Raid.FindSlot(actor.InstanceID);
-        if (slot >= 0 && slot < _mechanics.Length)
+        if (Raid.TryFindSlot(actor, out var slot) && slot < _mechanics.Length)
             _mechanics[slot] = mechanic;
     }
 }

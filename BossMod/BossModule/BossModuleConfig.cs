@@ -3,6 +3,21 @@
 [ConfigDisplay(Name = "Boss模块和雷达", Order = 1)]
 public class BossModuleConfig : ConfigNode
 {
+    public enum RadarCloseBehavior
+    {
+        [PropertyDisplay ("打开设置对话框")]
+        Prompt,
+
+        [PropertyDisplay ("隐藏雷达")]
+        DisableRadar,
+
+        [PropertyDisplay ("禁用当前模块（并隐藏雷达）")]
+        DisableActiveModule,
+
+        [PropertyDisplay ("禁用当前模块及同一类别中的所有模块")]
+        DisableActiveModuleCategory
+    }
+
     // boss模块设置
     [PropertyDisplay("模块加载的最低成熟度", tooltip: "某些模块将处于‘WIP’状态，除非你更改此设置，否则不会自动加载")]
     public BossModuleInfo.Maturity MinMaturity = BossModuleInfo.Maturity.Contributed;
@@ -13,10 +28,14 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("显示测试雷达和提示窗口", tooltip: "在不进行boss战时配置雷达和提示窗口非常有用", separator: true)]
     public bool ShowDemo = false;
 
-    // 雷达窗口设置
+      // 雷达窗口设置
     [PropertyDisplay("启用雷达")]
     public bool Enable = true;
 
+    
+    [PropertyDisplay("关闭按钮行为")]
+    public RadarCloseBehavior CloseBehavior = RadarCloseBehavior.Prompt;
+    
     [PropertyDisplay("锁定雷达和提示窗口的移动和鼠标交互")]
     public bool Lock = false;
 
@@ -62,6 +81,9 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("始终显示所有存活的队员", separator: true)]
     public bool ShowIrrelevantPlayers = false;
 
+    [PropertyDisplay("允许在雷达上显示非组队玩家", tooltip: "此选项仅影响特定类别的内容，如冒险突袭。", depends: nameof(ShowIrrelevantPlayers))]
+    public bool ShowAllPlayers = true;
+    
     [PropertyDisplay("在雷达上为未着色的玩家显示基于角色的颜色")]
     public bool ColorPlayersBasedOnRole = false;
 
@@ -82,4 +104,7 @@ public class BossModuleConfig : ConfigNode
 
     [PropertyDisplay("在游戏中显示移动提示", tooltip: "使用较少，但可以在游戏中显示箭头，指示在某些机制中移动的位置")]
     public bool ShowWorldArrows = false;
+
+    public List<string> DisabledModules = [];
+    public List<BossModuleInfo.Category> DisabledCategories = [];
 }

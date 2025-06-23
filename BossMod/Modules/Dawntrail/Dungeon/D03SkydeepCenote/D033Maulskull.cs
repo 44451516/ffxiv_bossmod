@@ -141,7 +141,7 @@ class Impact(BossModule module) : Components.Knockback(module)
             // knockback to any of the corners
             var c1 = SafeSpotInDirection(origin, (-35).Degrees().ToDirection());
             var c2 = SafeSpotInDirection(origin, 35.Degrees().ToDirection());
-            hints.AddForbiddenZone(p => Math.Max(c1(p), c2(p)), AOEs[0].Activation);
+            hints.AddForbiddenZone(p => c1(p) && c2(p), AOEs[0].Activation);
         }
     }
 
@@ -163,10 +163,10 @@ class Impact(BossModule module) : Components.Knockback(module)
             AOEs.Clear();
     }
 
-    private Func<WPos, float> SafeSpotInDirection(WPos origin, WDir dir) => ShapeDistance.InvertedCircle(origin + dir * 11, 1);
+    private Func<WPos, bool> SafeSpotInDirection(WPos origin, WDir dir) => ShapeContains.InvertedCircle(origin + dir * 11, 1);
 }
 
-class DestructiveBuildingHeat(BossModule module) : Components.CastStackSpread(module, ActionID.MakeSpell(AID.BuildingHeat), ActionID.MakeSpell(AID.DestructiveHeat), 6, 6, 4, alwaysShowSpreads: true)
+class DestructiveBuildingHeat(BossModule module) : Components.CastStackSpread(module, AID.BuildingHeat, AID.DestructiveHeat, 6, 6, 4, alwaysShowSpreads: true)
 {
     private readonly Impact? impact = module.FindComponent<Impact>();
 
@@ -178,17 +178,17 @@ class DestructiveBuildingHeat(BossModule module) : Components.CastStackSpread(mo
     }
 }
 
-class Landing(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.Landing), 8);
-class ShatterCenter(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ShatterCenter), new AOEShapeRect(40, 10));
-class ShatterSideR(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ShatterSideR), new AOEShapeRect(45, 11, 5));
-class ShatterSideL(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ShatterSideL), new AOEShapeRect(45, 11, 5));
+class Landing(BossModule module) : Components.StandardAOEs(module, AID.Landing, 8);
+class ShatterCenter(BossModule module) : Components.StandardAOEs(module, AID.ShatterCenter, new AOEShapeRect(40, 10));
+class ShatterSideR(BossModule module) : Components.StandardAOEs(module, AID.ShatterSideR, new AOEShapeRect(45, 11, 5));
+class ShatterSideL(BossModule module) : Components.StandardAOEs(module, AID.ShatterSideL, new AOEShapeRect(45, 11, 5));
 
 class DeepThunder(BossModule module) : Components.GenericTowers(module)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var t in Towers)
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(t.Position, t.Radius));
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(t.Position, t.Radius));
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -204,8 +204,8 @@ class DeepThunder(BossModule module) : Components.GenericTowers(module)
     }
 }
 
-class WroughtFire(BossModule module) : Components.BaitAwayCast(module, ActionID.MakeSpell(AID.WroughtFireAOE), new AOEShapeCircle(6), true);
-class Ashlayer(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Ashlayer));
+class WroughtFire(BossModule module) : Components.BaitAwayCast(module, AID.WroughtFireAOE, new AOEShapeCircle(6), true);
+class Ashlayer(BossModule module) : Components.RaidwideCast(module, AID.Ashlayer);
 
 class D033MaulskullStates : StateMachineBuilder
 {

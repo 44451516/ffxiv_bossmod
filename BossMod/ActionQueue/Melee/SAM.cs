@@ -162,6 +162,10 @@ public sealed class Definitions : IDisposable
         //d.Spell(AID.Iaijutsu)!.TransformAction = () => ActionID.MakeSpell(_state.BestIai);
         //d.Spell(AID.MeikyoShisui)!.Condition = _ => _state.MeikyoLeft == 0;
 
-        d.Spell(AID.HissatsuGyoten)!.ForbidExecute = ActionDefinitions.PreventDashIfDangerous;
+        d.Spell(AID.HissatsuGyoten)!.ForbidExecute = ActionDefinitions.DashToTargetCheck;
+        d.Spell(AID.HissatsuYaten)!.ForbidExecute = ActionDefinitions.BackdashCheck(10);
+
+        // dont want accidental double meikyo
+        d.Spell(AID.MeikyoShisui)!.ForbidExecute = (_, player, _, _) => player.FindStatus(SID.MeikyoShisui) != null;
     }
 }

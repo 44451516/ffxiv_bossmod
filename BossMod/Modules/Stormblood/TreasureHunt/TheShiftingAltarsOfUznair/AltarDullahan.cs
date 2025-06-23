@@ -37,25 +37,25 @@ public enum AID : uint
     Telega = 9630, // bonusadds->self, no cast, single-target, bonus add disappear
 }
 
-class IronJustice(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.IronJustice), new AOEShapeCone(11.8f, 60.Degrees()));
-class Cloudcover(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.Cloudcover), 6);
-class TerrorEye(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.TerrorEye), 6);
-class VillainousRebuke(BossModule module) : Components.StackWithCastTargets(module, ActionID.MakeSpell(AID.VillainousRebuke), 6);
-class StygianRelease(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.StygianRelease));
-class PluckAndPrune(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PluckAndPrune), new AOEShapeCircle(6.84f));
-class TearyTwirl(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.TearyTwirl), new AOEShapeCircle(6.84f));
-class HeirloomScream(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.HeirloomScream), new AOEShapeCircle(6.84f));
-class PungentPirouette(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PungentPirouette), new AOEShapeCircle(6.84f));
-class Pollen(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Pollen), new AOEShapeCircle(6.84f));
+class IronJustice(BossModule module) : Components.StandardAOEs(module, AID.IronJustice, new AOEShapeCone(11.8f, 60.Degrees()));
+class Cloudcover(BossModule module) : Components.StandardAOEs(module, AID.Cloudcover, 6);
+class TerrorEye(BossModule module) : Components.StandardAOEs(module, AID.TerrorEye, 6);
+class VillainousRebuke(BossModule module) : Components.StackWithCastTargets(module, AID.VillainousRebuke, 6);
+class StygianRelease(BossModule module) : Components.RaidwideCast(module, AID.StygianRelease);
+class PluckAndPrune(BossModule module) : Components.StandardAOEs(module, AID.PluckAndPrune, new AOEShapeCircle(6.84f));
+class TearyTwirl(BossModule module) : Components.StandardAOEs(module, AID.TearyTwirl, new AOEShapeCircle(6.84f));
+class HeirloomScream(BossModule module) : Components.StandardAOEs(module, AID.HeirloomScream, new AOEShapeCircle(6.84f));
+class PungentPirouette(BossModule module) : Components.StandardAOEs(module, AID.PungentPirouette, new AOEShapeCircle(6.84f));
+class Pollen(BossModule module) : Components.StandardAOEs(module, AID.Pollen, new AOEShapeCircle(6.84f));
 
-class StygianReleaseKB(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.StygianRelease), 20, stopAtWall: true)
+class StygianReleaseKB(BossModule module) : Components.KnockbackFromCastTarget(module, AID.StygianRelease, 20, stopAtWall: true)
 {
     public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<TerrorEye>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
 }
 
-class RaucousScritch(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.RaucousScritch), new AOEShapeCone(8.42f, 30.Degrees()));
-class Hurl(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.Hurl), 6);
-class Spin(BossModule module) : Components.Cleave(module, ActionID.MakeSpell(AID.Spin), new AOEShapeCone(9.42f, 60.Degrees()), (uint)OID.BonusAddAltarMatanga);
+class RaucousScritch(BossModule module) : Components.StandardAOEs(module, AID.RaucousScritch, new AOEShapeCone(8.42f, 30.Degrees()));
+class Hurl(BossModule module) : Components.StandardAOEs(module, AID.Hurl, 6);
+class Spin(BossModule module) : Components.Cleave(module, AID.Spin, new AOEShapeCone(9.42f, 60.Degrees()), (uint)OID.BonusAddAltarMatanga);
 
 class DullahanStates : StateMachineBuilder
 {

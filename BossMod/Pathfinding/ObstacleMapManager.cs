@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace BossMod.Pathfinding;
 
-[ConfigDisplay(Name = "障碍地图开发-Obstacle map development", Order = 8)]
+[ConfigDisplay(Name = "障碍地图开发-Obstacle map development", Order = 9)]
 public sealed class ObstacleMapConfig : ConfigNode
 {
     [PropertyDisplay("开发者模式：从源代码加载障碍地图，而非插件分发包")]

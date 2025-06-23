@@ -92,26 +92,26 @@ class DownpourMagitekChakram(BossModule module) : Components.GenericAOEs(module)
     {
         if (CurrentMechanic == Mechanic.Chakram && actor.FindStatus(SID.Minimum) == null && !avoidSquares)
         {
-            hints.AddForbiddenZone(ShapeDistance.Rect(toad, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
-            hints.AddForbiddenZone(ShapeDistance.InvertedRect(mini, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
+            hints.AddForbiddenZone(ShapeContains.Rect(toad, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
+            hints.AddForbiddenZone(ShapeContains.InvertedRect(mini, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
         }
         else if (CurrentMechanic == Mechanic.Downpour && actor.FindStatus(SID.Toad) == null)
         {
-            hints.AddForbiddenZone(ShapeDistance.Rect(mini, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
-            hints.AddForbiddenZone(ShapeDistance.InvertedRect(toad, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
+            hints.AddForbiddenZone(ShapeContains.Rect(mini, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
+            hints.AddForbiddenZone(ShapeContains.InvertedRect(toad, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
         }
         else if (avoidSquares)
         {
-            hints.AddForbiddenZone(ShapeDistance.Rect(toad, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
-            hints.AddForbiddenZone(ShapeDistance.Rect(mini, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
+            hints.AddForbiddenZone(ShapeContains.Rect(toad, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
+            hints.AddForbiddenZone(ShapeContains.Rect(mini, new Angle(), square.LengthFront, square.LengthBack, square.HalfWidth));
         }
     }
 }
 
-class ThermalSuppression(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.ThermalSuppression));
-class MightyRay(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.MagitekRay), new AOEShapeRect(50, 3));
-class Explosion(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Explosion), new AOEShapeCross(40, 4));
-class SurfaceMissile(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.SurfaceMissile), 6);
+class ThermalSuppression(BossModule module) : Components.RaidwideCast(module, AID.ThermalSuppression);
+class MightyRay(BossModule module) : Components.StandardAOEs(module, AID.MagitekRay, new AOEShapeRect(50, 3));
+class Explosion(BossModule module) : Components.StandardAOEs(module, AID.Explosion, new AOEShapeCross(40, 4));
+class SurfaceMissile(BossModule module) : Components.StandardAOEs(module, AID.SurfaceMissile, 6);
 
 class D022LugaeStates : StateMachineBuilder
 {

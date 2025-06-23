@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
 // baited cones part of the mechanic
-class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.GenericBaitAway(module, ActionID.MakeSpell(AID.FlameBreath)) // note: cast is arbitrary
+class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.GenericBaitAway(module, AID.FlameBreath) // note: cast is arbitrary
 {
     public Actor?[] Dragons = [null, null]; // nidhogg & hraesvelgr
     public BitMask Glows;
@@ -76,9 +76,8 @@ class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.Generic
     {
         if ((TetherID)tether.ID is TetherID.FlameBreath or TetherID.IceBreath or TetherID.FlameIceBreathNear)
         {
-            var slot = Raid.FindSlot(source.InstanceID);
             var boss = WorldState.Actors.Find(tether.Target);
-            if (slot >= 0 && boss != null)
+            if (Raid.TryFindSlot(source, out var slot) && boss != null)
             {
                 if (_tetheredTo[slot] == null)
                     CurrentBaits.Add(new(boss, source, _shape));
@@ -94,7 +93,7 @@ class P6Wyrmsbreath1(BossModule module) : P6Wyrmsbreath(module, true);
 class P6Wyrmsbreath2(BossModule module) : P6Wyrmsbreath(module, false);
 
 // note: it is actually symmetrical (both tanks get tankbusters), but that is hard to express, so we select one to show arbitrarily (nidhogg)
-class P6WyrmsbreathTankbusterShared(BossModule module) : Components.GenericSharedTankbuster(module, ActionID.MakeSpell(AID.DarkOrb), 6)
+class P6WyrmsbreathTankbusterShared(BossModule module) : Components.GenericSharedTankbuster(module, AID.DarkOrb, 6)
 {
     private readonly P6Wyrmsbreath? _main = module.FindComponent<P6Wyrmsbreath>();
 

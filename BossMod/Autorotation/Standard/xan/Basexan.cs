@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using BossMod.Data;
+using System.Diagnostics.CodeAnalysis;
 using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
@@ -9,21 +10,23 @@ public enum AOEStrategy { AOE, ST, ForceAOE, ForceST }
 
 public enum SharedTrack { Targeting, AOE, Buffs, Count }
 
-public abstract class Attackxan<AID, TraitID>(RotationModuleManager manager, Actor player) : Basexan<AID, TraitID>(manager, player)
+public abstract class Attackxan<AID, TraitID>(RotationModuleManager manager, Actor player, PotionType potType = PotionType.None) : Basexan<AID, TraitID>(manager, player, potType)
     where AID : struct, Enum where TraitID : Enum
 {
     protected sealed override float GCDLength => AttackGCDLength;
 }
 
-public abstract class Castxan<AID, TraitID>(RotationModuleManager manager, Actor player) : Basexan<AID, TraitID>(manager, player)
+public abstract class Castxan<AID, TraitID>(RotationModuleManager manager, Actor player, PotionType potType = PotionType.None) : Basexan<AID, TraitID>(manager, player, potType)
     where AID : struct, Enum where TraitID : Enum
 {
     protected sealed override float GCDLength => SpellGCDLength;
 }
 
-public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
+public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor player, PotionType potType) : RotationModule(manager, player)
     where AID : struct, Enum where TraitID : Enum
 {
+    public PotionType PotionType { get; init; } = potType;
+
     protected float PelotonLeft { get; private set; }
     protected float SwiftcastLeft { get; private set; }
     protected float TrueNorthLeft { get; private set; }
@@ -35,6 +38,7 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     protected float? UptimeIn { get; private set; }
     protected Enemy? PlayerTarget { get; private set; }
     protected bool IsMoving { get; private set; }
+    protected float PotionLeft { get; private set; }
 
     protected float? CountdownRemaining => World.Client.CountdownRemaining;
     protected float AnimLock => World.Client.AnimationLock;
@@ -44,6 +48,13 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
 
     protected float ReadyIn(AID action) => Unlocked(action) ? ActionDefinitions.Instance.Spell(action)!.ReadyIn(World.Client.Cooldowns, World.Client.DutyActions) : float.MaxValue;
     protected float MaxChargesIn(AID action) => Unlocked(action) ? ActionDefinitions.Instance.Spell(action)!.ChargeCapIn(World.Client.Cooldowns, World.Client.DutyActions, Player.Level) : float.MaxValue;
+
+    protected float PhantomReadyIn(PhantomID pid)
+    {
+        if (World.Client.DutyActions.Any(d => d.Action.ID == (uint)pid))
+            return ActionDefinitions.Instance.Spell(pid)!.ReadyIn(World.Client.Cooldowns, World.Client.DutyActions);
+        return float.MaxValue;
+    }
 
     protected abstract float GCDLength { get; }
 
@@ -72,6 +83,9 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     protected AID NextGCD;
     protected int NextGCDPrio;
     protected uint MP;
+
+    public const float DefaultOGCDPriority = ActionQueue.Priority.Low + 1;
+    public const float DefaultGCDPriority = ActionQueue.Priority.High + 2;
 
     protected AID ComboLastMove => (AID)(object)World.Client.ComboState.Action;
 
@@ -333,12 +347,14 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     protected bool Unlocked(AID aid) => ActionUnlocked(ActionID.MakeSpell(aid));
     protected bool Unlocked(TraitID tid) => TraitUnlocked((uint)(object)tid);
 
-    protected Positional GetCurrentPositional(Actor target) => (Player.Position - target.Position).Normalized().Dot(target.Rotation.ToDirection()) switch
-    {
-        < -0.7071068f => Positional.Rear,
-        < 0.7071068f => Positional.Flank,
-        _ => Positional.Front
-    };
+    protected Positional GetCurrentPositional(Actor target) => target.Omnidirectional
+        ? Positional.Any
+        : (Player.Position - target.Position).Normalized().Dot(target.Rotation.ToDirection()) switch
+        {
+            < -0.7071068f => Positional.Rear,
+            < 0.7071068f => Positional.Flank,
+            _ => Positional.Front
+        };
 
     protected bool NextPositionalImminent;
     protected bool NextPositionalCorrect;
@@ -347,7 +363,13 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     {
         var trueNorth = TrueNorthLeft > GCD;
         var target = enemy?.Actor;
-        if ((target?.Omnidirectional ?? true) || target?.TargetID == Player.InstanceID && target?.CastInfo == null && positional.pos != Positional.Front && target?.NameID != 541)
+        if (
+            // positionals irrelevant
+            target is { Omnidirectional: true }
+            // enemy is targeting us and is not busy casting, so we assume they will turn to face the player
+            // (excluding striking dummies, which don't move)
+            || target is { TargetID: var t, CastInfo: null, IsStrikingDummy: false } && t == Player.InstanceID
+        )
             positional = (Positional.Any, false);
 
         NextPositionalImminent = !trueNorth && positional.imm;
@@ -355,6 +377,7 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
         {
             Positional.Flank => MathF.Abs(target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized())) < 0.7071067f,
             Positional.Rear => target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized()) < -0.7071068f,
+            // the only Front positional is Goblin Punch, used by BLU, who can't use True North anyway, so it's irrelevant
             _ => true
         };
         Hints.RecommendedPositional = (target, positional.pos, NextPositionalImminent, NextPositionalCorrect);
@@ -390,7 +413,7 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
 
         var pelo = Player.FindStatus(ClassShared.SID.Peloton);
         PelotonLeft = pelo != null ? StatusDuration(pelo.Value.ExpireAt) : 0;
-        SwiftcastLeft = MathF.Max(StatusLeft(ClassShared.SID.Swiftcast), StatusLeft(ClassShared.SID.LostChainspell));
+        SwiftcastLeft = Utils.MaxAll(StatusLeft(ClassShared.SID.Swiftcast), StatusLeft(ClassShared.SID.LostChainspell), StatusLeft(PhantomSID.OccultQuick));
         TrueNorthLeft = StatusLeft(ClassShared.SID.TrueNorth);
 
         AnimationLockDelay = estimatedAnimLockDelay;
@@ -409,27 +432,29 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
             UptimeIn = null;
         }
 
-        // TODO max MP can be higher in eureka/bozja
-        MP = (uint)Math.Clamp(Player.PredictedMPRaw, 0, 10000);
+        MP = (uint)Math.Clamp(Player.PendingMPRaw, 0, Player.HPMP.MaxMP);
 
         if (_cdLockout > World.CurrentTime)
             return;
 
-        if (Player.MountId is not (103 or 117 or 128))
-            Exec(strategy, PlayerTarget);
+        if (Player.FindStatus(49) is ActorStatus st && Food.GetPotionType(st.Extra) == PotionType)
+            PotionLeft = StatusDuration(st.ExpireAt);
+        else
+            PotionLeft = 0;
+
+        Exec(strategy, PlayerTarget);
     }
 
     // other classes have timed personal buffs to plan around, like blm leylines, mch overheat, gnb nomercy
     // war could also be here but i dont have a war rotation
-    private bool IsSelfish(Class cls) => cls is Class.VPR or Class.SAM or Class.WHM or Class.SGE;
+    private bool IsSelfish(Class cls) => cls is Class.VPR or Class.SAM or Class.WHM or Class.SGE or Class.DRK;
 
     private new (float Left, float In) EstimateRaidBuffTimings(Actor? primaryTarget)
     {
         if (Bossmods.ActiveModule?.Info?.GroupType is BossModuleInfo.GroupType.BozjaDuel && IsSelfish(Player.Class))
             return (float.MaxValue, 0);
 
-        // level 100 stone sky sea
-        if (primaryTarget?.OID == 0x41CD)
+        if (primaryTarget?.IsStrikingDummy == true)
         {
             // hack for a dummy: expect that raidbuffs appear at 7.8s and then every 120s
             var cycleTime = CombatTimer - 7.8f;
@@ -443,13 +468,14 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
         var buffsIn = Bossmods.RaidCooldowns.NextDamageBuffIn2();
         if (buffsIn == null)
         {
-            if (CombatTimer < 7.8f && World.Party.WithoutSlot(false, true, true).Skip(1).Any(HavePartyBuff))
+            if (CombatTimer < 7.8f && World.Party.WithoutSlot(includeDead: true, excludeAlliance: true, excludeNPCs: true).Skip(1).Any(HavePartyBuff))
                 buffsIn = 7.8f - CombatTimer;
             else
+                // no party members with raid buffs, assume we're never getting any
                 buffsIn = float.MaxValue;
         }
 
-        return (Bossmods.RaidCooldowns.DamageBuffLeft(Player), buffsIn.Value);
+        return (Bossmods.RaidCooldowns.DamageBuffLeft(Player, primaryTarget), buffsIn.Value);
     }
 
     private bool HavePartyBuff(Actor player) => player.Class switch
@@ -474,14 +500,14 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
 
     public abstract void Exec(StrategyValues strategy, Enemy? primaryTarget);
 
-    protected (float Left, int Stacks) Status<SID>(SID status) where SID : Enum => Player.FindStatus(status) is ActorStatus s ? (StatusDuration(s.ExpireAt), s.Extra & 0xFF) : (0, 0);
-    protected float StatusLeft<SID>(SID status) where SID : Enum => Status(status).Left;
-    protected int StatusStacks<SID>(SID status) where SID : Enum => Status(status).Stacks;
+    protected (float Left, int Stacks) Status<SID>(SID status, float? pendingDuration = null) where SID : Enum => Player.FindStatus(status, pendingDuration == null ? null : World.FutureTime(pendingDuration.Value)) is ActorStatus s ? (StatusDuration(s.ExpireAt), s.Extra & 0xFF) : (0, 0);
+    protected float StatusLeft<SID>(SID status, float? pendingDuration = null) where SID : Enum => Status(status, pendingDuration).Left;
+    protected int StatusStacks<SID>(SID status, float? pendingDuration = null) where SID : Enum => Status(status, pendingDuration).Stacks;
 
     protected float HPRatio(Actor actor) => (float)actor.HPMP.CurHP / Player.HPMP.MaxHP;
     protected float HPRatio() => HPRatio(Player);
 
-    protected uint PredictedHP(Actor actor) => (uint)actor.PredictedHPClamped;
+    protected uint PredictedHP(Actor actor) => (uint)actor.PendingHPClamped;
     protected float PredictedHPRatio(Actor actor) => (float)PredictedHP(actor) / actor.HPMP.MaxHP;
 }
 

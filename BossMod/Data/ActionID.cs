@@ -50,6 +50,7 @@ public readonly record struct ActionID(uint Raw)
         ActionType.Spell => Service.LuminaRow<Lumina.Excel.Sheets.Action>(ID)?.Name.ToString() ?? "<not found>",
         ActionType.Item => $"{Service.LuminaRow<Lumina.Excel.Sheets.Item>(ID % 1000000)?.Name ?? "<not found>"}{(ID > 1000000 ? " (HQ)" : "")}", // see Dalamud.Game.Text.SeStringHandling.Payloads.GetAdjustedId; TODO: id > 500000 is "collectible", >2000000 is "event" ??
         ActionType.BozjaHolsterSlot0 or ActionType.BozjaHolsterSlot1 => $"{(BozjaHolsterID)ID}",
+        ActionType.PetAction => Service.LuminaRow<Lumina.Excel.Sheets.PetAction>(ID)?.Name.ToString() ?? "<not found>",
         _ => ""
     };
 
@@ -76,8 +77,11 @@ public readonly record struct ActionID(uint Raw)
 
     public readonly bool IsCasted() => CastTime() > 0;
 
-    public static ActionID MakeSpell<AID>(AID id) where AID : Enum
+    public static ActionID MakeSpell<AID>(AID? id) where AID : Enum
     {
+        if (id == null)
+            return new();
+
         var castID = (uint)(object)id;
         return castID != 0 ? new(ActionType.Spell, castID) : new();
     }

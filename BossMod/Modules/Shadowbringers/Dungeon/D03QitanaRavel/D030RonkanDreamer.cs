@@ -28,8 +28,8 @@ public enum TetherID : uint
     StatueActivate = 37, // 28E8->Boss
 }
 
-class RonkanFire(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.RonkanFire));
-class RonkanAbyss(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.RonkanAbyss), 6);
+class RonkanFire(BossModule module) : Components.SingleTargetCast(module, AID.RonkanFire);
+class RonkanAbyss(BossModule module) : Components.StandardAOEs(module, AID.RonkanAbyss, 6);
 
 class WrathOfTheRonka(BossModule module) : Components.GenericAOEs(module)
 {
@@ -139,18 +139,18 @@ public class Layout(BossModule module) : BossComponent(module)
         base.AddAIHints(slot, actor, assignment, hints);
         if (Module.PrimaryActor.Position.AlmostEqual(new(0, 634), 1))
         {
-            hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall1(), true));
-            hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall2(), false));
+            hints.AddForbiddenZone(ShapeContains.ConvexPolygon(Wall1(), true));
+            hints.AddForbiddenZone(ShapeContains.ConvexPolygon(Wall2(), false));
         }
         if (Module.PrimaryActor.Position.AlmostEqual(new(0, 428), 1))
         {
-            hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall3(), false));
-            hints.AddForbiddenZone(ShapeDistance.ConvexPolygon(Wall4(), true));
+            hints.AddForbiddenZone(ShapeContains.ConvexPolygon(Wall3(), false));
+            hints.AddForbiddenZone(ShapeContains.ConvexPolygon(Wall4(), true));
         }
     }
 }
 
-class BurningBeam(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.BurningBeam), new AOEShapeRect(15, 2));
+class BurningBeam(BossModule module) : Components.StandardAOEs(module, AID.BurningBeam, new AOEShapeRect(15, 2));
 
 class D030RonkanDreamerStates : StateMachineBuilder
 {

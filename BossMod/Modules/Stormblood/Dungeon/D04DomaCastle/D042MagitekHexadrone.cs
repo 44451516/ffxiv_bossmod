@@ -29,13 +29,13 @@ public enum TetherID : uint
 {
     ChainMine = 60,
 }
-class CircleOfDeath(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CircleOfDeath), new AOEShapeCircle(4f + 4.24f));
-class TwoTonzeMagitekMissile(BossModule module) : Components.IconStackSpread(module, 62, default, ActionID.MakeSpell(AID.TwoTonzeMagitekMissile), default, 6, 0, 0)
+class CircleOfDeath(BossModule module) : Components.StandardAOEs(module, AID.CircleOfDeath, new AOEShapeCircle(4f + 4.24f));
+class TwoTonzeMagitekMissile(BossModule module) : Components.IconStackSpread(module, 62, default, AID.TwoTonzeMagitekMissile, default, 6, 0, 0)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var s in ActiveStackTargets)
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(s.Position, 6));
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(s.Position, 6));
     }
 }
 class ChainMines(BossModule module) : Components.GenericAOEs(module)
@@ -60,7 +60,7 @@ class ChainMines(BossModule module) : Components.GenericAOEs(module)
             _tethers.Remove(source);
     }
 };
-class MagitekMissile2(BossModule module) : Components.CastTowers(module, ActionID.MakeSpell(AID.MagitekMissiles2), 6, 1, 4)
+class MagitekMissile2(BossModule module) : Components.CastTowers(module, AID.MagitekMissiles2, 6, 1, 4)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -82,7 +82,7 @@ class MagitekMissile2(BossModule module) : Components.CastTowers(module, ActionI
         {
             foreach (var t in Towers)
             {
-                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(t.Position, Radius - 1));
+                hints.AddForbiddenZone(ShapeContains.InvertedCircle(t.Position, Radius - 1));
             }
         }
     }

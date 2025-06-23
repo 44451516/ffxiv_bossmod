@@ -38,6 +38,10 @@ public static class BossModuleRegistry
             var tidType = infoAttr?.TetherIDType ?? module.Module.GetType($"{module.Namespace}.TetherID");
             var iidType = infoAttr?.IconIDType ?? module.Module.GetType($"{module.Namespace}.IconID");
 
+            // skip really-WIP modules without logging to user since they have no use for this information
+            if (infoAttr?.DevOnly == true && !Service.IsDev)
+                return null;
+
             if (statesType == null || !statesType.IsSubclassOf(typeof(StateMachineBuilder)) || statesType.GetConstructor([module]) == null)
             {
                 Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated states type: it should be derived from StateMachineBuilder and have a constructor accepting module");
@@ -180,6 +184,8 @@ public static class BossModuleRegistry
         }
     }
 
+    private static readonly BossModuleConfig _config = Service.Config.Get<BossModuleConfig>();
+
     public static IReadOnlyDictionary<uint, Info> RegisteredModules => _modulesByOID;
 
     public static Info? FindByOID(uint oid) => _modulesByOID.GetValueOrDefault(oid);
@@ -190,6 +196,13 @@ public static class BossModuleRegistry
     public static BossModule? CreateModuleForActor(WorldState ws, Actor primary, BossModuleInfo.Maturity minMaturity)
     {
         var info = primary.Type is ActorType.Enemy or ActorType.EventObj ? FindByOID(primary.OID) : null;
+        if (info is { } inf)
+        {
+            if (_config.DisabledModules.Contains(inf.ModuleType.ToString()))
+                return null;
+            if (_config.DisabledCategories.Contains(inf.Category))
+                return null;
+        }
         return info?.Maturity >= minMaturity ? CreateModule(info, ws, primary) : null;
     }
 
@@ -197,9 +210,9 @@ public static class BossModuleRegistry
     public static BossModule? CreateModuleForConfigPlanning(Type module)
     {
         var info = FindByType(module);
-        return info != null ? CreateModule(info, new(TimeSpan.TicksPerSecond, "fake"), new(0, info.PrimaryActorOID, -1, "", 0, ActorType.None, Class.None, 0, new())) : null;
+        return info != null ? CreateModule(info, new(TimeSpan.TicksPerSecond, "fake"), new(0, info.PrimaryActorOID, -1, 0, "", 0, ActorType.None, Class.None, 0, new())) : null;
     }
 
     // TODO: this is a hack...
-    public static BossModule? CreateModuleForTimeline(uint oid) => CreateModule(FindByOID(oid), new(TimeSpan.TicksPerSecond, "fake"), new(0, oid, -1, "", 0, ActorType.None, Class.None, 0, new()));
+    public static BossModule? CreateModuleForTimeline(uint oid) => CreateModule(FindByOID(oid), new(TimeSpan.TicksPerSecond, "fake"), new(0, oid, -1, 0, "", 0, ActorType.None, Class.None, 0, new()));
 }

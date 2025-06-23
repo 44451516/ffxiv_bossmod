@@ -29,15 +29,15 @@ public enum AID : uint
     Telega = 9630, // bonusadds->self, no cast, single-target, bonus add disappear
 }
 
-class OpticalIntrusion(BossModule module) : Components.SingleTargetDelayableCast(module, ActionID.MakeSpell(AID.OpticalIntrusion));
-class Hypnotize(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Hypnotize), new AOEShapeCone(22.85f, 45.Degrees()));
-class SaibaiMandragora(BossModule module) : Components.CastHint(module, ActionID.MakeSpell(AID.SaibaiMandragora), "Calls adds");
-class LeafDagger(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.LeafDagger), 3);
-class PluckAndPrune(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PluckAndPrune), new AOEShapeCircle(6.84f));
-class TearyTwirl(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.TearyTwirl), new AOEShapeCircle(6.84f));
-class HeirloomScream(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.HeirloomScream), new AOEShapeCircle(6.84f));
-class PungentPirouette(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.PungentPirouette), new AOEShapeCircle(6.84f));
-class Pollen(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Pollen), new AOEShapeCircle(6.84f));
+class OpticalIntrusion(BossModule module) : Components.SingleTargetDelayableCast(module, AID.OpticalIntrusion);
+class Hypnotize(BossModule module) : Components.StandardAOEs(module, AID.Hypnotize, new AOEShapeCone(22.85f, 45.Degrees()));
+class SaibaiMandragora(BossModule module) : Components.CastHint(module, AID.SaibaiMandragora, "Calls adds");
+class LeafDagger(BossModule module) : Components.StandardAOEs(module, AID.LeafDagger, 3);
+class PluckAndPrune(BossModule module) : Components.StandardAOEs(module, AID.PluckAndPrune, new AOEShapeCircle(6.84f));
+class TearyTwirl(BossModule module) : Components.StandardAOEs(module, AID.TearyTwirl, new AOEShapeCircle(6.84f));
+class HeirloomScream(BossModule module) : Components.StandardAOEs(module, AID.HeirloomScream, new AOEShapeCircle(6.84f));
+class PungentPirouette(BossModule module) : Components.StandardAOEs(module, AID.PungentPirouette, new AOEShapeCircle(6.84f));
+class Pollen(BossModule module) : Components.StandardAOEs(module, AID.Pollen, new AOEShapeCircle(6.84f));
 
 class MandragoraStates : StateMachineBuilder
 {

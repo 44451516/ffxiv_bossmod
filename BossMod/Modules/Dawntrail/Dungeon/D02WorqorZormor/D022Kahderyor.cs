@@ -38,9 +38,9 @@ public enum IconID : uint
     SeedCrystals = 311, // player
 }
 
-class WindUnbound(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.WindUnbound));
+class WindUnbound(BossModule module) : Components.RaidwideCast(module, AID.WindUnbound);
 
-class CrystallineCrush(BossModule module) : Components.CastTowers(module, ActionID.MakeSpell(AID.CrystallineCrushAOE), 6, maxSoakers: 4)
+class CrystallineCrush(BossModule module) : Components.CastTowers(module, AID.CrystallineCrushAOE, 6, maxSoakers: 4)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -48,9 +48,9 @@ class CrystallineCrush(BossModule module) : Components.CastTowers(module, Action
             hints.AddForbiddenZone(new AOEShapeDonut(6, 40), Towers[0].Position);
     }
 }
-class CrystallineStorm(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CrystallineStormAOE), new AOEShapeRect(25, 1, 25));
-class WindShot(BossModule module) : Components.BaitAwayCast(module, ActionID.MakeSpell(AID.WindShotAOE), new AOEShapeDonut(5, 10), true); // TODO: verify inner radius
-class EarthenShot(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.EarthenShotAOE), 6);
+class CrystallineStorm(BossModule module) : Components.StandardAOEs(module, AID.CrystallineStormAOE, new AOEShapeRect(25, 1, 25));
+class WindShot(BossModule module) : Components.BaitAwayCast(module, AID.WindShotAOE, new AOEShapeDonut(5, 10), true); // TODO: verify inner radius
+class EarthenShot(BossModule module) : Components.SpreadFromCastTargets(module, AID.EarthenShotAOE, 6);
 
 class CrystalInOut(BossModule module) : Components.GenericAOEs(module)
 {
@@ -90,20 +90,20 @@ class CrystalInOut(BossModule module) : Components.GenericAOEs(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         var aoes = ActiveAOEs(slot, actor);
-        var shapes = aoes.Select(s => s.Shape.Distance(s.Origin, s.Rotation)).ToList();
+        var shapes = aoes.Select(s => s.Shape.CheckFn(s.Origin, s.Rotation)).ToList();
         if (shapes.Count == 0)
             return;
 
-        float distance(WPos p)
+        bool distance(WPos p)
         {
-            var dist = shapes.Select(s => s(p)).Min();
-            return _mechanic == Mechanic.Out ? dist : -dist;
+            var dist = shapes.Any(s => s(p));
+            return _mechanic == Mechanic.Out ? dist : !dist;
         }
         hints.AddForbiddenZone(distance, _activation);
 
         // for out-rects, if playing as ranged, duty support loves taking up entire mid, so gtfo...
         if (_mechanic == Mechanic.Out && _sources[0].OutShape == _stormOut && actor.Role is not Role.Tank and not Role.Melee)
-            hints.AddForbiddenZone(ShapeDistance.Circle(Module.Center, 12), _activation);
+            hints.AddForbiddenZone(ShapeContains.Circle(Module.Center, 12), _activation);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -149,7 +149,7 @@ class CrystalInOut(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class SeedCrystals(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.SeedCrystalsAOE), 6);
+class SeedCrystals(BossModule module) : Components.SpreadFromCastTargets(module, AID.SeedCrystalsAOE, 6);
 class CrystallineDebris(BossModule module) : Components.Adds(module, (uint)OID.CrystallineDebris)
 {
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -170,9 +170,9 @@ class CrystallineDebris(BossModule module) : Components.Adds(module, (uint)OID.C
     }
 }
 
-class EyeOfTheFierce(BossModule module) : Components.CastGaze(module, ActionID.MakeSpell(AID.EyeOfTheFierce));
-class StalagmiteCircle(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.StalagmiteCircleAOE), new AOEShapeCircle(15));
-class CyclonicRing(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.CyclonicRingAOE), new AOEShapeDonut(8, 40));
+class EyeOfTheFierce(BossModule module) : Components.CastGaze(module, AID.EyeOfTheFierce);
+class StalagmiteCircle(BossModule module) : Components.StandardAOEs(module, AID.StalagmiteCircleAOE, new AOEShapeCircle(15));
+class CyclonicRing(BossModule module) : Components.StandardAOEs(module, AID.CyclonicRingAOE, new AOEShapeDonut(8, 40));
 
 class D022KahderyorStates : StateMachineBuilder
 {

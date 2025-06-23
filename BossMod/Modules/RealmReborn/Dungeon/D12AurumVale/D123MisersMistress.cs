@@ -16,8 +16,8 @@ public enum AID : uint
     Sow = 1081, // Boss->player, 3.0s cast, single-target, spawns adds
 }
 
-class VineProbe(BossModule module) : Components.Cleave(module, ActionID.MakeSpell(AID.VineProbe), new AOEShapeRect(10, 4));
-class BadBreath(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.BadBreath), new AOEShapeCone(16, 60.Degrees()));
+class VineProbe(BossModule module) : Components.Cleave(module, AID.VineProbe, new AOEShapeRect(10, 4));
+class BadBreath(BossModule module) : Components.StandardAOEs(module, AID.BadBreath, new AOEShapeCone(16, 60.Degrees()));
 
 // arena has multiple weirdly-shaped puddles, so just prefer standing in large safe zone
 class AIPosition(BossModule module) : BossComponent(module)
@@ -26,7 +26,7 @@ class AIPosition(BossModule module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        hints.AddForbiddenZone(ShapeDistance.InvertedCircle(_centers.MinBy(p => (p - Module.PrimaryActor.Position).LengthSq()), 5));
+        hints.AddForbiddenZone(ShapeContains.InvertedCircle(_centers.MinBy(p => (p - Module.PrimaryActor.Position).LengthSq()), 5));
     }
 }
 

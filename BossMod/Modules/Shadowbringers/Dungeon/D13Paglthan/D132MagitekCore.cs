@@ -17,11 +17,11 @@ public enum AID : uint
     W2TonzeMagitekMissile = 23701, // Helper->location, 5.0s cast, range 12 circle
 }
 
-class DefensiveReaction(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.DefensiveReaction));
-class Aethershot(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.Aethershot), 6);
-class Exhaust(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Exhaust), new AOEShapeRect(40, 3.5f));
+class DefensiveReaction(BossModule module) : Components.RaidwideCast(module, AID.DefensiveReaction);
+class Aethershot(BossModule module) : Components.StandardAOEs(module, AID.Aethershot, 6);
+class Exhaust(BossModule module) : Components.StandardAOEs(module, AID.Exhaust, new AOEShapeRect(40, 3.5f));
 
-class C2TonzeMagitekMissile(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.W2TonzeMagitekMissile), 12);
+class C2TonzeMagitekMissile(BossModule module) : Components.StandardAOEs(module, AID.W2TonzeMagitekMissile, 12);
 
 class StableCannon(BossModule module) : Components.GenericAOEs(module)
 {
@@ -54,7 +54,7 @@ class StableCannon(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class GroundToGroundBallistic(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.GroundToGroundBallistic), 10, stopAtWall: true)
+class GroundToGroundBallistic(BossModule module) : Components.KnockbackFromCastTarget(module, AID.GroundToGroundBallistic, 10, stopAtWall: true)
 {
     private StableCannon? cannons;
 
@@ -84,7 +84,7 @@ class GroundToGroundBallistic(BossModule module) : Components.KnockbackFromCastT
         {
             var dist = (p - source).Normalized();
             var proj = Arena.ClampToBounds(p + dist * 10);
-            return aoes.Any(e => e.Check(proj)) ? -1 : 0;
+            return aoes.Any(e => e.Check(proj));
         }, Module.CastFinishAt(Casters[0].CastInfo));
     }
 }
@@ -165,7 +165,7 @@ class MagitekMissile(BossModule module) : BossComponent(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var m in Missiles)
-            hints.AddForbiddenZone(ShapeDistance.Capsule(m.Position, m.Rotation, 7, Radius), WorldState.FutureTime(1.5f));
+            hints.AddForbiddenZone(ShapeContains.Capsule(m.Position, m.Rotation, 7, Radius), WorldState.FutureTime(1.5f));
     }
 }
 
@@ -210,4 +210,3 @@ public class MagitekCore(WorldState ws, Actor primary) : BossModule(ws, primary,
         Arena.Actors(WorldState.Actors.Where(x => !x.IsAlly), ArenaColor.Enemy);
     }
 }
-

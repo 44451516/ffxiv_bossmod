@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Components;
 
 // generic component for tankbuster at tethered targets; tanks are supposed to intercept tethers and gtfo from the raid
-public class TankbusterTether(BossModule module, ActionID aid, uint tetherID, float radius) : CastCounter(module, aid)
+public class TankbusterTether(BossModule module, Enum aid, uint tetherID, float radius) : CastCounter(module, aid)
 {
     public uint TID { get; init; } = tetherID;
     public float Radius { get; init; } = radius;
@@ -115,8 +115,7 @@ public class TankbusterTether(BossModule module, ActionID aid, uint tetherID, fl
             return null;
         }
 
-        var playerSlot = Raid.FindSlot(player.InstanceID);
-        if (playerSlot < 0)
+        if (!Raid.TryFindSlot(player, out var playerSlot))
         {
             ReportError($"Non-party-member player is tethered: {source.InstanceID:X} -> {target.InstanceID:X}");
             return null;

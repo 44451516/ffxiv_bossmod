@@ -4,7 +4,7 @@ using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player)
+public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player, PotionType.Mind)
 {
     public enum Track { Assize = SharedTrack.Count, Misery }
     public enum AssizeStrategy { None, HitSomething, HitEverything }
@@ -85,15 +85,15 @@ public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<A
             }
         }
 
+        if (SacredSight > 0)
+            PushGCD(AID.GlareIV, BestMiseryTarget);
+
         if (NumHolyTargets > 2)
             PushGCD(AID.Holy, Player);
 
         // TODO make a track for this
-        if (Unlocked(AID.AfflatusMisery) && (Lily == 3 || !CanFitGCD(NextLily, 2) && Lily == 2))
+        if (Unlocked(AID.AfflatusMisery) && Lily == 3)
             PushGCD(AID.AfflatusSolace, Player);
-
-        if (SacredSight > 0)
-            PushGCD(AID.GlareIV, primaryTarget);
 
         PushGCD(AID.Stone, primaryTarget);
 
@@ -115,7 +115,7 @@ public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<A
                 break;
         }
 
-        if (MP <= 7000)
+        if (MP <= Player.HPMP.MaxMP * 0.7f)
             PushOGCD(AID.LucidDreaming, Player);
     }
 

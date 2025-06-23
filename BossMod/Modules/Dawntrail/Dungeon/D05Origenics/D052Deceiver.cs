@@ -35,13 +35,13 @@ public enum IconID : uint
     Electray = 345, // player
 }
 
-class Electrowave(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Electrowave));
-class BionicThrash(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.BionicThrashAOE), new AOEShapeCone(30, 45.Degrees()));
-class Synchroshot(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.SynchroshotReal), new AOEShapeRect(40, 2));
+class Electrowave(BossModule module) : Components.RaidwideCast(module, AID.Electrowave);
+class BionicThrash(BossModule module) : Components.StandardAOEs(module, AID.BionicThrashAOE, new AOEShapeCone(30, 45.Degrees()));
+class Synchroshot(BossModule module) : Components.StandardAOEs(module, AID.SynchroshotReal, new AOEShapeRect(40, 2));
 class Sentry(BossModule module) : Components.Adds(module, (uint)OID.SentryReal);
-class LaserLash(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LaserLashReal), new AOEShapeRect(40, 5));
+class LaserLash(BossModule module) : Components.StandardAOEs(module, AID.LaserLashReal, new AOEShapeRect(40, 5));
 
-class Surge(BossModule module) : Components.Knockback(module, ActionID.MakeSpell(AID.Surge))
+class Surge(BossModule module) : Components.Knockback(module, AID.Surge)
 {
     private readonly List<(WPos origin, WDir dir)> _realTurrets = [];
     private readonly List<(WPos origin, WDir dir)> _fakeTurrets = [];
@@ -63,10 +63,10 @@ class Surge(BossModule module) : Components.Knockback(module, ActionID.MakeSpell
         if (Activation != default)
         {
             foreach (var t in _fakeTurrets)
-                hints.AddForbiddenZone(ShapeDistance.Rect(t.origin, t.dir, 20, 0, 5), Activation);
+                hints.AddForbiddenZone(ShapeContains.Rect(t.origin, t.dir, 20, 0, 5), Activation);
             // this is paired with spread (electray), which resolve right after knockback - avoid taking same lanes as other party members
             foreach (var p in Raid.WithoutSlot().Exclude(actor))
-                hints.AddForbiddenZone(ShapeDistance.Rect(new(Module.Center.X, p.Position.Z), new WDir(p.Position.X < Module.Center.X ? -1 : 1, 0), 16, 0, 5), Activation);
+                hints.AddForbiddenZone(ShapeContains.Rect(new(Module.Center.X, p.Position.Z), new WDir(p.Position.X < Module.Center.X ? -1 : 1, 0), 16, 0, 5), Activation);
         }
     }
 
@@ -104,7 +104,7 @@ class Surge(BossModule module) : Components.Knockback(module, ActionID.MakeSpell
     }
 }
 
-class Electray(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.Electray), 5)
+class Electray(BossModule module) : Components.SpreadFromCastTargets(module, AID.Electray, 5)
 {
     private readonly Surge? _surge = module.FindComponent<Surge>();
 

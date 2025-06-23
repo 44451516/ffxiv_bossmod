@@ -118,9 +118,13 @@ public class DebugObjects
         {
             var o = module->ObjectInfos[i].GameObject;
             ImGui.TableNextRow();
-            ImGui.TableNextColumn(); ImGui.TextUnformatted($"{i}: {(ulong)o:X}");
-            ImGui.TableNextColumn(); if (o != null) ImGui.TextUnformatted($"{o->BaseId:X} '{o->NameString}' <{o->EntityId:X}>");
-            ImGui.TableNextColumn(); ImGui.TextUnformatted($"{module->ObjectInfos[i].NamePlateObjectKind}");
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted($"{i}: {(ulong)o:X}");
+            ImGui.TableNextColumn();
+            if (o != null)
+                ImGui.TextUnformatted($"{o->BaseId:X} '{o->NameString}' <{o->EntityId:X}>");
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted($"{module->ObjectInfos[i].NamePlateObjectKind}");
         }
         ImGui.EndTable();
     }
@@ -149,7 +153,7 @@ public class DebugObjects
                 foreach (var status in chara!.StatusList)
                 {
                     var src = status.SourceObject != null ? Utils.ObjectString(status.SourceObject) : "none";
-                    res.Append($"\n  status {status.StatusId} '{status.GameData.Value.Name}': param={status.Param}, stacks={status.StackCount}, time={status.RemainingTime:f2}, source={src}");
+                    res.Append($"\n  status {status.StatusId} '{status.GameData.Value.Name}': param={status.Param}, stacks={status.Param}, time={status.RemainingTime:f2}, source={src}");
                 }
             }
         }

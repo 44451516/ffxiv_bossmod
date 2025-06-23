@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Criterion.C02AMR.C022Gorai;
 
-class RousingReincarnation(BossModule module, AID aid) : Components.CastCounter(module, ActionID.MakeSpell(aid));
+class RousingReincarnation(BossModule module, AID aid) : Components.CastCounter(module, aid);
 class NRousingReincarnation(BossModule module) : RousingReincarnation(module, AID.NRousingReincarnationAOE);
 class SRousingReincarnation(BossModule module) : RousingReincarnation(module, AID.SRousingReincarnationAOE);
 
@@ -20,7 +20,7 @@ class MalformedPrayer1(BossModule module) : Components.GenericTowers(module)
             SID.RodentialRebirth4 => 3,
             _ => -1,
         };
-        if (order >= 0 && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        if (order >= 0 && Raid.TryFindSlot(actor.InstanceID, out var slot))
             OrangeSoakOrder[slot] = order;
     }
 

@@ -54,15 +54,15 @@ public enum TetherID : uint
     BrightTether = 2, // BrightAurora->player
 }
 
-class Meteor(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Meteor));
-class AuroralWind(BossModule module) : Components.BaitAwayCast(module, ActionID.MakeSpell(AID.AuroralWind), new AOEShapeCircle(5), centerAtTarget: true, endsOnCastEvent: true);
-class MedusaJavelin(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.MedusaJavelin), new AOEShapeCone(65, 45.Degrees()));
-class AstralRays(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AstralRaysSmall), new AOEShapeCircle(8));
-class UmbralRays(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.UmbralRaysSmall), new AOEShapeCircle(8));
-class AstralRaysBig(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.AstralRaysBig), new AOEShapeCircle(15));
-class UmbralRaysBig(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.UmbralRaysBig), new AOEShapeCircle(15));
-class ExplosiveImpulse(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ExplosiveImpulse), new AOEShapeCircle(18));
-class ExplosiveImpulseClone(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ExplosiveImpulseClone), new AOEShapeCircle(18));
+class Meteor(BossModule module) : Components.RaidwideCast(module, AID.Meteor);
+class AuroralWind(BossModule module) : Components.BaitAwayCast(module, AID.AuroralWind, new AOEShapeCircle(5), centerAtTarget: true, endsOnCastEvent: true);
+class MedusaJavelin(BossModule module) : Components.StandardAOEs(module, AID.MedusaJavelin, new AOEShapeCone(65, 45.Degrees()));
+class AstralRays(BossModule module) : Components.StandardAOEs(module, AID.AstralRaysSmall, new AOEShapeCircle(8));
+class UmbralRays(BossModule module) : Components.StandardAOEs(module, AID.UmbralRaysSmall, new AOEShapeCircle(8));
+class AstralRaysBig(BossModule module) : Components.StandardAOEs(module, AID.AstralRaysBig, new AOEShapeCircle(15));
+class UmbralRaysBig(BossModule module) : Components.StandardAOEs(module, AID.UmbralRaysBig, new AOEShapeCircle(15));
+class ExplosiveImpulse(BossModule module) : Components.StandardAOEs(module, AID.ExplosiveImpulse, new AOEShapeCircle(18));
+class ExplosiveImpulseClone(BossModule module) : Components.StandardAOEs(module, AID.ExplosiveImpulseClone, new AOEShapeCircle(18));
 
 class Aurora(BossModule module) : Components.GenericAOEs(module)
 {
@@ -132,8 +132,7 @@ class Balls(BossModule module) : BossComponent(module)
             {
                 var color = tether.ID == (uint)TetherID.DarkTether ? Color.Dark : Color.Light;
                 Tethers.Add((source, actor, color));
-                var slot = Raid.FindSlot(actor.InstanceID);
-                if (slot >= 0)
+                if (Raid.TryFindSlot(actor, out var slot))
                     TetherColors[slot] = color;
             }
         }
@@ -142,8 +141,7 @@ class Balls(BossModule module) : BossComponent(module)
     public override void OnUntethered(Actor source, ActorTetherInfo tether)
     {
         Tethers.RemoveAll(t => t.Source == source);
-        var slot = Raid.FindSlot(tether.Target);
-        if (slot >= 0)
+        if (Raid.TryFindSlot(tether.Target, out var slot))
             TetherColors[slot] = default;
 
         if (Tethers.Count == 0)
@@ -197,20 +195,20 @@ class Balls(BossModule module) : BossComponent(module)
     {
         if (TetherColors[slot] != Color.None)
         {
-            var safeTowers = SafeTowers(slot).Select(t => ShapeDistance.Donut(t.Position, TowerRadius, 100)).ToList();
+            var safeTowers = SafeTowers(slot).Select(t => ShapeContains.Donut(t.Position, TowerRadius, 100)).ToList();
             if (safeTowers.Count > 0)
-                hints.AddForbiddenZone(ShapeDistance.Intersection(safeTowers), Deadline);
+                hints.AddForbiddenZone(ShapeContains.Intersection(safeTowers), Deadline);
         }
 
         // don't go to the same tower as another baiter
-        var otherBaits = Tethers.Where(t => t.Target != actor).Select(t => ShapeDistance.Circle(t.Target.Position, 6)).ToList();
+        var otherBaits = Tethers.Where(t => t.Target != actor).Select(t => ShapeContains.Circle(t.Target.Position, 6)).ToList();
         if (otherBaits.Count > 0)
-            hints.AddForbiddenZone(ShapeDistance.Union(otherBaits), DateTime.MaxValue);
+            hints.AddForbiddenZone(ShapeContains.Union(otherBaits), DateTime.MaxValue);
     }
 }
 
 class Wyvern(BossModule module) : Components.Adds(module, (uint)OID.AernsWynav, 1);
-class MeteorEnrage(BossModule module) : Components.CastHint(module, ActionID.MakeSpell(AID.MeteorEnrage), "Enrage!", true);
+class MeteorEnrage(BossModule module) : Components.CastHint(module, AID.MeteorEnrage, "Enrage!", true);
 
 class AbsoluteVirtueStates : StateMachineBuilder
 {
@@ -239,4 +237,3 @@ public class AbsoluteVirtue(WorldState ws, Actor primary) : BAModule(ws, primary
     // people like to early pull AV to be funny, so check if we have at least a BA low man run worth of people in the arena
     protected override bool CheckPull() => PrimaryActor.InCombat && WorldState.Actors.Where(p => p.Type == ActorType.Player).Count(a => Bounds.Contains(a.Position - Center)) > 6;
 }
-

@@ -2,7 +2,7 @@
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
 namespace BossMod.Autorotation.xan;
-public sealed class AST(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player)
+public sealed class AST(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player, PotionType.Mind)
 {
     public static RotationModuleDefinition Definition()
     {
@@ -65,6 +65,8 @@ public sealed class AST(RotationModuleManager manager, Actor player) : Castxan<A
             return;
         }
 
+        GoalZoneSingle(25);
+
         if (NumAOETargets > 2)
             PushGCD(AID.Gravity, BestAOETarget);
 
@@ -103,17 +105,11 @@ public sealed class AST(RotationModuleManager manager, Actor player) : Castxan<A
         if (Divining > 0 && NumAOETargets > 0)
             PushOGCD(AID.Oracle, BestAOETarget);
 
-        if (MP <= 7000)
+        if (MP <= Player.HPMP.MaxMP * 0.7f)
             PushOGCD(AID.LucidDreaming, Player);
     }
 
-    private bool ShouldLightspeed(StrategyValues strategy)
-    {
-        if (CanWeave(MaxChargesIn(AID.Lightspeed), 0.6f))
-            return true;
-
-        return LightspeedLeft == 0 && (DivinationLeft > 10 || CanWeave(AID.Divination, 2));
-    }
+    private bool ShouldLightspeed(StrategyValues strategy) => LightspeedLeft == 0 && (strategy.BuffsOk() && CanWeave(AID.Divination, 2) || DivinationLeft > 10);
 
     private float CombustLeft(Actor? actor) => actor == null ? float.MaxValue : Utils.MaxAll(
         StatusDetails(actor, SID.Combust, Player.InstanceID).Left,

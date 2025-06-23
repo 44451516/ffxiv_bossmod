@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
-class P5ParadiseRegainedTowers(BossModule module) : Components.GenericTowers(module, ActionID.MakeSpell(AID.WingsDarkAndLightExplosion))
+class P5ParadiseRegainedTowers(BossModule module) : Components.GenericTowers(module, AID.WingsDarkAndLightExplosion)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -90,7 +90,7 @@ class P5ParadiseRegainedBaits(BossModule module) : Components.GenericBaitAway(mo
         if (!ForbiddenPlayers[slot])
         {
             // just go to the next safespot
-            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Module.Center + SafeOffset(slot, actor), 1));
+            hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.Center + SafeOffset(slot, actor), 1));
         }
     }
 

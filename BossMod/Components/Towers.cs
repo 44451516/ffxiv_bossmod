@@ -1,7 +1,9 @@
 ﻿namespace BossMod.Components;
 
-public class GenericTowers(BossModule module, ActionID aid = default) : CastCounter(module, aid)
+public class GenericTowers(BossModule module, Enum? aid = default, AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Raidwide) : CastCounter(module, aid)
 {
+    public AIHints.PredictedDamageType DamageType = damageType;
+
     public struct Tower(WPos position, float radius, int minSoakers = 1, int maxSoakers = 1, BitMask forbiddenSoakers = default, DateTime activation = default)
     {
         public WPos Position = position;
@@ -17,6 +19,8 @@ public class GenericTowers(BossModule module, ActionID aid = default) : CastCoun
         public readonly bool CorrectAmountInside(BossModule module) => NumInside(module) is var count && count >= MinSoakers && count <= MaxSoakers;
     }
 
+    public bool EnableHints = true;
+
     public List<Tower> Towers = [];
 
     // default tower styling
@@ -29,6 +33,9 @@ public class GenericTowers(BossModule module, ActionID aid = default) : CastCoun
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
+        if (!EnableHints)
+            return;
+
         if (Towers.Any(t => t.ForbiddenSoakers[slot] && t.IsInside(actor)))
         {
             hints.Add("GTFO from tower!");
@@ -49,7 +56,7 @@ public class GenericTowers(BossModule module, ActionID aid = default) : CastCoun
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (Towers.Count == 0)
+        if (Towers.Count == 0 || !EnableHints)
             return;
 
         // we consider some list of towers part of the same "group" if their activations are within 500ms, as there can be varying delays between helper actors in an encounter casting the "same" spell
@@ -57,13 +64,17 @@ public class GenericTowers(BossModule module, ActionID aid = default) : CastCoun
         var firstActivation = Towers.MinBy(t => t.Activation).Activation;
         var deadline = firstActivation.AddSeconds(0.5f);
 
+        var soakingPlayers = new BitMask();
+
         // first see if we have one or more towers we need to soak - if so, add hints to take one of them
         // if there are no towers to soak, add hints to avoid forbidden ones
         // note that if we're currently inside a tower that has min number of soakers, we can't leave it
-        List<Func<WPos, float>> zones = [];
+        List<Func<WPos, bool>> zones = [];
         bool haveTowersToSoak = false;
         foreach (var t in Towers.Where(t => t.Activation <= deadline))
         {
+            soakingPlayers |= Raid.WithSlot().InRadius(t.Position, t.Radius).Mask();
+
             var effNumSoakers = t.ForbiddenSoakers[slot] ? int.MaxValue : t.NumInside(Module);
             if (effNumSoakers < t.MinSoakers || effNumSoakers == t.MinSoakers && t.IsInside(actor))
             {
@@ -73,19 +84,21 @@ public class GenericTowers(BossModule module, ActionID aid = default) : CastCoun
                     zones.Clear();
                     haveTowersToSoak = true;
                 }
-                zones.Add(ShapeDistance.Circle(t.Position, t.Radius));
+                zones.Add(ShapeContains.Circle(t.Position, t.Radius));
             }
             else if (effNumSoakers > t.MaxSoakers && !haveTowersToSoak)
             {
                 // this tower needs to be avoided; if we already have towers to soak, do nothing - presumably soaking other tower will automatically avoid this one
-                zones.Add(ShapeDistance.Circle(t.Position, t.Radius));
+                zones.Add(ShapeContains.Circle(t.Position, t.Radius));
             }
         }
         if (zones.Count > 0)
         {
-            var zoneUnion = ShapeDistance.Union(zones);
-            hints.AddForbiddenZone(haveTowersToSoak ? p => -zoneUnion(p) : zoneUnion, firstActivation);
+            var zoneUnion = ShapeContains.Union(zones);
+            hints.AddForbiddenZone(haveTowersToSoak ? p => !zoneUnion(p) : zoneUnion, firstActivation);
         }
+        if (soakingPlayers.Any() && DamageType != AIHints.PredictedDamageType.None)
+            hints.AddPredictedDamage(soakingPlayers, firstActivation, DamageType);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
@@ -95,7 +108,7 @@ public class GenericTowers(BossModule module, ActionID aid = default) : CastCoun
     }
 }
 
-public class CastTowers(BossModule module, ActionID aid, float radius, int minSoakers = 1, int maxSoakers = 1) : GenericTowers(module, aid)
+public class CastTowers(BossModule module, Enum aid, float radius, int minSoakers = 1, int maxSoakers = 1, AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Raidwide) : GenericTowers(module, aid, damageType)
 {
     public float Radius = radius;
     public int MinSoakers = minSoakers;
@@ -116,5 +129,5 @@ public class CastTowers(BossModule module, ActionID aid, float radius, int minSo
         }
     }
 
-    private WPos DeterminePosition(Actor caster, ActorCastInfo spell) => spell.TargetID == caster.InstanceID ? caster.Position : WorldState.Actors.Find(spell.TargetID)?.Position ?? spell.LocXZ;
+    protected WPos DeterminePosition(Actor caster, ActorCastInfo spell) => spell.TargetID == caster.InstanceID ? caster.Position : WorldState.Actors.Find(spell.TargetID)?.Position ?? spell.LocXZ;
 }

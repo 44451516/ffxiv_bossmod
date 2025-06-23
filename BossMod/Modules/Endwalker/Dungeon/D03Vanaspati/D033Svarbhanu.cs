@@ -112,8 +112,8 @@ class ChaoticUndercurrent(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class CosmicKissSpread(BossModule module) : Components.SpreadFromCastTargets(module, ActionID.MakeSpell(AID.CosmicKissSpread), 6);
-class CosmicKissCircle(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.CosmicKissCircle), 6);
+class CosmicKissSpread(BossModule module) : Components.SpreadFromCastTargets(module, AID.CosmicKissSpread, 6);
+class CosmicKissCircle(BossModule module) : Components.StandardAOEs(module, AID.CosmicKissCircle, 6);
 
 class CosmicKissRect(BossModule module) : Components.GenericAOEs(module)
 {
@@ -160,9 +160,9 @@ class CosmicKissRect(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class CosmicKissRaidwide(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.CosmicKiss));
+class CosmicKissRaidwide(BossModule module) : Components.RaidwideCast(module, AID.CosmicKiss);
 
-class CosmicKissKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.CosmicKiss), 13)
+class CosmicKissKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID.CosmicKiss, 13)
 {
     private static readonly Angle a90 = 90.Degrees();
     private static readonly Angle a45 = 45.Degrees();
@@ -173,33 +173,33 @@ class CosmicKissKnockback(BossModule module) : Components.KnockbackFromCastTarge
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var forbidden = new List<Func<WPos, float>>();
+        var forbidden = new List<Func<WPos, bool>>();
         var component = Module.FindComponent<ChaoticUndercurrent>()?.ActiveAOEs(slot, actor)?.ToList();
         var source = Sources(slot, actor).FirstOrDefault();
         if (component != null && component.Count != 0 && source != default)
         {
             if (component!.Any(x => x.Origin.Z == -152) && component!.Any(x => x.Origin.Z == -162))
             {
-                forbidden.Add(ShapeDistance.InvertedCone(Arena.Center, 7, a0, a45));
-                forbidden.Add(ShapeDistance.InvertedCone(Arena.Center, 7, a180, a45));
+                forbidden.Add(ShapeContains.InvertedCone(Arena.Center, 7, a0, a45));
+                forbidden.Add(ShapeContains.InvertedCone(Arena.Center, 7, a180, a45));
             }
             else if (component!.Any(x => x.Origin.Z == -142) && component!.Any(x => x.Origin.Z == -172))
             {
-                forbidden.Add(ShapeDistance.InvertedCone(Arena.Center, 7, a90, a45));
-                forbidden.Add(ShapeDistance.InvertedCone(Arena.Center, 7, -a90, a45));
+                forbidden.Add(ShapeContains.InvertedCone(Arena.Center, 7, a90, a45));
+                forbidden.Add(ShapeContains.InvertedCone(Arena.Center, 7, -a90, a45));
             }
             else if (component!.Any(x => x.Origin.Z == -142) && component!.Any(x => x.Origin.Z == -152))
-                forbidden.Add(ShapeDistance.InvertedCone(Arena.Center, 7, a180, a90));
+                forbidden.Add(ShapeContains.InvertedCone(Arena.Center, 7, a180, a90));
             else if (component!.Any(x => x.Origin.Z == -162) && component!.Any(x => x.Origin.Z == -172))
-                forbidden.Add(ShapeDistance.InvertedCone(Arena.Center, 7, a0, a90));
+                forbidden.Add(ShapeContains.InvertedCone(Arena.Center, 7, a0, a90));
             if (forbidden.Count > 0)
-                hints.AddForbiddenZone(p => forbidden.Select(f => f(p)).Max(), source.Activation);
+                hints.AddForbiddenZone(p => forbidden.Any(f => f(p)), source.Activation);
         }
     }
 }
 
-class FlamesOfDecay(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.FlamesOfDecay));
-class GnashingOfTeeth(BossModule module) : Components.SingleTargetCast(module, ActionID.MakeSpell(AID.GnashingOfTeeth));
+class FlamesOfDecay(BossModule module) : Components.RaidwideCast(module, AID.FlamesOfDecay);
+class GnashingOfTeeth(BossModule module) : Components.SingleTargetCast(module, AID.GnashingOfTeeth);
 
 class D033SvarbhanuStates : StateMachineBuilder
 {

@@ -62,13 +62,13 @@ class LightlessSparkTether(BossModule module) : Components.GenericBaitAway(modul
             CurrentBaits.Clear();
     }
 }
-class LightlessSpark(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.LightlessSpark), new AOEShapeCone(40.5f, 45.Degrees()));
-class VeinSplitter(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.VeinSplitter), new AOEShapeCircle(10));
-class VeinSplitter1(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.VeinSplitter1), new AOEShapeCircle(10));
-class UnmovingTroika1(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.UnmovingTroika1), new AOEShapeCone(9.5f, 45.Degrees()));
-class UnmovingTroika2(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.UnmovingTroika2), new AOEShapeCone(9.5f, 45.Degrees()));
-class ArtOfTheStorm(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ArtOfTheStorm), new AOEShapeCircle(8));
-class ArtOfTheSwell(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.ArtOfTheSwell), 15);
+class LightlessSpark(BossModule module) : Components.StandardAOEs(module, AID.LightlessSpark, new AOEShapeCone(40.5f, 45.Degrees()));
+class VeinSplitter(BossModule module) : Components.StandardAOEs(module, AID.VeinSplitter, new AOEShapeCircle(10));
+class VeinSplitter1(BossModule module) : Components.StandardAOEs(module, AID.VeinSplitter1, new AOEShapeCircle(10));
+class UnmovingTroika1(BossModule module) : Components.StandardAOEs(module, AID.UnmovingTroika1, new AOEShapeCone(9.5f, 45.Degrees()));
+class UnmovingTroika2(BossModule module) : Components.StandardAOEs(module, AID.UnmovingTroika2, new AOEShapeCone(9.5f, 45.Degrees()));
+class ArtOfTheStorm(BossModule module) : Components.StandardAOEs(module, AID.ArtOfTheStorm, new AOEShapeCircle(8));
+class ArtOfTheSwell(BossModule module) : Components.KnockbackFromCastTarget(module, AID.ArtOfTheSwell, 15);
 class ArtOfTheSword(BossModule module) : Components.GenericBaitAway(module)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -84,9 +84,9 @@ class ArtOfTheSword(BossModule module) : Components.GenericBaitAway(module)
             CurrentBaits.Clear();
     }
 }
-class Concentrativity(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.Concentrativity));
-class ArtOfTheStorm1(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.ArtOfTheStorm1), new AOEShapeCircle(8));
-class ArtOfTheSwell1(BossModule module) : Components.KnockbackFromCastTarget(module, ActionID.MakeSpell(AID.ArtOfTheSwell1), 15)
+class Concentrativity(BossModule module) : Components.RaidwideCast(module, AID.Concentrativity);
+class ArtOfTheStorm1(BossModule module) : Components.StandardAOEs(module, AID.ArtOfTheStorm1, new AOEShapeCircle(8));
+class ArtOfTheSwell1(BossModule module) : Components.KnockbackFromCastTarget(module, AID.ArtOfTheSwell1, 15)
 {
     private ArtOfTheStorm1? storm;
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -97,27 +97,27 @@ class ArtOfTheSwell1(BossModule module) : Components.KnockbackFromCastTarget(mod
         if (caster == null)
             return;
 
-        List<Func<WPos, float>> funcs = [
-            ShapeDistance.InvertedCircle(Module.Center, 20),
+        List<Func<WPos, bool>> funcs = [
+            ShapeContains.InvertedCircle(Module.Center, 20),
         ];
 
         if (storm?.ActiveCasters.FirstOrDefault() is Actor st)
-            funcs.Add(storm.Shape.Distance(st.Position, st.Rotation));
+            funcs.Add(storm.Shape.CheckFn(st.Position, st.Rotation));
 
-        float inbounds(WPos pos)
+        bool inbounds(WPos pos)
         {
             var dir = (pos - caster.Position).Normalized();
             var proj = pos + 15 * dir;
-            return funcs.Min(f => f(proj));
+            return funcs.Any(f => f(proj));
         }
 
         hints.AddForbiddenZone(inbounds, Module.CastFinishAt(caster.CastInfo));
     }
 }
 
-class StormSwellSword(BossModule module) : Components.RaidwideCast(module, ActionID.MakeSpell(AID.StormSwellSword1));
+class StormSwellSword(BossModule module) : Components.RaidwideCast(module, AID.StormSwellSword1);
 
-class Adds(BossModule module) : Components.AddsMulti(module, [(uint)OID.AmeNoHabakiri, (uint)OID.TheStorm, (uint)OID.TheSwell]);
+class Adds(BossModule module) : Components.AddsMulti(module, [OID.AmeNoHabakiri, OID.TheStorm, OID.TheSwell]);
 
 class ZenosYaeGalvusStates : StateMachineBuilder
 {

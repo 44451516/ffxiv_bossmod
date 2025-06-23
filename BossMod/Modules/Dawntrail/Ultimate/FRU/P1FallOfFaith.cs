@@ -52,7 +52,7 @@ class P1FallOfFaith(BossModule module) : Components.CastCounter(module, default)
         var dest = TetherSpot(baitOrder);
         if (_playerOrder[slot] != baitOrder)
             dest += BaitOffset(_playerOrder[slot], _fireTethers[baitOrder - 1]);
-        hints.AddForbiddenZone(ShapeDistance.PrecisePosition(dest, new(0, 1), Module.Bounds.MapResolution, actor.Position, 0.1f));
+        hints.AddForbiddenZone(ShapeContains.PrecisePosition(dest, new(0, 1), Module.Bounds.MapResolution, actor.Position, 0.1f));
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
@@ -98,8 +98,7 @@ class P1FallOfFaith(BossModule module) : Components.CastCounter(module, default)
             if (target != null)
                 _tetherTargets.Add(target);
 
-            var slot = Raid.FindSlot(tether.Target);
-            if (slot >= 0)
+            if (Raid.TryFindSlot(tether.Target, out var slot))
                 _playerOrder[slot] = _tetherTargets.Count;
 
             if (_tetherTargets.Count == 4)

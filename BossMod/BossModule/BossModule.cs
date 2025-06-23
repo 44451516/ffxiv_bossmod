@@ -31,7 +31,7 @@ public abstract class BossModule : IDisposable
     public IReadOnlyList<Actor> Enemies(uint oid)
     {
         IReadOnlyList<Actor>? entry = _relevantEnemies.GetValueOrDefault(oid);
-        entry ??= _relevantEnemies[oid] = WorldState.Actors.Where(actor => actor.OID == oid).ToList();
+        entry ??= _relevantEnemies[oid] = [.. WorldState.Actors.Where(actor => actor.OID == oid)];
         return entry;
     }
     public IReadOnlyList<Actor> Enemies<OID>(OID oid) where OID : Enum => Enemies((uint)(object)oid);
@@ -61,6 +61,8 @@ public abstract class BossModule : IDisposable
                 if (actor.CastInfo?.IsSpell() ?? false)
                     comp.OnCastStarted(actor, actor.CastInfo);
             }
+            if (actor.IsTargetable)
+                comp.OnTargetable(actor);
             if (actor.Tether.ID != 0)
                 comp.OnTethered(actor, actor.Tether);
             for (int i = 0; i < actor.Statuses.Length; ++i)
@@ -93,6 +95,7 @@ public abstract class BossModule : IDisposable
             WorldState.Actors.Removed.Subscribe(OnActorDestroyed),
             WorldState.Actors.CastStarted.Subscribe(OnActorCastStarted),
             WorldState.Actors.CastFinished.Subscribe(OnActorCastFinished),
+            WorldState.Actors.IsTargetableChanged.Subscribe(OnIsTargetableChanged),
             WorldState.Actors.Tethered.Subscribe(OnActorTethered),
             WorldState.Actors.Untethered.Subscribe(OnActorUntethered),
             WorldState.Actors.StatusGain.Subscribe(OnActorStatusGain),
@@ -187,8 +190,8 @@ public abstract class BossModule : IDisposable
         // draw non-player alive party members
         DrawPartyMembers(pcSlot, pc);
 
-        // draw non-party pcs
-        if (DrawAllPlayers)
+        // draw non-party pcs, if requested
+        if (DrawAllPlayers && WindowConfig.ShowIrrelevantPlayers && WindowConfig.ShowAllPlayers)
             Arena.Actors(WorldState.Actors.Where(a => a.Type == ActorType.Player && Raid.FindSlot(a.InstanceID) < 0), ArenaColor.PlayerReallyGeneric);
 
         // draw foreground
@@ -267,6 +270,9 @@ public abstract class BossModule : IDisposable
 
     // return true if non-party player characters should be drawn on the minimap
     public virtual bool DrawAllPlayers => false;
+
+    // return true if out-of-combat enemies should be set to priority 0 - useful for multi-phase encounters when player wants to use automatic targeting via cdplan
+    public virtual bool ShouldPrioritizeAllEnemies => false;
 
     protected virtual void UpdateModule() { }
     protected virtual void DrawArenaBackground(int pcSlot, Actor pc) { } // before modules background
@@ -415,6 +421,20 @@ public abstract class BossModule : IDisposable
                 comp.OnCastFinished(actor, actor.CastInfo);
     }
 
+    private void OnIsTargetableChanged(Actor actor)
+    {
+        if (actor.IsTargetable)
+        {
+            foreach (var comp in _components)
+                comp.OnTargetable(actor);
+        }
+        else
+        {
+            foreach (var comp in _components)
+                comp.OnUntargetable(actor);
+        }
+    }
+
     private void OnActorTethered(Actor actor)
     {
         foreach (var comp in _components)
@@ -447,7 +467,7 @@ public abstract class BossModule : IDisposable
 
     private void OnActorCastEvent(Actor actor, ActorCastEvent cast)
     {
-        if ((actor.Type is not ActorType.Player and not ActorType.Pet and not ActorType.Chocobo) && cast.IsSpell())
+        if (actor.Type is not (ActorType.Player or ActorType.Pet or ActorType.Chocobo) && cast.IsSpell())
             foreach (var comp in _components)
                 comp.OnEventCast(actor, cast);
     }

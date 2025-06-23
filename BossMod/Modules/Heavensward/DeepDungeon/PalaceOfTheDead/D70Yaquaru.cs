@@ -21,7 +21,7 @@ public enum SID : uint
     Heavy = 14
 }
 
-class DouseCast(BossModule module) : Components.SelfTargetedAOEs(module, ActionID.MakeSpell(AID.Douse), new AOEShapeCircle(8));
+class DouseCast(BossModule module) : Components.StandardAOEs(module, AID.Douse, new AOEShapeCircle(8));
 class DousePuddle(BossModule module) : BossComponent(module)
 {
     private IEnumerable<Actor> Puddles => Module.Enemies(OID.Voidzone).Where(z => z.EventState != 7);
@@ -52,14 +52,14 @@ class DousePuddle(BossModule module) : BossComponent(module)
             // yaquaru tank distance seems to be around 2-2.5y, but from testing, 3y minimum is needed to move it out of the puddle, either because of rasterization shenanigans or netcode
             var effTankDist = Module.PrimaryActor.HitboxRadius + tankDist + 1;
 
-            var puddles = Puddles.Select(p => ShapeDistance.Circle(p.Position, effPuddleSize + effTankDist)).ToList();
-            var closest = ShapeDistance.Union(puddles);
-            hints.GoalZones.Add(p => closest(p) > 0 ? 1000 : 0);
+            var puddles = Puddles.Select(p => ShapeContains.Circle(p.Position, effPuddleSize + effTankDist)).ToList();
+            var closest = ShapeContains.Union(puddles);
+            hints.GoalZones.Add(p => !closest(p) ? 1000 : 0);
         }
     }
 }
 
-class Electrogenesis(BossModule module) : Components.LocationTargetedAOEs(module, ActionID.MakeSpell(AID.Electrogenesis), 8);
+class Electrogenesis(BossModule module) : Components.StandardAOEs(module, AID.Electrogenesis, 8);
 class FangsEnd(BossModule module) : BossComponent(module)
 {
     private BitMask _heavy;
