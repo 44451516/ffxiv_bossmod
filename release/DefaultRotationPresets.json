@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "payload": [
     {
       "Name": "VBM Default",
@@ -342,15 +342,6 @@
         ],
         "BossMod.Autorotation.xan.BLM": [
           {
-            "Track": "Buffs",
-            "Option": "Auto"
-          },
-          {
-            "Track": "Buffs",
-            "Option": "Delay",
-            "Mod": "Shift, Ctrl"
-          },
-          {
             "Track": "AOE",
             "Option": "AOE"
           },
@@ -401,6 +392,18 @@
           {
             "Track": "Targeting",
             "Option": "Auto"
+          }
+        ]
+      }
+    },
+    {
+      "Name": "VBM AI",
+      "Modules": {
+        "BossMod.Autorotation.MiscAI.AutoFarm": [],
+        "BossMod.Autorotation.MiscAI.NormalMovement": [
+          {
+            "Track": "Destination",
+            "Option": "Pathfind"
           }
         ]
       }

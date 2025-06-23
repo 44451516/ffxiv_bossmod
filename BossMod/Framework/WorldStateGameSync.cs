@@ -1,4 +1,6 @@
-﻿using Dalamud.Game.ClientState.Conditions;
+﻿using BossMod.Network;
+using BossMod.Network.ServerIPC;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Memory;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -13,8 +15,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
-using System.Runtime.InteropServices;
-using System.Text;
+using NpcYell = BossMod.Network.ServerIPC.NpcYell;
 
 namespace BossMod;
 
@@ -37,14 +38,14 @@ sealed class WorldStateGameSync : IDisposable
     private readonly Dictionary<ulong, Vector3> _lastCastPositions = []; // unfortunately, game only saves cast location for area-targeted spells
     private readonly Actor?[] _actorsByIndex = new Actor?[ObjectTableSize];
 
-    private readonly Network.OpcodeMap _opcodeMap = new();
-    private readonly Network.PacketInterceptor _interceptor = new();
-    private readonly Network.PacketDecoderGame _decoder = new();
+    private readonly OpcodeMap _opcodeMap = new();
+    private readonly PacketInterceptor _interceptor = new();
+    private readonly PacketDecoderGame _decoder = new();
 
     private readonly ConfigListener<ReplayManagementConfig> _netConfig;
     private readonly EventSubscriptions _subscriptions;
 
-    private unsafe delegate void ProcessPacketActorCastDelegate(uint casterId, Network.ServerIPC.ActorCast* packet);
+    private unsafe delegate void ProcessPacketActorCastDelegate(uint casterId, ActorCast* packet);
     private readonly Hook<ProcessPacketActorCastDelegate> _processPacketActorCastHook;
 
     private unsafe delegate void ProcessPacketEffectResultDelegate(uint targetID, byte* packet, byte replaying);
@@ -54,7 +55,7 @@ sealed class WorldStateGameSync : IDisposable
     private delegate void ProcessPacketActorControlDelegate(uint actorID, uint category, uint p1, uint p2, uint p3, uint p4, uint p5, uint p6, ulong targetID, byte replaying);
     private readonly Hook<ProcessPacketActorControlDelegate> _processPacketActorControlHook;
 
-    private unsafe delegate void ProcessPacketNpcYellDelegate(Network.ServerIPC.NpcYell* packet);
+    private unsafe delegate void ProcessPacketNpcYellDelegate(NpcYell* packet);
     private readonly Hook<ProcessPacketNpcYellDelegate> _processPacketNpcYellHook;
 
     private unsafe delegate void ProcessEnvControlDelegate(void* self, uint index, ushort s1, ushort s2);
@@ -196,7 +197,7 @@ sealed class WorldStateGameSync : IDisposable
             _ws.Execute(new WorldState.OpZoneChange(Service.ClientState.TerritoryType, GameMain.Instance()->CurrentContentFinderConditionId));
         }
         var proxy = fwk->NetworkModuleProxy->ReceiverCallback;
-        var scramble = Network.IDScramble.Get();
+        var scramble = IDScramble.Get();
         if (_ws.Network.IDScramble != scramble)
             _ws.Execute(new NetworkState.OpIDScramble(scramble));
 
@@ -889,16 +890,16 @@ sealed class WorldStateGameSync : IDisposable
         _actorOps.GetOrAdd(targetID).Add(new ActorState.OpEffectResult(targetID, seq, targetIndex));
     }
 
-    private unsafe void ProcessPacketActorCastDetour(uint casterId, Network.ServerIPC.ActorCast* packet)
+    private unsafe void ProcessPacketActorCastDetour(uint casterId, ActorCast* packet)
     {
-        _lastCastPositions[casterId] = Network.PacketDecoder.IntToFloatCoords(packet->PosX, packet->PosY, packet->PosZ);
+        _lastCastPositions[casterId] = PacketDecoder.IntToFloatCoords(packet->PosX, packet->PosY, packet->PosZ);
         _processPacketActorCastHook.Original(casterId, packet);
     }
 
     private unsafe void ProcessPacketEffectResultDetour(uint targetID, byte* packet, byte replaying)
     {
         var count = packet[0];
-        var p = (Network.ServerIPC.EffectResultEntry*)(packet + 4);
+        var p = (EffectResultEntry*)(packet + 4);
         for (int i = 0; i < count; ++i)
         {
             OnEffectResult(targetID, p->RelatedActionSequence, p->RelatedTargetIndex);
@@ -910,7 +911,7 @@ sealed class WorldStateGameSync : IDisposable
     private unsafe void ProcessPacketEffectResultBasicDetour(uint targetID, byte* packet, byte replaying)
     {
         var count = packet[0];
-        var p = (Network.ServerIPC.EffectResultBasicEntry*)(packet + 4);
+        var p = (EffectResultBasicEntry*)(packet + 4);
         for (int i = 0; i < count; ++i)
         {
             OnEffectResult(targetID, p->RelatedActionSequence, p->RelatedTargetIndex);
@@ -922,38 +923,38 @@ sealed class WorldStateGameSync : IDisposable
     private void ProcessPacketActorControlDetour(uint actorID, uint category, uint p1, uint p2, uint p3, uint p4, uint p5, uint p6, ulong targetID, byte replaying)
     {
         _processPacketActorControlHook.Original(actorID, category, p1, p2, p3, p4, p5, p6, targetID, replaying);
-        switch ((Network.ServerIPC.ActorControlCategory)category)
+        switch ((ActorControlCategory)category)
         {
-            case Network.ServerIPC.ActorControlCategory.TargetIcon:
-                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpIcon(actorID, p1 - Network.IDScramble.Delta, p2));
+            case ActorControlCategory.TargetIcon:
+                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpIcon(actorID, p1 - IDScramble.Delta, p2));
                 break;
-            case Network.ServerIPC.ActorControlCategory.Tether:
+            case ActorControlCategory.Tether:
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether(actorID, new(p2, p3)));
                 break;
-            case Network.ServerIPC.ActorControlCategory.TetherCancel:
+            case ActorControlCategory.TetherCancel:
                 // note: this seems to clear tether only if existing matches p2
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether(actorID, default));
                 break;
-            case Network.ServerIPC.ActorControlCategory.EObjSetState:
+            case ActorControlCategory.EObjSetState:
                 // p2 is unused (seems to be director id?), p3==1 means housing (?) item instead of event obj, p4 is housing item id
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventObjectStateChange(actorID, (ushort)p1));
                 break;
-            case Network.ServerIPC.ActorControlCategory.EObjAnimation:
+            case ActorControlCategory.EObjAnimation:
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventObjectAnimation(actorID, (ushort)p1, (ushort)p2));
                 break;
-            case Network.ServerIPC.ActorControlCategory.PlayActionTimeline:
+            case ActorControlCategory.PlayActionTimeline:
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpPlayActionTimelineEvent(actorID, (ushort)p1));
                 break;
-            case Network.ServerIPC.ActorControlCategory.ActionRejected:
+            case ActorControlCategory.ActionRejected:
                 _globalOps.Add(new ClientState.OpActionReject(new(new((ActionType)p2, p3), p6, p4 * 0.01f, p5 * 0.01f, p1)));
                 break;
-            case Network.ServerIPC.ActorControlCategory.DirectorUpdate:
+            case ActorControlCategory.DirectorUpdate:
                 _globalOps.Add(new WorldState.OpDirectorUpdate(p1, p2, p3, p4, p5, p6));
                 break;
         }
     }
 
-    private unsafe void ProcessPacketNpcYellDetour(Network.ServerIPC.NpcYell* packet)
+    private unsafe void ProcessPacketNpcYellDetour(NpcYell* packet)
     {
         _processPacketNpcYellHook.Original(packet);
         _actorOps.GetOrAdd(packet->SourceID).Add(new ActorState.OpEventNpcYell(packet->SourceID, packet->Message));
