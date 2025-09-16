@@ -28,7 +28,7 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("显示测试雷达和提示窗口", tooltip: "在不进行boss战时配置雷达和提示窗口非常有用", separator: true)]
     public bool AllowAutomaticInteract = true;
 
-    [PropertyDisplay("Show testing radar and hint window", tooltip: "Useful for configuring your radar and hint windows without being inside of a boss encounter", separator: true)]
+    [PropertyDisplay("显示测试雷达和提示窗口", tooltip: "用于在不进入BOSS战的情况下配置雷达和提示窗口", separator: true)]
     public bool ShowDemo = false;
 
       // 雷达窗口设置

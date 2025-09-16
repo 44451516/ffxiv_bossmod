@@ -34,8 +34,15 @@ class IcyHandsAdds(BossModule module) : Components.AddsMulti(module, [OID.IcyHan
         foreach (var a in ActiveActors)
         {
             var e = hints.FindEnemy(a);
-            e?.Priority = 1;
-            e?.ForbidDOTs = true;
+            if (e != null)
+            {
+                e.Priority = 1;
+            }
+
+            if (e != null)
+            {
+                e.ForbidDOTs = true;
+            }
         }
     }
 }

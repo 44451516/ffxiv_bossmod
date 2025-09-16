@@ -76,7 +76,10 @@ class ImpressionKnockback(BossModule module) : Components.KnockbackFromCastTarge
         base.OnEventCast(caster, spell);
 
         if (spell.Action == WatchedAction)
-            _bomb?.Risky = true;
+            if (_bomb != null)
+            {
+                _bomb.Risky = true;
+            }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
