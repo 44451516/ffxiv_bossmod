@@ -4,7 +4,7 @@
 // when there is no active bossmodule (eg in outdoor or on trash), we try to guess things based on world state (eg actor casts)
 public sealed class AIHintsBuilder : IDisposable
 {
-    private const float RaidwideSize = 30;
+    public const float RaidwideSize = 30;
     public const float MaxError = 2000f / 65535f; // TODO: this should really be handled by the rasterization itself...
 
     private readonly SmartRotationConfig _gazeConfig = Service.Config.Get<SmartRotationConfig>();
@@ -219,10 +219,25 @@ public sealed class AIHintsBuilder : IDisposable
             hints.SetPriority(inv, AIHints.Enemy.PriorityInvincible);
     }
 
+    private bool IsValidEnemy(Actor actor)
+    {
+        if (actor.IsAlly)
+            return false;
+
+        if (actor.Type == ActorType.Enemy)
+            return true;
+
+        if (_hintConfig.EnableHelperHints && actor.Type == ActorType.Helper)
+            return true;
+
+        return false;
+    }
+
     private void OnCastStarted(Actor actor)
     {
-        if (actor.Type != ActorType.Enemy || actor.IsAlly)
+        if (!IsValidEnemy(actor))
             return;
+
         if (Service.LuminaRow<Lumina.Excel.Sheets.Action>(actor.CastInfo!.Action.ID) is not { } data)
             return;
 
@@ -306,17 +321,16 @@ public sealed class AIHintsBuilder : IDisposable
 
     private Angle DetermineConeAngle(Lumina.Excel.Sheets.Action data)
     {
-        var omen = data.Omen.ValueNullable;
-        if (omen == null)
+        if (data.Omen.ValueNullable is not { } omen || omen.RowId == 0)
         {
             Service.Log($"[AutoHints] No omen data for {data.RowId} '{data.Name}'...");
             return ConeFallback.Degrees();
         }
-        var path = omen.Value.Path.ToString();
+        var path = omen.Path.ToString();
         var pos = path.IndexOf("fan", StringComparison.Ordinal);
         if (pos < 0 || pos + 6 > path.Length || !int.TryParse(path.AsSpan(pos + 3, 3), out var angle))
         {
-            Service.Log($"[AutoHints] Can't determine angle from omen ({path}/{omen.Value.PathAlly}) for {data.RowId} '{data.Name}'...");
+            Service.Log($"[AutoHints] Can't determine angle from omen ({path}/{omen.PathAlly}) for {data.RowId} '{data.Name}'...");
             return ConeFallback.Degrees();
         }
         return angle.Degrees();
@@ -324,22 +338,18 @@ public sealed class AIHintsBuilder : IDisposable
 
     private static float DetermineDonutInner(Lumina.Excel.Sheets.Action data)
     {
-        var omen = data.Omen.ValueNullable;
-        if (omen == null)
+        if (Utils.DetermineDonutInner(data, out var radius))
         {
-            Service.Log($"[AutoHints] No omen data for {data.RowId} '{data.Name}'...");
-            return 0;
+            if (radius != null)
+                return radius.Value;
+            else
+            {
+                Service.Log($"[AutoHints] Can't determine inner radius from omen ({data.Omen.Value.Path}/{data.Omen.Value.PathAlly}) for {data.RowId} '{data.Name}'...");
+                return 0;
+            }
         }
-        var path = omen.Value.Path.ToString();
-        var pos = path.IndexOf("sircle_", StringComparison.Ordinal);
-        if (pos >= 0 && pos + 11 <= path.Length && int.TryParse(path.AsSpan(pos + 9, 2), out var inner))
-            return inner;
 
-        pos = path.IndexOf("circle", StringComparison.Ordinal);
-        if (pos >= 0 && pos + 10 <= path.Length && int.TryParse(path.AsSpan(pos + 8, 2), out inner))
-            return inner;
-
-        Service.Log($"[AutoHints] Can't determine inner radius from omen ({path}/{omen.Value.PathAlly}) for {data.RowId} '{data.Name}'...");
+        Service.Log($"[AutoHints] No omen data for {data.RowId} '{data.Name}'...");
         return 0;
     }
 }

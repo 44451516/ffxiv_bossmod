@@ -1,9 +1,9 @@
 ﻿using BossMod.Autorotation;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
-using ImGuiNET;
 using Lumina.Excel.Sheets;
 using Lumina.Text.ReadOnly;
 using System.Data;
@@ -64,6 +64,7 @@ public sealed class ModuleViewer : IDisposable
         Customize(BossModuleInfo.Category.GoldSaucer, contentType.GetRow(19));
         Customize(BossModuleInfo.Category.DeepDungeon, contentType.GetRow(21));
         Customize(BossModuleInfo.Category.Ultimate, contentType.GetRow(28));
+        Customize(BossModuleInfo.Category.Variant, contentType.GetRow(30));
         Customize(BossModuleInfo.Category.Criterion, contentType.GetRow(30));
 
         var playStyle = Service.LuminaSheet<CharaCardPlayStyle>()!;
@@ -260,8 +261,12 @@ public sealed class ModuleViewer : IDisposable
         Vector4 tintCol = filtered ? new(0.5f, 0.5f, 0.5f, 0.85f) : new(1);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        if (Service.Texture.GetFromGameIcon(iconId).TryGetWrap(out var tex, out var _e))
-            ImGui.Image(tex.ImGuiHandle, _iconSize, Vector2.Zero, Vector2.One, tintCol);
+        if (Service.Texture.GetFromGameIcon(iconId).TryGetWrap(out var tex, out var ex))
+        {
+            ImGui.Image(tex.Handle, _iconSize, Vector2.Zero, Vector2.One, tintCol);
+            if (ex != null)
+                Service.Logger.Warning(ex, $"unable to load icon {iconId}");
+        }
 
         ImGui.TableNextColumn();
         var c = ImGui.GetCursorPos();

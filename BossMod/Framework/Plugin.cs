@@ -7,6 +7,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace BossMod;
 
@@ -73,7 +74,7 @@ public sealed class Plugin : IDalamudPlugin
         Service.Config.Modified.Subscribe(() =>
         {
             Service.Log($"saving configuration to {dalamud.ConfigFile}");
-            Service.Config.SaveToFile(dalamud.ConfigFile);
+            Task.Run(() => Service.Config.SaveToFile(dalamud.ConfigFile));
         });
 
         ActionDefinitions.Instance.UnlockCheck = QuestUnlocked; // ensure action definitions are initialized and set unlock check functor (we don't really store the quest progress in clientstate, for now at least)
@@ -311,7 +312,7 @@ public sealed class Plugin : IDalamudPlugin
         _zonemod.ActiveModule?.Update();
         _hintsBuilder.Update(_hints, PartyState.PlayerSlot, moveImminent);
         _amex.QueueManualActions();
-        _rotation.Update(_amex.AnimationLockDelayEstimate, _movementOverride.IsMoving());
+        _rotation.Update(_amex.AnimationLockDelayEstimate, _movementOverride.IsMoving(), Service.Condition[ConditionFlag.DutyRecorderPlayback]);
         _ai.Update();
         _amex.FinishActionGather();
 
@@ -340,6 +341,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         _movementOverride.DesiredDirection = _hints.ForcedMovement;
         _movementOverride.MisdirectionThreshold = _hints.MisdirectionThreshold;
+        _movementOverride.DesiredSpinDirection = _hints.SpinDirection;
         // update forced target, if needed (TODO: move outside maybe?)
         if (_hints.ForcedTarget != null && _hints.ForcedTarget.IsTargetable)
         {

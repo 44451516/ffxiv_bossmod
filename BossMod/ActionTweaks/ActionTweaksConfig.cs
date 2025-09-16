@@ -14,9 +14,9 @@ public sealed class ActionTweaksConfig : ConfigNode
     [PropertyDisplay("移除因帧率引起的额外冷却延迟", tooltip: "动态调整冷却和动画锁定，以确保无论帧率限制如何，队列中的动作都能立即执行")]
     public bool RemoveCooldownDelay = false;
 
-    [PropertyDisplay("防止施法时移动")]
+    [PropertyDisplay("防止施法时移动", tags: ["slidecast"])]
     public bool PreventMovingWhileCasting = false;
-    
+
     public enum ModifierKey
     {
         [PropertyDisplay("None")]
@@ -34,8 +34,8 @@ public sealed class ActionTweaksConfig : ConfigNode
         [PropertyDisplay("鼠标左键+右键")]
         M12
     }
-    
-    [PropertyDisplay("按住此键可在施法时允许移动", depends: nameof(PreventMovingWhileCasting))]
+
+    [PropertyDisplay("按住此键可在施法时允许移动", depends: nameof(PreventMovingWhileCasting), tags: ["slidecast"])]
     public ModifierKey MoveEscapeHatch = ModifierKey.None;
 
     [PropertyDisplay("当目标死亡时自动取消施法")]
@@ -44,11 +44,11 @@ public sealed class ActionTweaksConfig : ConfigNode
     [PropertyDisplay("当类似热病机制即将来临时禁止移动和执行动作（设置为0禁用，否则根据延迟增加阈值）。", tooltip: "设置为0可禁用此功能，否则请根据您的网络延迟增加阈值。")]
     [PropertySlider(0, 10, Speed = 0.01f)]
     public float PyreticThreshold = 1.0f;
-    
+
     [PropertyDisplay("自动错误定向：如果正常运动和错误定向之间的角度大于此阈值，则防止在错误定向下运动（设置为 180 可关闭此功能）。")]
     [PropertySlider(0, 180)]
     public float MisdirectionThreshold = 180;
-    
+
 
     [PropertyDisplay("对鼠标悬停的目标使用技能")]
     public bool PreferMouseover = false;
@@ -67,7 +67,7 @@ public sealed class ActionTweaksConfig : ConfigNode
 
     [PropertyDisplay("自动管理自动攻击", tooltip: "此设置可防止在倒计时期间过早开始自动攻击，在开怪时、切换目标时以及使用任何不会明确取消自动攻击的技能时自动启动自动攻击。")]
     public bool AutoAutos = false;
-    
+
     [PropertyDisplay("自动下坐骑以执行技能")]
     public bool AutoDismount = true;
 

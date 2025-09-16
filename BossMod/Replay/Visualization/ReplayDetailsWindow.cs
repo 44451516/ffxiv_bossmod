@@ -1,6 +1,6 @@
 ﻿using BossMod.Autorotation;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
-using ImGuiNET;
 using System.IO;
 
 namespace BossMod.ReplayVisualization;
@@ -41,7 +41,7 @@ class ReplayDetailsWindow : UIWindow
         set => MoveTo(value);
     }
 
-    public ReplayDetailsWindow(Replay data, RotationDatabase rotationDB, DateTime? initialTime) : base($"Replay: {data.Path}", false, new(1500, 1000))
+    public ReplayDetailsWindow(Replay data, RotationDatabase rotationDB, DateTime? initialTime) : base($"Replay: {data.Path}", false, Service.IsUIDev ? new(1100, 1500) : new(1500, 1000))
     {
         _player = new(data);
         _rotationDB = rotationDB;
@@ -95,7 +95,7 @@ class ReplayDetailsWindow : UIWindow
         ImGui.SameLine();
         ImGui.Checkbox("Override", ref _azimuthOverride);
         _hintsBuilder.Update(_hints, _povSlot, false);
-        _rmm.Update(0, false);
+        _rmm.Update(0, false, false);
         if (_mgr.ActiveModule != null)
         {
             var drawTimerPre = DateTime.Now;

@@ -6,11 +6,21 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase(manage
 {
     public enum Track { Stance, Ranged, Interject, Stun, ArmsLength, Mit, Invuln, Protect }
 
+    enum StanceStrategy
+    {
+        Enabled,
+        Disabled,
+        LeechMode
+    }
+
     public static RotationModuleDefinition Definition()
     {
         var def = new RotationModuleDefinition("Tank AI", "Utilities for tank AI - stance, provoke, interrupt, ranged attack", "AI (xan)", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.PLD, Class.GLA, Class.WAR, Class.MRD, Class.DRK, Class.GNB), 100);
 
-        def.AbilityTrack(Track.Stance, "Stance");
+        def.Define(Track.Stance).As<StanceStrategy>("Stance")
+            .AddOption(StanceStrategy.Enabled, "Enabled")
+            .AddOption(StanceStrategy.Disabled, "Disabled")
+            .AddOption(StanceStrategy.LeechMode, "Leech", "Leech mode: enable stance only in FATEs");
         def.AbilityTrack(Track.Ranged, "Ranged GCD");
 
         def.Define(Track.Interject).As<HintedStrategy>("Interject2", "Interject")
@@ -123,8 +133,7 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase(manage
             Hints.ActionsToExecute.Push(JobActions.Ranged, primaryTarget, ActionQueue.Priority.Low);
 
         // stance
-        if (strategy.Enabled(Track.Stance) && !Player.Statuses.Any(x => x.ID == JobActions.StanceBuff))
-            Hints.ActionsToExecute.Push(JobActions.Stance, Player, ActionQueue.Priority.VeryLow);
+        AutoStance(strategy);
 
         var interjectStrategy = strategy.Option(Track.Interject).As<HintedStrategy>();
 
@@ -167,6 +176,24 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase(manage
         }
     }
 
+    private void AutoStance(StrategyValues strategy)
+    {
+        var stanceStrategy = strategy.Option(Track.Stance).As<StanceStrategy>();
+        switch (stanceStrategy)
+        {
+            case StanceStrategy.Enabled:
+                if (Player.FindStatus(JobActions.StanceBuff) == null)
+                    Hints.ActionsToExecute.Push(JobActions.Stance, Player, ActionQueue.Priority.VeryLow);
+                return;
+            case StanceStrategy.LeechMode:
+                var wantOn = World.Client.ActiveFate.ID != 0;
+                var haveOn = Player.FindStatus(JobActions.StanceBuff) != null;
+                if (wantOn != haveOn)
+                    Hints.ActionsToExecute.Push(JobActions.Stance, Player, ActionQueue.Priority.VeryLow);
+                return;
+        }
+    }
+
     private bool ShouldRanged(StrategyValues strategy, Actor? primaryTarget)
     {
         return strategy.Enabled(Track.Ranged)
@@ -177,26 +204,29 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase(manage
 
     private void AutoProtect()
     {
-        var threat = Hints.PriorityTargets.FirstOrDefault(x =>
-            // skip all of this for fates mobs, we can't provoke them and probably don't care about this anyway
+        var threat = Hints.PotentialTargets.TakeWhile(t => t.Priority >= AIHints.Enemy.PriorityInvincible).FirstOrDefault(x =>
+            // fate mobs are immune to provoke and we probably don't care about this anyway
             x.Actor.FateID == 0
-            && World.Actors.Find(x.Actor.TargetID) is Actor victim
-            && victim.IsAlly
-            && victim.Class.GetRole() != Role.Tank
+            && World.Party.TryFindSlot(x.Actor.TargetID, out var slot)
+            && World.Party[slot]!.Class.GetRole() != Role.Tank
         );
         if (threat != null)
         {
-            if (Player.DistanceToHitbox(threat.Actor) > 3)
-                Hints.ActionsToExecute.Push(JobActions.Ranged, threat.Actor, ActionQueue.Priority.VeryHigh);
-            else
-                // in case all mobs are in melee range, but there aren't enough mobs to switch to aoe
-                Hints.ForcedTarget = threat.Actor;
-
+            // provoke works on invincible mobs
             Hints.ActionsToExecute.Push(ActionID.MakeSpell(ClassShared.AID.Provoke), threat.Actor, ActionQueue.Priority.Medium);
+
+            if (threat.Priority > AIHints.Enemy.PriorityInvincible)
+            {
+                if (Player.DistanceToHitbox(threat.Actor) > 3)
+                    Hints.ActionsToExecute.Push(JobActions.Ranged, threat.Actor, ActionQueue.Priority.ManualGCD - 100);
+                else
+                    // in case all mobs are in melee range, but there aren't enough mobs to switch to aoe
+                    Hints.ForcedTarget = threat.Actor;
+            }
         }
 
         foreach (var rw in Raidwides)
-            if ((rw - World.CurrentTime).TotalSeconds < 5)
+            if (World.FutureTime(5) > rw)
             {
                 Hints.ActionsToExecute.Push(JobActions.PartyMit.ID, Player, ActionQueue.Priority.Medium);
                 if (Player.DistanceToHitbox(Bossmods.ActiveModule?.PrimaryActor) <= 5)

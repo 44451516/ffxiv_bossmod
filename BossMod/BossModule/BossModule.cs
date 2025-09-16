@@ -1,5 +1,5 @@
-﻿using Dalamud.Interface.Utility.Raii;
-using ImGuiNET;
+﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 
 namespace BossMod;
 
@@ -8,13 +8,18 @@ namespace BossMod;
 public abstract class BossModule : IDisposable
 {
     public readonly WorldState WorldState;
-    public readonly Actor PrimaryActor;
+    public Actor PrimaryActor { get; private set; }
     public readonly BossModuleConfig WindowConfig = Service.Config.Get<BossModuleConfig>();
     public readonly ColorConfig ColorConfig = Service.Config.Get<ColorConfig>();
     public readonly MiniArena Arena;
     public readonly BossModuleRegistry.Info? Info;
     public readonly StateMachine StateMachine;
     public readonly Pathfinding.ObstacleMapManager Obstacles;
+
+    internal unsafe void SetPrimaryActor(Actor actor)
+    {
+        PrimaryActor = actor;
+    }
 
     private readonly EventSubscriptions _subscriptions;
 
@@ -248,6 +253,8 @@ public abstract class BossModule : IDisposable
         CalculateModuleAIHints(slot, actor, assignment, hints);
         if (!WindowConfig.AllowAutomaticActions)
             hints.ActionsToExecute.Clear();
+        if (!WindowConfig.AllowAutomaticInteract)
+            hints.InteractWithTarget = null;
     }
 
     public void ReportError(BossComponent? comp, string message)

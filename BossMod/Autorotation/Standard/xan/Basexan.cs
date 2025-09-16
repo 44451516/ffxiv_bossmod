@@ -49,10 +49,12 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     protected float ReadyIn(AID action) => Unlocked(action) ? ActionDefinitions.Instance.Spell(action)!.ReadyIn(World.Client.Cooldowns, World.Client.DutyActions) : float.MaxValue;
     protected float MaxChargesIn(AID action) => Unlocked(action) ? ActionDefinitions.Instance.Spell(action)!.ChargeCapIn(World.Client.Cooldowns, World.Client.DutyActions, Player.Level) : float.MaxValue;
 
-    protected float PhantomReadyIn(PhantomID pid)
+    protected float DutyActionReadyIn<ID>(ID aid) where ID : Enum => DutyActionReadyIn(ActionID.MakeSpell(aid));
+
+    protected float DutyActionReadyIn(ActionID aid)
     {
-        if (World.Client.DutyActions.Any(d => d.Action.ID == (uint)pid))
-            return ActionDefinitions.Instance.Spell(pid)!.ReadyIn(World.Client.Cooldowns, World.Client.DutyActions);
+        if (World.Client.DutyActions.Any(d => d.Action == aid))
+            return ActionDefinitions.Instance[aid]!.ReadyIn(World.Client.Cooldowns, World.Client.DutyActions);
         return float.MaxValue;
     }
 
@@ -96,7 +98,12 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
         => PushGCD(aid, target, (int)(object)priority, delay);
 
     protected void PushGCD<P>(AID aid, Enemy? target, P priority, float delay = 0) where P : Enum
-        => PushGCD(aid, target?.Actor, (int)(object)priority, delay);
+    {
+        if (target?.Priority is Enemy.PriorityInvincible or Enemy.PriorityForbidden)
+            return;
+
+        PushGCD(aid, target?.Actor, (int)(object)priority, delay);
+    }
 
     protected void PushGCD(AID aid, Enemy? target, int priority = 2, float delay = 0) => PushGCD(aid, target?.Actor, priority, delay);
 
@@ -116,7 +123,12 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
         => PushOGCD(aid, target, (int)(object)priority, delay);
 
     protected void PushOGCD<P>(AID aid, Enemy? target, P priority, float delay = 0) where P : Enum
-        => PushOGCD(aid, target?.Actor, (int)(object)priority, delay);
+    {
+        if (target?.Priority is Enemy.PriorityInvincible or Enemy.PriorityForbidden)
+            return;
+
+        PushOGCD(aid, target?.Actor, (int)(object)priority, delay);
+    }
 
     protected void PushOGCD(AID aid, Enemy? target, int priority = 1, float delay = 0) => PushOGCD(aid, target?.Actor, priority, delay);
 
@@ -337,7 +349,16 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     /// </summary>
     /// <param name="aid"></param>
     /// <returns></returns>
-    protected virtual float GetCastTime(AID aid) => SwiftcastLeft > GCD ? 0 : ActionDefinitions.Instance.Spell(aid)!.CastTime * GCDLength / 2.5f;
+    protected virtual float GetCastTime(AID aid)
+    {
+        var def = ActionDefinitions.Instance.Spell(aid)!;
+        var hasteMod = GCDLength / 2.5f;
+
+        if (SwiftcastLeft > GCD && def.Category is ActionCategory.Spell)
+            return 0;
+
+        return def.CastTime * hasteMod;
+    }
 
     protected float NextCastStart => AnimLock > GCD ? AnimLock + AnimationLockDelay : GCD;
 

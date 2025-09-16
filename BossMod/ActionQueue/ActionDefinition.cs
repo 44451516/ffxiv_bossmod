@@ -108,6 +108,7 @@ public sealed record class ActionDefinition(ActionID ID)
     public bool IsGCD => MainCooldownGroup == ActionDefinitions.GCDGroup || ExtraCooldownGroup == ActionDefinitions.GCDGroup;
 
     // for duty actions, the action definition always stores cooldown group 80, but in reality a different one might be used
+    // note that this doesn't apply to phantom actions, which use the cdgroups 82-86
     public int ActualMainCooldownGroup(ReadOnlySpan<ClientState.DutyAction> dutyActions)
         => MainCooldownGroup == ActionDefinitions.DutyAction0CDGroup && dutyActions[0].Action != ID && dutyActions[1].Action == ID
             ? ActionDefinitions.DutyAction1CDGroup
@@ -354,8 +355,13 @@ public sealed class ActionDefinitions : IDisposable
             return true;
 
         // if arena is a weird shape, try to ensure player won't dash out of it
-        if (from != to && hints.PathfindMapBounds is ArenaBoundsCustom && hints.PathfindMapBounds.IntersectRay(from - center, to - from) is >= 0 and < float.MaxValue)
-            return true;
+        if (from != to && hints.PathfindMapBounds is ArenaBoundsCustom)
+        {
+            var len = (to - from).Length();
+            var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, to - from);
+            if (distToNearestWall >= 0 && distToNearestWall < len)
+                return true;
+        }
 
         return hints.ForbiddenZones.Any(d => d.containsFn(to));
     }
@@ -540,6 +546,9 @@ public sealed class ActionDefinitions : IDisposable
             var aid2 = ActionID.MakeBozjaHolster(id, 1);
             _definitions[aid2] = new(aid2) { AllowedTargets = ActionTargets.Self, InstantAnimLock = 2.1f };
         }
+
+        if (id == BozjaHolsterID.LostSeraphStrike)
+            _definitions[normalAction].ForbidExecute = DashToTargetCheck;
     }
 
     private void RegisterDeepDungeon(ActionID id)

@@ -67,6 +67,37 @@ public static partial class Utils
             : world.Party.Player()?.Level <= fate.Value.ClassJobLevelMax;
     }
 
+    private static readonly string[] _omenDonutTags = [
+        "sircle_",
+        "sicle_",
+        "circle_",
+        "circle"
+    ];
+
+    // returns false only if the action has no valid omen at all; if it's a regular omen but we can't parse it, return value will be true but out-param will still be null
+    public static bool DetermineDonutInner(Lumina.Excel.Sheets.Action data, out float? innerRadius)
+    {
+        innerRadius = null;
+
+        if (data.Omen.ValueNullable is not { } omen || omen.RowId == 0)
+            return false;
+
+        var path = omen.Path.ToString();
+
+        foreach (var tag in _omenDonutTags)
+        {
+            var tagLen = tag.Length;
+            var pos = path.IndexOf(tag, StringComparison.Ordinal);
+            if (pos >= 0 && pos + tagLen + 4 <= path.Length && int.TryParse(path.AsSpan(pos + tagLen + 2, 2), out var inner))
+            {
+                innerRadius = inner;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // lumina extensions
     public static int FindIndex<T>(this Lumina.Excel.Collection<T> collection, Func<T, bool> predicate) where T : struct
     {
@@ -222,6 +253,23 @@ public static partial class Utils
         }
     }
 
+    // useful for grouping AOEs on radar; input must already be sorted in activation order
+    public static IEnumerable<T> TakeWhileTime<T>(IEnumerable<T> source, Func<T, DateTime> getTimestamp, float delay)
+    {
+        DateTime nextTs = default;
+        foreach (var s in source)
+        {
+            var ts = getTimestamp(s);
+            if (nextTs == default)
+                nextTs = ts;
+
+            if (ts > nextTs.AddSeconds(delay))
+                yield break;
+
+            yield return s;
+        }
+    }
+
     // swap two values
     public static void Swap<T>(ref T l, ref T r) => (r, l) = (l, r);
 
@@ -255,6 +303,8 @@ public static partial class Utils
         Array.Fill(res, value);
         return res;
     }
+
+    public static bool TextMatch(string haystack, string needle) => haystack.Contains(needle, StringComparison.InvariantCultureIgnoreCase);
 
     // bounds-checking access
     public static T? BoundSafeAt<T>(this T[] array, int index, T? outOfBounds = default) => index >= 0 && index < array.Length ? array[index] : outOfBounds;

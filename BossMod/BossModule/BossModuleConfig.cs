@@ -26,16 +26,19 @@ public class BossModuleConfig : ConfigNode
     public bool AllowAutomaticActions = false;
 
     [PropertyDisplay("显示测试雷达和提示窗口", tooltip: "在不进行boss战时配置雷达和提示窗口非常有用", separator: true)]
+    public bool AllowAutomaticInteract = true;
+
+    [PropertyDisplay("Show testing radar and hint window", tooltip: "Useful for configuring your radar and hint windows without being inside of a boss encounter", separator: true)]
     public bool ShowDemo = false;
 
       // 雷达窗口设置
     [PropertyDisplay("启用雷达")]
     public bool Enable = true;
 
-    
+
     [PropertyDisplay("关闭按钮行为")]
     public RadarCloseBehavior CloseBehavior = RadarCloseBehavior.Prompt;
-    
+
     [PropertyDisplay("锁定雷达和提示窗口的移动和鼠标交互")]
     public bool Lock = false;
 
@@ -55,7 +58,7 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("雷达元素厚度缩放因子", tooltip: "全局缩放雷达元素的轮廓厚度")]
     [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
     public float ThicknessScale = 1;
-    
+
     [PropertyDisplay("旋转雷达以匹配相机方向")]
     public bool RotateArena = true;
 
@@ -83,7 +86,7 @@ public class BossModuleConfig : ConfigNode
 
     [PropertyDisplay("允许在雷达上显示非组队玩家", tooltip: "此选项仅影响特定类别的内容，如冒险突袭。", depends: nameof(ShowIrrelevantPlayers))]
     public bool ShowAllPlayers = true;
-    
+
     [PropertyDisplay("在雷达上为未着色的玩家显示基于角色的颜色")]
     public bool ColorPlayersBasedOnRole = false;
 

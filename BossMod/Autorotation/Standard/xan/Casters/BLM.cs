@@ -7,7 +7,7 @@ namespace BossMod.Autorotation.xan;
 
 public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID>(manager, player, PotionType.Intelligence)
 {
-    public enum Track { Scathe = SharedTrack.Buffs, Thunder, Leylines, Triplecast, Iainuki, Zeninage, LLMove }
+    public enum Track { Scathe = SharedTrack.Buffs, Thunder, Leylines, Triplecast, Iainuki, Zeninage, LLMove, TimeMage, Manafont }
     public enum ScatheStrategy
     {
         Forbid,
@@ -61,16 +61,25 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             .AddAssociatedActions(AID.LeyLines, AID.Retrace, AID.BetweenTheLines);
 
         def.Define(Track.Triplecast).As<TriplecastStrategy>("TC", "Triplecast")
-            .AddOption(TriplecastStrategy.Automatic, "Automatic", "Use for instant fire/ice swaps, otherwise hold - NOT YET IMPLEMENTED")
+            .AddOption(TriplecastStrategy.Automatic, "Automatic", "Use for instant fire/ice swaps, otherwise hold")
             .AddOption(TriplecastStrategy.Delay, "Delay", "Don't use")
             .AddOption(TriplecastStrategy.Force, "Force", "Use ASAP", effect: 15, defaultPriority: DefaultOGCDPriority)
             .AddAssociatedActions(AID.Triplecast);
 
-        def.AbilityTrack(Track.Iainuki, "Iainuki", "PSAM: Use Iainuki on cooldown");
-        def.AbilityTrack(Track.Zeninage, "Zeninage", "PSAM: Use Zeninage under raid buffs (costs 10,000 gil)");
+        def.AbilityTrack(Track.Iainuki, "Iainuki", "PSAM: Use Iainuki on cooldown", uiPriority: -10);
+        def.AbilityTrack(Track.Zeninage, "Zeninage", "PSAM: Use Zeninage under raid buffs (costs 10,000 gil)", uiPriority: -10);
 
         def.AbilityTrack(Track.LLMove, "LLMove", "Allow automatic usage of Leylines while moving")
             .AddAssociatedActions(AID.LeyLines);
+
+        def.AbilityTrack(Track.TimeMage, "AutoTimeMage", "PTME: Use Occult Quick/Occult Comet on cooldown", uiPriority: -10)
+            .AddAssociatedActions(PhantomID.OccultQuick, PhantomID.OccultComet);
+
+        def.Define(Track.Manafont).As<OffensiveStrategy>("Manafont")
+            .AddOption(OffensiveStrategy.Automatic, "Automatic", "Use at 0 MP")
+            .AddOption(OffensiveStrategy.Delay, "Delay", "Do not use")
+            .AddOption(OffensiveStrategy.Force, "Force", "Use ASAP")
+            .AddAssociatedActions(AID.Manafont);
 
         return def;
     }
@@ -87,6 +96,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
     public bool Thunderhead;
     public bool Firestarter;
     public bool InLeyLines;
+    public bool HaveLeyLines;
 
     public int Fire => Math.Max(0, Element);
     public int Ice => Math.Max(0, -Element);
@@ -178,8 +188,8 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         InstantMove = 100,
         Standard = 500, // aka F4
         InstantWeave = 600, // if we want to use manafont/transpose ASAP (TODO: or utility actions?)
-        DotRefresh = 650, // thunder refresh - could logically be grouped with instant weave
-        High = 700, // anything more important than F4 filler - paradox so we don't miss our FS proc, xeno to prevent overcap
+        High = 650, // anything more important than F4 filler - paradox so we don't miss our FS proc, xeno to prevent overcap
+        DotRefresh = 700, // thunder refresh
         Max = 900, // flare star
     }
 
@@ -211,6 +221,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         Thunderhead = Player.FindStatus(SID.Thunderhead) != null;
         Firestarter = Player.FindStatus(SID.Firestarter) != null;
         InLeyLines = Player.FindStatus(SID.CircleOfPower) != null;
+        HaveLeyLines = Player.FindStatus(SID.LeyLines) != null;
 
         for (var i = 0; i < Hints.Enemies.Length; i++)
             EnemyDotTimers[i] = CalculateDotTimer(Hints.Enemies[i]?.Actor);
@@ -233,8 +244,19 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (CountdownRemaining > 0)
         {
-            if (CountdownRemaining < GetCastTime(AID.Fire3))
-                PushGCD(AID.Fire3, primaryTarget, GCDPriority.Standard);
+            if (Fire == 3)
+            {
+                if (CountdownRemaining < GetCastTime(AID.Fire4))
+                    PushGCD(AID.Fire4, primaryTarget, GCDPriority.Standard);
+            }
+            else
+            {
+                if (CountdownRemaining < GetCastTime(AID.Fire3))
+                    PushGCD(AID.Fire3, primaryTarget, GCDPriority.Standard);
+            }
+
+            if (strategy.Option(Track.Leylines).As<LeylinesStrategy>() == LeylinesStrategy.Force && !HaveLeyLines)
+                PushAction(AID.LeyLines, Player, strategy.Option(Track.Leylines).Priority(), 0);
 
             return;
         }
@@ -267,17 +289,34 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID == 0x179 && x.OwnerID == Player.InstanceID) is Actor ll)
             Hints.GoalZones.Add(p => p.InCircle(ll.Position, 3) ? 0.5f : 0);
 
-        if (strategy.Enabled(Track.Zeninage) && RaidBuffsLeft > GCD && PhantomReadyIn(PhantomID.Zeninage) <= GCD)
+        if (strategy.Enabled(Track.Zeninage) && RaidBuffsLeft > GCD && DutyActionReadyIn(PhantomID.Zeninage) <= GCD)
             PushGCD((AID)PhantomID.Zeninage, primaryTarget, GCDPriority.Max);
 
         if (strategy.Enabled(Track.Iainuki) && (CombatTimer > 10 || RaidBuffsLeft > GCD))
         {
-            var ready = PhantomReadyIn(PhantomID.Iainuki);
+            var ready = DutyActionReadyIn(PhantomID.Iainuki);
             if (ready <= GCD)
                 PushGCD((AID)PhantomID.Iainuki, primaryTarget, GCDPriority.Max);
 
             if (ready <= GCD + GCDLength * 2)
                 Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget.Actor, 8));
+        }
+
+        if (strategy.Enabled(Track.TimeMage))
+        {
+            if (DutyActionReadyIn(PhantomID.OccultQuick) <= GCD && (InLeyLines || CombatTimer > 10))
+                PushGCD((AID)PhantomID.OccultQuick, Player, GCDPriority.Max);
+
+            if ((CombatTimer > 10 || RaidBuffsLeft > GCD) && DutyActionReadyIn(PhantomID.OccultComet) <= GCD)
+            {
+                if (InstantCastLeft > GCD)
+                    PushGCD((AID)PhantomID.OccultComet, BestAOETarget, GCDPriority.Max);
+                else
+                {
+                    PushOGCD(AID.Swiftcast, Player);
+                    PushOGCD(AID.Triplecast, Player);
+                }
+            }
         }
 
         if (Polyglot < MaxPolyglot)
@@ -286,8 +325,17 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         UseLeylines(strategy, primaryTarget);
         UseTriplecastForced(strategy);
 
-        if (MP < MinAstralFireMP && Fire > 0)
-            PushOGCD(AID.Manafont, Player);
+        if (Fire > 0)
+        {
+            var manafontOk = strategy.Option(Track.Manafont).As<OffensiveStrategy>() switch
+            {
+                OffensiveStrategy.Automatic => MP < MinAstralFireMP,
+                OffensiveStrategy.Force => true,
+                _ => false
+            };
+            if (manafontOk)
+                PushOGCD(AID.Manafont, Player);
+        }
 
         if (ShouldTranspose(strategy))
             PushOGCD(AID.Transpose, Player);
@@ -390,7 +438,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         }
 
         // force instant cast if we want to manafont or accelerate B3 swap
-        if (MP < MinAstralFireMP && (CanWeave(AID.Manafont, 1) || SwiftB3(strategy) && CanWeave(AID.Triplecast, 1)))
+        if (MP < MinAstralFireMP && (ManafontOk(strategy) && CanWeave(AID.Manafont, 1) || SwiftB3(strategy) && CanWeave(AID.Triplecast, 1)))
             TryInstantCast(strategy, primaryTarget, GCDPriority.InstantWeave);
 
         // flare acceleration
@@ -402,6 +450,9 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             if (MP < f4MPNeeded && !canManafont)
                 PushGCD(AID.Flare, BestAOETarget, GCDPriority.High);
         }
+
+        if (MP < 2400 && !Unlocked(AID.FlareStar))
+            PushGCD(AID.Despair, primaryTarget, GCDPriority.Standard);
 
         // TODO: BLM doesn't really fit the priority system that well because of the MP cutoff stuff
         PushGCD(AID.Fire4, primaryTarget, GCDPriority.Standard);
@@ -462,7 +513,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         if (Ice < 3)
         {
             if (SwiftB3(strategy) && !CanFitGCD(InstantCastLeft))
-                PushOGCD(AID.Triplecast, Player);
+                PushGCD(AID.Triplecast, Player, GCDPriority.High);
 
             PushGCD(AID.Blizzard3, primaryTarget, GCDPriority.Standard);
         }
@@ -658,6 +709,8 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         if (opt.As<TriplecastStrategy>() == TriplecastStrategy.Force)
             PushAction(AID.Triplecast, Player, opt.Priority(), 0);
     }
+
+    private bool ManafontOk(StrategyValues strategy) => strategy.Option(Track.Manafont).As<OffensiveStrategy>() != OffensiveStrategy.Delay;
 
     private bool SwiftB3(StrategyValues strategy) => strategy.Option(Track.Triplecast).As<TriplecastStrategy>() == TriplecastStrategy.Automatic;
 

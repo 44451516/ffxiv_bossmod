@@ -47,13 +47,13 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
         if (_emergencyMode)
         {
             ref var entry = ref _queue.Ref(0);
-            queue.Push(entry.Action, entry.Target, ActionQueue.Priority.ManualEmergency, 0, 0, 0, entry.TargetPos, entry.FacingAngle);
+            queue.Push(entry.Action, entry.Target, ActionQueue.Priority.ManualEmergency, 0, 0, 0, entry.TargetPos, entry.FacingAngle, true);
         }
         else
         {
             float expireOrder = 0; // we don't actually care about values, only ordering...
             foreach (ref var e in _queue.AsSpan())
-                queue.Push(e.Action, e.Target, e.Definition.IsGCD ? ActionQueue.Priority.ManualGCD : ActionQueue.Priority.ManualOGCD, expireOrder++, 0, e.CastTime, e.TargetPos, e.FacingAngle);
+                queue.Push(e.Action, e.Target, e.Definition.IsGCD ? ActionQueue.Priority.ManualGCD : ActionQueue.Priority.ManualOGCD, expireOrder++, 0, e.CastTime, e.TargetPos, e.FacingAngle, true);
         }
     }
 
@@ -97,11 +97,6 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
             Service.Log($"[MAO] Replacing queued {e.Action} with {action} @ {target}");
             _queue.RemoveAt(index);
             _queue.Add(new(action, target, targetPos, angleOverride, def, expireAt, castTime));
-        }
-        else if (isGCD)
-        {
-            // spamming GCD - just extend expiration time; don't bother moving stuff around, since GCD vs oGCD order doesn't matter
-            e = e with { ExpireAt = expireAt };
         }
         else
         {
