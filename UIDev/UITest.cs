@@ -64,7 +64,10 @@ class UITest
             {
                 escDown = true;
                 var focusWindow = Service.WindowSystem.HasAnyFocus ? Service.WindowSystem.Windows.FirstOrDefault(w => w.IsFocused && w.RespectCloseHotkey) : null;
-                focusWindow?.IsOpen = false;
+                if (focusWindow != null)
+                {
+                    focusWindow.IsOpen = false;
+                }
             }
             else if (sdlEvent.type == SDL_EventType.SDL_KEYUP && sdlEvent.key.keysym.scancode == SDL_Scancode.SDL_SCANCODE_ESCAPE)
             {

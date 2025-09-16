@@ -18,8 +18,7 @@
         <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-        <ReportAnalyzer>true</ReportAnalyzer>
-        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
     <!-- run analyzers only for release builds, since they are too expensive to run every build when iterating (1-2 mins) -->
@@ -45,6 +44,7 @@
         <Using Include="System.Collections.Generic"/>
         <Using Include="System.Collections.Immutable"/>
         <Using Include="System.Runtime.InteropServices"/>
+        <Using Include="System.Runtime.CompilerServices"/>
         <Using Include="System.Linq"/>
         <Using Include="System.Numerics"/>
         <Using Include="System.Threading.Tasks;"/>
