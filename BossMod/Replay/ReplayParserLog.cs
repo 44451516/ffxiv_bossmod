@@ -290,7 +290,8 @@ public sealed class ReplayParserLog : IDisposable
             [new("RSV "u8)] = ParseRSVData,
             [new("ZONE"u8)] = ParseZoneChange,
             [new("DIRU"u8)] = ParseDirectorUpdate,
-            [new("ENVC"u8)] = ParseEnvControl,
+            [new("ENVC"u8)] = ParseMapEffect,
+            [new("LEME"u8)] = ParseLegacyMapEffect,
             [new("SLOG"u8)] = ParseSystemLog,
             [new("WAY+"u8)] = () => ParseWaymarkChange(true),
             [new("WAY-"u8)] = () => ParseWaymarkChange(false),
@@ -329,6 +330,7 @@ public sealed class ReplayParserLog : IDisposable
             [new("AIE+"u8)] = () => ParseActorIncomingEffect(true),
             [new("AIE-"u8)] = () => ParseActorIncomingEffect(false),
             [new("ICON"u8)] = ParseActorIcon,
+            [new("VFX "u8)] = ParseActorVFX,
             [new("ESTA"u8)] = ParseActorEventObjectStateChange,
             [new("EANM"u8)] = ParseActorEventObjectAnimation,
             [new("PATE"u8)] = ParseActorPlayActionTimelineEvent,
@@ -360,6 +362,7 @@ public sealed class ReplayParserLog : IDisposable
             [new("FATE"u8)] = ParseClientFateInfo,
             [new("HATE"u8)] = ParseClientHateInfo,
             [new("CLPR"u8)] = ParseClientProcTimers,
+            [new("INVT"u8)] = ParseClientInventory,
             [new("DDPG"u8)] = ParseDeepDungeonProgress,
             [new("DDMP"u8)] = ParseDeepDungeonMap,
             [new("DDPT"u8)] = ParseDeepDungeonParty,
@@ -450,13 +453,15 @@ public sealed class ReplayParserLog : IDisposable
     private WorldState.OpDirectorUpdate ParseDirectorUpdate()
         => new(_input.ReadUInt(true), _input.ReadUInt(true), _input.ReadUInt(true), _input.ReadUInt(true), _input.ReadUInt(true), _input.ReadUInt(true));
 
-    private WorldState.OpEnvControl ParseEnvControl()
+    private WorldState.OpMapEffect ParseMapEffect()
     {
         // director id field is removed in v11
         if (_version < 11)
             _input.ReadUInt(true);
         return new(_input.ReadByte(true), _input.ReadUInt(true));
     }
+
+    private WorldState.OpLegacyMapEffect ParseLegacyMapEffect() => new(_input.ReadByte(true), _input.ReadByte(true), _input.ReadBytes());
 
     private WorldState.OpSystemLogMessage ParseSystemLog()
     {
@@ -481,6 +486,8 @@ public sealed class ReplayParserLog : IDisposable
     }
 
     private ClientState.OpProcTimersChange ParseClientProcTimers() => new([_input.ReadFloat(), _input.ReadFloat(), _input.ReadFloat(), _input.ReadFloat()]);
+
+    private ClientState.OpInventoryChange ParseClientInventory() => new(_input.ReadUInt(false), _input.ReadUInt(false));
 
     private WaymarkState.OpWaymarkChange ParseWaymarkChange(bool set)
         => new(_version < 10 ? Enum.Parse<Waymark>(_input.ReadString()) : (Waymark)_input.ReadByte(false), set ? _input.ReadVec3() : null);
@@ -642,6 +649,7 @@ public sealed class ReplayParserLog : IDisposable
     private ActorState.OpStatus ParseActorStatus(bool gainOrUpdate) => new(_input.ReadActorID(), _input.ReadInt(), gainOrUpdate ? _input.ReadStatus() : default);
     private ActorState.OpIncomingEffect ParseActorIncomingEffect(bool add) => new(_input.ReadActorID(), _input.ReadInt(), add ? new(_input.ReadUInt(false), _input.ReadInt(), _input.ReadActorID(), _input.ReadAction(), _input.ReadActionEffects()) : default);
     private ActorState.OpIcon ParseActorIcon() => new(_input.ReadActorID(), _input.ReadUInt(false), _version >= 22 ? _input.ReadActorID() : 0);
+    private ActorState.OpVFX ParseActorVFX() => new(_input.ReadActorID(), _input.ReadUInt(false), _input.ReadActorID());
     private ActorState.OpEventObjectStateChange ParseActorEventObjectStateChange() => new(_input.ReadActorID(), _input.ReadUShort(true));
     private ActorState.OpEventObjectAnimation ParseActorEventObjectAnimation() => new(_input.ReadActorID(), _input.ReadUShort(true), _input.ReadUShort(true));
     private ActorState.OpPlayActionTimelineEvent ParseActorPlayActionTimelineEvent() => new(_input.ReadActorID(), _input.ReadUShort(true));
@@ -740,7 +748,7 @@ public sealed class ReplayParserLog : IDisposable
         return new(contents);
     }
 
-    private ClientState.OpActiveFateChange ParseClientActiveFate() => new(new(_input.ReadUInt(false), _input.ReadVec3(), _input.ReadFloat()));
+    private ClientState.OpActiveFateChange ParseClientActiveFate() => new(new(_input.ReadUInt(false), _input.ReadVec3(), _input.ReadFloat(), _version >= 27 ? _input.ReadByte(false) : default, _version >= 27 ? _input.ReadByte(false) : default, _version >= 28 ? _input.ReadUInt(false) : default));
     private ClientState.OpActivePetChange ParseClientActivePet() => new(new(_input.ReadULong(true), _input.ReadByte(false), _input.ReadByte(false)));
     private ClientState.OpFocusTargetChange ParseClientFocusTarget() => new(_input.ReadULong(true));
     private ClientState.OpForcedMovementDirectionChange ParseClientForcedMovementDirection() => new(_input.ReadAngle());

@@ -64,9 +64,9 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase(man
             .AddAssociatedActions(PhantomID.OccultComet, PhantomID.OccultQuick);
 
         def.Define(Track.Chemist).As<RaiseStrategy>("Chemist", "Chemist: Raise")
-            .AddOption(RaiseStrategy.Never, "Never", "Disabled")
-            .AddOption(RaiseStrategy.OutOfCombat, "OutOfCombat", "Out of combat")
-            .AddOption(RaiseStrategy.InCombat, "InCombat", "Always")
+            .AddOption(RaiseStrategy.Never, "Disabled")
+            .AddOption(RaiseStrategy.OutOfCombat, "Out of combat")
+            .AddOption(RaiseStrategy.InCombat, "Always")
             .AddAssociatedActions(PhantomID.Revive);
 
         def.AbilityTrack(Track.Samurai, "Samurai", "Samurai: Use Iainuki on best AOE target")
@@ -87,10 +87,10 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase(man
             .AddAssociatedActions(PhantomID.Predict, PhantomID.PhantomJudgment, PhantomID.Cleansing, PhantomID.Blessing, PhantomID.Starfall);
 
         def.Define(Track.Chakra).As<ChakraStrategy>("Chakra", "Monk: Use Occult Chakra")
-            .AddOption(ChakraStrategy.Any, "Any", "If HP or MP is low")
-            .AddOption(ChakraStrategy.HP, "HP", "Only if HP is below 30%")
-            .AddOption(ChakraStrategy.MP, "MP", "Only if MP is below 30%")
-            .AddOption(ChakraStrategy.Disabled, "Disabled", "Never")
+            .AddOption(ChakraStrategy.Any, "If HP or MP is low")
+            .AddOption(ChakraStrategy.HP, "Only if HP is below 30%")
+            .AddOption(ChakraStrategy.MP, "Only if MP is below 30%")
+            .AddOption(ChakraStrategy.Disabled, "Never")
             .AddAssociatedActions(PhantomID.OccultChakra);
 
         return def;

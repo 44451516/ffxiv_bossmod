@@ -44,26 +44,26 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         def.DefineSharedTA();
 
         def.Define(Track.Scathe).As<ScatheStrategy>("Scathe")
-            .AddOption(ScatheStrategy.Forbid, "Forbid")
-            .AddOption(ScatheStrategy.Allow, "Allow");
+            .AddOption(ScatheStrategy.Forbid)
+            .AddOption(ScatheStrategy.Allow);
 
         def.Define(Track.Thunder).As<ThunderStrategy>("DoT", "Thunder")
-            .AddOption(ThunderStrategy.Automatic, "Automatic", "Automatically refresh on main target according to standard rotation", supportedTargets: ActionTargets.Hostile)
-            .AddOption(ThunderStrategy.Delay, "Delay", "Don't apply")
-            .AddOption(ThunderStrategy.Force, "Force", "Force refresh ASAP", supportedTargets: ActionTargets.Hostile)
-            .AddOption(ThunderStrategy.InstantOnly, "InstantOnly", "Allow Thunder if an instant cast is needed, but don't try to maintain uptime", supportedTargets: ActionTargets.Hostile)
-            .AddOption(ThunderStrategy.ForbidInstant, "ForbidInstant", "Use only for standard refresh, not as a utility instant cast", supportedTargets: ActionTargets.Hostile);
+            .AddOption(ThunderStrategy.Automatic, "Automatically refresh on main target according to standard rotation", supportedTargets: ActionTargets.Hostile)
+            .AddOption(ThunderStrategy.Delay, "Don't apply")
+            .AddOption(ThunderStrategy.Force, "Force refresh ASAP", supportedTargets: ActionTargets.Hostile)
+            .AddOption(ThunderStrategy.InstantOnly, "Allow Thunder if an instant cast is needed, but don't try to maintain uptime", supportedTargets: ActionTargets.Hostile)
+            .AddOption(ThunderStrategy.ForbidInstant, "Use only for standard refresh, not as a utility instant cast", supportedTargets: ActionTargets.Hostile);
 
         def.Define(Track.Leylines).As<LeylinesStrategy>("LL", "Leylines")
-            .AddOption(LeylinesStrategy.OpenerOnly, "Opener", "Use Leylines in opener; otherwise do not use automatically")
-            .AddOption(LeylinesStrategy.Delay, "Delay", "Do not use")
-            .AddOption(LeylinesStrategy.Force, "Force", "Use ASAP", effect: 20, defaultPriority: DefaultOGCDPriority)
+            .AddOption(LeylinesStrategy.OpenerOnly, "Use Leylines in opener; otherwise do not use automatically")
+            .AddOption(LeylinesStrategy.Delay, "Do not use")
+            .AddOption(LeylinesStrategy.Force, "Use ASAP", effect: 20, defaultPriority: DefaultOGCDPriority)
             .AddAssociatedActions(AID.LeyLines, AID.Retrace, AID.BetweenTheLines);
 
         def.Define(Track.Triplecast).As<TriplecastStrategy>("TC", "Triplecast")
-            .AddOption(TriplecastStrategy.Automatic, "Automatic", "Use for instant fire/ice swaps, otherwise hold")
-            .AddOption(TriplecastStrategy.Delay, "Delay", "Don't use")
-            .AddOption(TriplecastStrategy.Force, "Force", "Use ASAP", effect: 15, defaultPriority: DefaultOGCDPriority)
+            .AddOption(TriplecastStrategy.Automatic, "Use for instant fire/ice swaps, otherwise hold")
+            .AddOption(TriplecastStrategy.Delay, "Don't use")
+            .AddOption(TriplecastStrategy.Force, "Use ASAP", effect: 15, defaultPriority: DefaultOGCDPriority)
             .AddAssociatedActions(AID.Triplecast);
 
         def.AbilityTrack(Track.Iainuki, "Iainuki", "PSAM: Use Iainuki on cooldown", uiPriority: -10);
@@ -76,9 +76,9 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             .AddAssociatedActions(PhantomID.OccultQuick, PhantomID.OccultComet);
 
         def.Define(Track.Manafont).As<OffensiveStrategy>("Manafont")
-            .AddOption(OffensiveStrategy.Automatic, "Automatic", "Use at 0 MP")
-            .AddOption(OffensiveStrategy.Delay, "Delay", "Do not use")
-            .AddOption(OffensiveStrategy.Force, "Force", "Use ASAP")
+            .AddOption(OffensiveStrategy.Automatic, "Use at 0 MP")
+            .AddOption(OffensiveStrategy.Delay, "Do not use")
+            .AddOption(OffensiveStrategy.Force, "Use ASAP")
             .AddAssociatedActions(AID.Manafont);
 
         return def;
@@ -103,6 +103,8 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
 
     public int MaxPolyglot => Unlocked(TraitID.EnhancedPolyglotII) ? 3 : Unlocked(TraitID.EnhancedPolyglot) ? 2 : 1;
     public int MaxHearts => Unlocked(TraitID.UmbralHeart) ? 3 : 0;
+
+    public float MaxPolyglotIn => Polyglot >= MaxPolyglot ? 0 : NextPolyglot + (MaxPolyglot - Polyglot - 1) * 30f;
 
     public int NumAOETargets;
     public int NumAOEDotTargets;
@@ -261,7 +263,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             return;
         }
 
-        if (primaryTarget == null)
+        if (!Hints.PriorityTargets.Any())
         {
             if (ReadyIn(AID.Transpose) == 0)
             {
@@ -280,9 +282,10 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
 
             if (Unlocked(AID.UmbralSoul) && Ice > 0 && (Ice < 3 || Hearts < MaxHearts || Player.HPMP.CurMP < Player.HPMP.MaxMP))
                 PushGCD(AID.UmbralSoul, Player, GCDPriority.Standard);
-
-            return;
         }
+
+        if (primaryTarget == null)
+            return;
 
         GoalZoneSingle(25);
 
@@ -319,13 +322,13 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             }
         }
 
-        if (Polyglot < MaxPolyglot)
-            PushOGCD(AID.Amplifier, Player);
-
         UseLeylines(strategy, primaryTarget);
         UseTriplecastForced(strategy);
 
-        if (Fire > 0)
+        if (Player.InCombat && MaxPolyglotIn > 10)
+            PushOGCD(AID.Amplifier, Player);
+
+        if (Fire > 0 && Player.InCombat)
         {
             var manafontOk = strategy.Option(Track.Manafont).As<OffensiveStrategy>() switch
             {
@@ -679,6 +682,9 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
     private void UseLeylines(StrategyValues strategy, Enemy? primaryTarget)
     {
         if (Player.FindStatus(SID.LeyLines) != null)
+            return;
+
+        if (!Player.InCombat && CountdownRemaining == null)
             return;
 
         var opt = strategy.Option(Track.Leylines);

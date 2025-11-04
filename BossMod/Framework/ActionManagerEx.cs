@@ -257,10 +257,19 @@ public sealed unsafe class ActionManagerEx : IDisposable
 
     public bool CanMoveWhileCasting(ActionID action)
     {
+        var player = (Character*)GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
+        var inCombat = player->InCombat;
+
         return action switch
         {
-            { Type: ActionType.Spell, ID: 29391 or 29402 } => true, // phys ranged PVP actions
             { Type: ActionType.Mount } => true,
+
+            // phys ranged PVP actions
+            { Type: ActionType.Spell, ID: 29391 or 29402 } => true,
+
+            // player actions that can be cast instantly out of combat (1 RPR and all PCT motifs)
+            { Type: ActionType.Spell, ID: 24387 or 34689 or 34664 or 34665 or 34690 or 34668 or 34669 or 34691 or 34667 or 34666 } => !inCombat,
+
             _ => false
         };
     }
@@ -425,7 +434,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
             MoveMightInterruptCast |= CheckActionLoS(imminentAction, _inst->ActionQueued ? _inst->QueuedTargetId : (AutoQueue.Target?.InstanceID ?? 0));
         }
         bool blockMovement = Config.PreventMovingWhileCasting && MoveMightInterruptCast && _ws.Party.Player()?.MountId == 0;
-        blockMovement |= Config.PyreticThreshold > 0 && _hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && _hints.ImminentSpecialMode.activation < _ws.FutureTime(Config.PyreticThreshold);
+        blockMovement |= Config.PyreticThreshold > 0 && _hints.ImminentSpecialMode.mode is AIHints.SpecialMode.Pyretic or AIHints.SpecialMode.PyreticMove && _hints.ImminentSpecialMode.activation < _ws.FutureTime(Config.PyreticThreshold);
 
         // note: if we cancel movement and start casting immediately, it will be canceled some time later - instead prefer to delay for one frame
         bool actionImminent = EffectiveAnimationLock <= 0 && AutoQueue.Action && !IsRecastTimerActive(AutoQueue.Action) && !(blockMovement && _movement.IsMoving());

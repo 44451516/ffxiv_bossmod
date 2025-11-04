@@ -83,7 +83,8 @@ class SnowBoulder(BossModule module) : Components.CastCounter(module, AID.SnowBo
         foreach (var c in _charges)
         {
             var shape = c.ShapeFn;
-            hints.AddForbiddenZone(p => IsAssigned(slot, c) ? !shape(p) : shape(p), c.Activation);
+            var isAssigned = IsAssigned(slot, c);
+            hints.AddForbiddenZone(p => isAssigned ? !shape(p) : shape(p), c.Activation);
         }
     }
 

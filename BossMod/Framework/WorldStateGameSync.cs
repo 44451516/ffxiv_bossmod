@@ -1,6 +1,4 @@
-﻿using BossMod.Network;
-using BossMod.Network.ServerIPC;
-using Dalamud.Game.ClientState.Conditions;
+﻿using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Memory;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -15,7 +13,8 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
-using NpcYell = BossMod.Network.ServerIPC.NpcYell;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace BossMod;
 
@@ -38,14 +37,16 @@ sealed class WorldStateGameSync : IDisposable
     private readonly Dictionary<ulong, Vector3> _lastCastPositions = []; // unfortunately, game only saves cast location for area-targeted spells
     private readonly Actor?[] _actorsByIndex = new Actor?[ObjectTableSize];
 
-    private readonly OpcodeMap _opcodeMap = new();
-    private readonly PacketInterceptor _interceptor = new();
-    private readonly PacketDecoderGame _decoder = new();
+    private bool _needInventoryUpdate = true;
+
+    private readonly Network.OpcodeMap _opcodeMap = new();
+    private readonly Network.PacketInterceptor _interceptor = new();
+    private readonly Network.PacketDecoderGame _decoder = new();
 
     private readonly ConfigListener<ReplayManagementConfig> _netConfig;
     private readonly EventSubscriptions _subscriptions;
 
-    private unsafe delegate void ProcessPacketActorCastDelegate(uint casterId, ActorCast* packet);
+    private unsafe delegate void ProcessPacketActorCastDelegate(uint casterId, Network.ServerIPC.ActorCast* packet);
     private readonly Hook<ProcessPacketActorCastDelegate> _processPacketActorCastHook;
 
     private unsafe delegate void ProcessPacketEffectResultDelegate(uint targetID, byte* packet, byte replaying);
@@ -55,11 +56,19 @@ sealed class WorldStateGameSync : IDisposable
     private delegate void ProcessPacketActorControlDelegate(uint actorID, uint category, uint p1, uint p2, uint p3, uint p4, uint p5, uint p6, ulong targetID, byte replaying);
     private readonly Hook<ProcessPacketActorControlDelegate> _processPacketActorControlHook;
 
-    private unsafe delegate void ProcessPacketNpcYellDelegate(NpcYell* packet);
+    private unsafe delegate void ProcessPacketNpcYellDelegate(Network.ServerIPC.NpcYell* packet);
     private readonly Hook<ProcessPacketNpcYellDelegate> _processPacketNpcYellHook;
 
-    private unsafe delegate void ProcessEnvControlDelegate(void* self, uint index, ushort s1, ushort s2);
-    private readonly Hook<ProcessEnvControlDelegate> _processEnvControlHook;
+    public unsafe delegate void ProcessMapEffectDelegate(void* self, uint index, ushort s1, ushort s2);
+    private readonly Hook<ProcessMapEffectDelegate> _processMapEffectHook;
+
+    private unsafe delegate void ProcessMapEffectNDelegate(ContentDirector* director, byte* packet);
+    private readonly Hook<ProcessMapEffectNDelegate> _processMapEffect1Hook;
+    private readonly Hook<ProcessMapEffectNDelegate> _processMapEffect2Hook;
+    private readonly Hook<ProcessMapEffectNDelegate> _processMapEffect3Hook;
+
+    public unsafe delegate byte ProcessLegacyMapEffectDelegate(EventFramework* fwk, EventId eventId, byte seq, byte unk, void* data, ulong length);
+    private readonly Hook<ProcessLegacyMapEffectDelegate> _processLegacyMapEffectHook;
 
     private unsafe delegate void ProcessPacketRSVDataDelegate(byte* packet);
     private readonly Hook<ProcessPacketRSVDataDelegate> _processPacketRSVDataHook;
@@ -75,15 +84,11 @@ sealed class WorldStateGameSync : IDisposable
 
     private readonly unsafe delegate* unmanaged<ContainerInterface*, float> _calculateMoveSpeedMulti;
 
-    private unsafe delegate void ProcessMapEffectDelegate(ContentDirector* director, byte* packet);
-
-    private readonly Hook<ProcessMapEffectDelegate> _processMapEffect1Hook;
-    private readonly Hook<ProcessMapEffectDelegate> _processMapEffect2Hook;
-    private readonly Hook<ProcessMapEffectDelegate> _processMapEffect3Hook;
-
     private unsafe delegate void ApplyKnockbackDelegate(Character* thisPtr, float a2, float a3, float a4, byte a5, int a6);
-
     private readonly Hook<ApplyKnockbackDelegate> _applyKnockbackHook;
+
+    private unsafe delegate void InventoryAckDelegate(uint a1, void* a2);
+    private readonly Hook<InventoryAckDelegate> _inventoryAckHook;
 
     public unsafe WorldStateGameSync(WorldState ws, ActionManagerEx amex)
     {
@@ -126,9 +131,21 @@ sealed class WorldStateGameSync : IDisposable
         _processPacketNpcYellHook.Enable();
         Service.Log($"[WSG] ProcessPacketNpcYell address = 0x{_processPacketNpcYellHook.Address:X}");
 
-        _processEnvControlHook = Service.Hook.HookFromSignature<ProcessEnvControlDelegate>("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 20 8B FA 41 0F B7 E8", ProcessEnvControlDetour);
-        _processEnvControlHook.Enable();
-        Service.Log($"[WSG] ProcessEnvControl address = 0x{_processEnvControlHook.Address:X}");
+        _processMapEffectHook = Service.Hook.HookFromSignature<ProcessMapEffectDelegate>("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 20 8B FA 41 0F B7 E8", ProcessMapEffectDetour);
+        _processMapEffectHook.Enable();
+        Service.Log($"[WSG] ProcessMapEffect address = 0x{_processMapEffectHook.Address:X}");
+
+        var mapEffectAddrs = Service.SigScanner.ScanAllText("40 55 41 57 48 83 EC ?? 48 83 B9");
+        if (mapEffectAddrs.Length != 3)
+            throw new InvalidOperationException($"expected 3 matches for multi-MapEffect handlers, but got {mapEffectAddrs.Length}");
+
+        _processMapEffect1Hook = Service.Hook.HookFromAddress<ProcessMapEffectNDelegate>(mapEffectAddrs[0], ProcessMapEffect1Detour);
+        _processMapEffect1Hook.Enable();
+        _processMapEffect2Hook = Service.Hook.HookFromAddress<ProcessMapEffectNDelegate>(mapEffectAddrs[1], ProcessMapEffect2Detour);
+        _processMapEffect2Hook.Enable();
+        _processMapEffect3Hook = Service.Hook.HookFromAddress<ProcessMapEffectNDelegate>(mapEffectAddrs[2], ProcessMapEffect3Detour);
+        _processMapEffect3Hook.Enable();
+        Service.Log($"[WSG] ProcessMapEffectN addresses = 0x{_processMapEffect1Hook.Address:X}, 0x{_processMapEffect2Hook.Address:X}, 0x{_processMapEffect3Hook.Address:X}");
 
         _processPacketRSVDataHook = Service.Hook.HookFromSignature<ProcessPacketRSVDataDelegate>("44 8B 09 4C 8D 41 34", ProcessPacketRSVDataDetour);
         _processPacketRSVDataHook.Enable();
@@ -149,28 +166,27 @@ sealed class WorldStateGameSync : IDisposable
         _calculateMoveSpeedMulti = (delegate* unmanaged<ContainerInterface*, float>)Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 44 0F 28 D8 45 0F 57 D2");
         Service.Log($"[WSG] CalculateMovementSpeedMultiplier address = 0x{(nint)_calculateMoveSpeedMulti:X}");
 
-        var mapEffectAddrs = Service.SigScanner.ScanAllText("40 55 41 57 48 83 EC ?? 48 83 B9");
-        if (mapEffectAddrs.Length != 3)
-            throw new InvalidOperationException($"expected 3 matches for multi-MapEffect handlers, but got {mapEffectAddrs.Length}");
+        _processLegacyMapEffectHook = Service.Hook.HookFromSignature<ProcessLegacyMapEffectDelegate>("89 54 24 10 48 89 4C 24 ?? 53 56 57 41 55 41 57 48 83 EC 30 48 8B 99 ?? ?? ?? ??", ProcessLegacyMapEffectDetour);
+        _processLegacyMapEffectHook.Enable();
+        Service.Log($"[WSG] LegacyMapEffect address = {_processLegacyMapEffectHook.Address:X}");
 
-        _processMapEffect1Hook = Service.Hook.HookFromAddress<ProcessMapEffectDelegate>(mapEffectAddrs[0], ProcessMapEffect1Detour);
-        _processMapEffect1Hook.Enable();
-        _processMapEffect2Hook = Service.Hook.HookFromAddress<ProcessMapEffectDelegate>(mapEffectAddrs[1], ProcessMapEffect2Detour);
-        _processMapEffect2Hook.Enable();
-        _processMapEffect3Hook = Service.Hook.HookFromAddress<ProcessMapEffectDelegate>(mapEffectAddrs[2], ProcessMapEffect3Detour);
-        _processMapEffect3Hook.Enable();
-        Service.Log($"[WSG] MapEffect addresses = 0x{_processMapEffect1Hook.Address:X}, 0x{_processMapEffect2Hook.Address:X}, 0x{_processMapEffect3Hook.Address:X}");
-
-        var addr = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? FF C6");
-        _applyKnockbackHook = Service.Hook.HookFromAddress<ApplyKnockbackDelegate>(addr, ApplyKnockbackDetour);
+        _applyKnockbackHook = Service.Hook.HookFromSignature<ApplyKnockbackDelegate>("E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? FF C6", ApplyKnockbackDetour);
         if (Service.IsDev)
+        {
             _applyKnockbackHook.Enable();
-        Service.Log($"[WSG] ApplyKnockback address = {_applyKnockbackHook.Address:X}");
+            Service.Log($"[WSG] ApplyKnockback address = {_applyKnockbackHook.Address:X}");
+        }
+
+        _inventoryAckHook = Service.Hook.HookFromSignature<InventoryAckDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 57 10 41 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D7", InventoryAckDetour);
+        _inventoryAckHook.Enable();
+        Service.Log($"[WSG] InventoryAck address = {_inventoryAckHook.Address:X}");
     }
 
     public void Dispose()
     {
+        _inventoryAckHook.Dispose();
         _applyKnockbackHook.Dispose();
+        _processLegacyMapEffectHook.Dispose();
         _processMapEffect1Hook.Dispose();
         _processMapEffect2Hook.Dispose();
         _processMapEffect3Hook.Dispose();
@@ -179,7 +195,7 @@ sealed class WorldStateGameSync : IDisposable
         _processPacketEffectResultHook.Dispose();
         _processPacketActorControlHook.Dispose();
         _processPacketNpcYellHook.Dispose();
-        _processEnvControlHook.Dispose();
+        _processMapEffectHook.Dispose();
         _processPacketRSVDataHook.Dispose();
         _processSystemLogMessageHook.Dispose();
         _processPacketOpenTreasureHook.Dispose();
@@ -211,7 +227,7 @@ sealed class WorldStateGameSync : IDisposable
             _ws.Execute(new WorldState.OpZoneChange(Service.ClientState.TerritoryType, GameMain.Instance()->CurrentContentFinderConditionId));
         }
         var proxy = fwk->NetworkModuleProxy->ReceiverCallback;
-        var scramble = IDScramble.Get();
+        var scramble = Network.IDScramble.Get();
         if (_ws.Network.IDScramble != scramble)
             _ws.Execute(new NetworkState.OpIDScramble(scramble));
 
@@ -325,9 +341,7 @@ sealed class WorldStateGameSync : IDisposable
         var hasAggro = _playerEnmity.IndexOf(obj->EntityId) >= 0;
         var target = chr != null ? SanitizedObjectID(chr->GetTargetId()) : 0; // note: when changing targets, we want to see changes immediately rather than wait for server response
         var modelState = chr != null ? new ActorModelState(chr->Timeline.ModelState, chr->Timeline.AnimationState[0], chr->Timeline.AnimationState[1]) : default;
-        // TODO: undo when cs is updated
-        var eventState = *((byte*)obj + 0x70);
-        // var eventState = obj->EventState;
+        var eventState = obj->EventState;
         var radius = obj->GetRadius();
         var mountId = chr != null ? chr->Mount.MountId : 0u;
         var forayInfoPtr = chr != null ? chr->GetForayInfo() : null;
@@ -734,7 +748,7 @@ sealed class WorldStateGameSync : IDisposable
             _ws.Execute(new ClientState.OpClassJobLevelsChange(levels.ToArray()));
 
         var curFate = FateManager.Instance()->CurrentFate;
-        ClientState.Fate activeFate = curFate != null ? new(curFate->FateId, curFate->Location, curFate->Radius) : default;
+        ClientState.Fate activeFate = curFate != null ? new(curFate->FateId, curFate->Location, curFate->Radius, curFate->Progress, curFate->HandInCount, Utils.ReadField<uint>(curFate, 0x14)) : default;
         if (_ws.Client.ActiveFate != activeFate)
             _ws.Execute(new ClientState.OpActiveFateChange(activeFate));
 
@@ -777,6 +791,38 @@ sealed class WorldStateGameSync : IDisposable
         var timers = actionManager->ProcTimers[1..];
         if (!MemoryExtensions.SequenceEqual(timers, _ws.Client.ProcTimers))
             _ws.Execute(new ClientState.OpProcTimersChange(timers.ToArray()));
+
+        void updateQuantity(uint itemId, uint count)
+        {
+            if (itemId == 0)
+                return;
+            if (count != _ws.Client.GetItemQuantity(itemId))
+                _ws.Execute(new ClientState.OpInventoryChange(itemId, count));
+        }
+
+        if (_needInventoryUpdate)
+        {
+            var im = InventoryManager.Instance();
+            // update tracked items
+            foreach (var id in ActionDefinitions.Instance.SupportedItems)
+            {
+                var count = im->GetInventoryItemCount(id % 500000, id > 1000000, checkEquipped: false, checkArmory: false);
+                updateQuantity(id, (uint)count);
+            }
+
+            // update all key items (smaller set)
+            var ic = im->GetInventoryContainer(InventoryType.KeyItems);
+            if (ic->IsLoaded)
+            {
+                for (var i = 0; i < ic->Size; i++)
+                {
+                    var keyItem = ic->GetInventorySlot(i);
+                    if (keyItem != null)
+                        updateQuantity(keyItem->GetItemId(), keyItem->GetQuantity());
+                }
+            }
+            _needInventoryUpdate = false;
+        }
     }
 
     private unsafe void UpdateDeepDungeon()
@@ -907,16 +953,16 @@ sealed class WorldStateGameSync : IDisposable
         _actorOps.GetOrAdd(targetID).Add(new ActorState.OpEffectResult(targetID, seq, targetIndex));
     }
 
-    private unsafe void ProcessPacketActorCastDetour(uint casterId, ActorCast* packet)
+    private unsafe void ProcessPacketActorCastDetour(uint casterId, Network.ServerIPC.ActorCast* packet)
     {
-        _lastCastPositions[casterId] = PacketDecoder.IntToFloatCoords(packet->PosX, packet->PosY, packet->PosZ);
+        _lastCastPositions[casterId] = Network.PacketDecoder.IntToFloatCoords(packet->PosX, packet->PosY, packet->PosZ);
         _processPacketActorCastHook.Original(casterId, packet);
     }
 
     private unsafe void ProcessPacketEffectResultDetour(uint targetID, byte* packet, byte replaying)
     {
         var count = packet[0];
-        var p = (EffectResultEntry*)(packet + 4);
+        var p = (Network.ServerIPC.EffectResultEntry*)(packet + 4);
         for (int i = 0; i < count; ++i)
         {
             OnEffectResult(targetID, p->RelatedActionSequence, p->RelatedTargetIndex);
@@ -928,7 +974,7 @@ sealed class WorldStateGameSync : IDisposable
     private unsafe void ProcessPacketEffectResultBasicDetour(uint targetID, byte* packet, byte replaying)
     {
         var count = packet[0];
-        var p = (EffectResultBasicEntry*)(packet + 4);
+        var p = (Network.ServerIPC.EffectResultBasicEntry*)(packet + 4);
         for (int i = 0; i < count; ++i)
         {
             OnEffectResult(targetID, p->RelatedActionSequence, p->RelatedTargetIndex);
@@ -940,48 +986,54 @@ sealed class WorldStateGameSync : IDisposable
     private void ProcessPacketActorControlDetour(uint actorID, uint category, uint p1, uint p2, uint p3, uint p4, uint p5, uint p6, ulong targetID, byte replaying)
     {
         _processPacketActorControlHook.Original(actorID, category, p1, p2, p3, p4, p5, p6, targetID, replaying);
-        switch ((ActorControlCategory)category)
+        switch ((Network.ServerIPC.ActorControlCategory)category)
         {
-            case ActorControlCategory.TargetIcon:
-                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpIcon(actorID, p1 - IDScramble.Delta, p2));
+            case Network.ServerIPC.ActorControlCategory.TargetIcon:
+                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpIcon(actorID, p1 - Network.IDScramble.Delta, p2));
                 break;
-            case ActorControlCategory.Tether:
+            case Network.ServerIPC.ActorControlCategory.TargetVFX:
+                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpVFX(actorID, p1, p2));
+                break;
+            case Network.ServerIPC.ActorControlCategory.Tether:
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether(actorID, new(p2, p3)));
                 break;
-            case ActorControlCategory.TetherCancel:
+            case Network.ServerIPC.ActorControlCategory.TetherCancel:
                 // note: this seems to clear tether only if existing matches p2
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether(actorID, default));
                 break;
-            case ActorControlCategory.EObjSetState:
+            case Network.ServerIPC.ActorControlCategory.EObjSetState:
                 // p2 is unused (seems to be director id?), p3==1 means housing (?) item instead of event obj, p4 is housing item id
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventObjectStateChange(actorID, (ushort)p1));
                 break;
-            case ActorControlCategory.EObjAnimation:
+            case Network.ServerIPC.ActorControlCategory.EObjAnimation:
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventObjectAnimation(actorID, (ushort)p1, (ushort)p2));
                 break;
-            case ActorControlCategory.PlayActionTimeline:
+            case Network.ServerIPC.ActorControlCategory.PlayActionTimeline:
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpPlayActionTimelineEvent(actorID, (ushort)p1));
                 break;
-            case ActorControlCategory.ActionRejected:
+            case Network.ServerIPC.ActorControlCategory.ActionRejected:
                 _globalOps.Add(new ClientState.OpActionReject(new(new((ActionType)p2, p3), p6, p4 * 0.01f, p5 * 0.01f, p1)));
                 break;
-            case ActorControlCategory.DirectorUpdate:
+            case Network.ServerIPC.ActorControlCategory.DirectorUpdate:
                 _globalOps.Add(new WorldState.OpDirectorUpdate(p1, p2, p3, p4, p5, p6));
+                break;
+            case Network.ServerIPC.ActorControlCategory.FateReceiveItem:
+                _needInventoryUpdate = true;
                 break;
         }
     }
 
-    private unsafe void ProcessPacketNpcYellDetour(NpcYell* packet)
+    private unsafe void ProcessPacketNpcYellDetour(Network.ServerIPC.NpcYell* packet)
     {
         _processPacketNpcYellHook.Original(packet);
         _actorOps.GetOrAdd(packet->SourceID).Add(new ActorState.OpEventNpcYell(packet->SourceID, packet->Message));
     }
 
-    private unsafe void ProcessEnvControlDetour(void* self, uint index, ushort s1, ushort s2)
+    private unsafe void ProcessMapEffectDetour(void* self, uint index, ushort s1, ushort s2)
     {
         // note: this function is only executed for incoming packets that pass some checks (validation that currently active director is what is expected) - don't think it's a big deal?
-        _processEnvControlHook.Original(self, index, s1, s2);
-        _globalOps.Add(new WorldState.OpEnvControl((byte)index, s1 | ((uint)s2 << 16)));
+        _processMapEffectHook.Original(self, index, s1, s2);
+        _globalOps.Add(new WorldState.OpMapEffect((byte)index, s1 | ((uint)s2 << 16)));
     }
 
     private unsafe void ProcessPacketRSVDataDetour(byte* packet)
@@ -1036,14 +1088,28 @@ sealed class WorldStateGameSync : IDisposable
             var low = *(ushort*)(data + 2 * i + offLow);
             var high = *(ushort*)(data + 2 * i + 2);
             var index = data[i + offIndex];
-            _globalOps.Add(new WorldState.OpEnvControl(index, low | ((uint)high << 16)));
+            _globalOps.Add(new WorldState.OpMapEffect(index, low | ((uint)high << 16)));
         }
     }
 
     private unsafe void ApplyKnockbackDetour(Character* thisPtr, float a2, float a3, float a4, byte a5, int a6)
     {
-        _applyKnockbackHook.Original(thisPtr, a2, a3, a4, a5, a6);
         Service.Log("applying knockback to player");
+        _applyKnockbackHook.Original(thisPtr, a2, a3, a4, a5, a6);
+    }
+
+    private unsafe byte ProcessLegacyMapEffectDetour(EventFramework* fwk, EventId eventId, byte seq, byte unk, void* data, ulong length)
+    {
+        var res = _processLegacyMapEffectHook.Original(fwk, eventId, seq, unk, data, length);
+
+        _globalOps.Add(new WorldState.OpLegacyMapEffect(seq, unk, new Span<byte>(data, (int)length).ToArray()));
+
+        return res;
+    }
+
+    private unsafe void InventoryAckDetour(uint a1, void* a2)
+    {
+        _inventoryAckHook.Original(a1, a2);
+        _needInventoryUpdate = true;
     }
 }
-

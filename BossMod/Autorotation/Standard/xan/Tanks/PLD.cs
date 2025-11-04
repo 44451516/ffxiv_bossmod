@@ -59,9 +59,9 @@ public sealed class PLD(RotationModuleManager manager, Actor player) : Attackxan
             .AddAssociatedActions(AID.Atonement, AID.Supplication, AID.Sepulchre);
 
         def.Define(Track.Combo).As<ComboStrategy>("Combo")
-            .AddOption(ComboStrategy.FinishAOE, "FinishAOE", "Finish AOE combo, even on 1 target, if it would grant Divine Might")
-            .AddOption(ComboStrategy.BreakCombo, "Break", "Break AOE/single-target combo if number of targets changes")
-            .AddOption(ComboStrategy.FinishAlways, "FinishAlways", "Finish AOE or single target combo if it would grant Divine Might, even if number of targets changes");
+            .AddOption(ComboStrategy.FinishAOE, "Finish AOE combo, even on 1 target, if it would grant Divine Might")
+            .AddOption(ComboStrategy.BreakCombo, "Break AOE/single-target combo if number of targets changes")
+            .AddOption(ComboStrategy.FinishAlways, "Finish AOE or single target combo if it would grant Divine Might, even if number of targets changes");
 
         return def;
     }

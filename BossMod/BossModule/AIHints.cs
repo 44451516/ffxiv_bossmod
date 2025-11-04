@@ -11,7 +11,17 @@ public sealed class AIHints
         public const int PriorityForbidden = -4; // attacking this enemy will probably lead to a wipe; autoattacks and actions that target it will be forcibly prevented (if custom queueing is enabled)
 
         public Actor Actor = actor;
-        public int Priority = priority;
+        private int _priority = priority;
+        public int Priority
+        {
+            get => _priority;
+            set
+            {
+                // we should never change priority if it has been set to pointless, since that means the target is dying and further actions targeting it are a waste
+                if (_priority != PriorityPointless)
+                    _priority = value;
+            }
+        }
         //public float TimeToKill;
         public float AttackStrength = 0.05f; // target's predicted HP percent is decreased by this amount (0.05 by default)
         public WPos DesiredPosition = actor.Position; // tank AI will try to move enemy to this position
@@ -28,6 +38,11 @@ public sealed class AIHints
 
         // easier to read
         public bool AllowDOTs { get => !ForbidDOTs; set => ForbidDOTs = !value; }
+
+        public void ForcePriority(int priority)
+        {
+            _priority = priority;
+        }
     }
 
     public enum SpecialMode
@@ -36,6 +51,7 @@ public sealed class AIHints
         Pyretic, // pyretic/acceleration bomb type of effects - no movement, no actions, no casting allowed at activation time
         Freezing, // should be moving at activation time
         Misdirection, // temporary misdirection - if current time is greater than activation, use special pathfinding codepath
+        PyreticMove, // movement not allowed, but actions ok (e.g. caloric)
     }
 
     public enum PredictedDamageType
@@ -69,6 +85,7 @@ public sealed class AIHints
     // forced target
     // this should be set only if either explicitly planned by user or by ai, otherwise it will be annoying to user
     public Actor? ForcedTarget;
+    public Actor? ForcedFocusTarget;
 
     // low-level forced movement - if set, character will move in specified direction (ignoring casts, uptime, forbidden zones, etc), or stay in place if set to default
     public Vector3? ForcedMovement;
@@ -136,6 +153,7 @@ public sealed class AIHints
         Array.Fill(Enemies, null);
         PotentialTargets.Clear();
         ForcedTarget = null;
+        ForcedFocusTarget = null;
         ForcedMovement = null;
         InteractWithTarget = null;
         ForbiddenZones.Clear();

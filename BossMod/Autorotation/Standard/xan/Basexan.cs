@@ -4,26 +4,46 @@ using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
 
-public enum Targeting { Manual, Auto, AutoPrimary, AutoTryPri }
-public enum OffensiveStrategy { Automatic, Delay, Force }
-public enum AOEStrategy { AOE, ST, ForceAOE, ForceST }
+public enum Targeting
+{
+    Manual,
+    Auto,
+    AutoPrimary,
+    AutoTryPri
+}
+public enum OffensiveStrategy
+{
+    Automatic,
+    Delay,
+    Force
+}
+public enum AOEStrategy
+{
+    AOE,
+    ST,
+    ForceAOE,
+    ForceST
+}
 
 public enum SharedTrack { Targeting, AOE, Buffs, Count }
 
 public abstract class Attackxan<AID, TraitID>(RotationModuleManager manager, Actor player, PotionType potType = PotionType.None) : Basexan<AID, TraitID>(manager, player, potType)
-    where AID : struct, Enum where TraitID : Enum
+    where AID : struct, Enum
+    where TraitID : Enum
 {
     protected sealed override float GCDLength => AttackGCDLength;
 }
 
 public abstract class Castxan<AID, TraitID>(RotationModuleManager manager, Actor player, PotionType potType = PotionType.None) : Basexan<AID, TraitID>(manager, player, potType)
-    where AID : struct, Enum where TraitID : Enum
+    where AID : struct, Enum
+    where TraitID : Enum
 {
     protected sealed override float GCDLength => SpellGCDLength;
 }
 
 public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor player, PotionType potType) : RotationModule(manager, player)
-    where AID : struct, Enum where TraitID : Enum
+    where AID : struct, Enum
+    where TraitID : Enum
 {
     public PotionType PotionType { get; init; } = potType;
 
@@ -97,9 +117,12 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     protected void PushGCD<P>(AID aid, Actor? target, P priority, float delay = 0) where P : Enum
         => PushGCD(aid, target, (int)(object)priority, delay);
 
-    protected void PushGCD<P>(AID aid, Enemy? target, P priority, float delay = 0) where P : Enum
+    protected void PushGCD<P>(AID aid, Enemy? target, P priority, float delay = 0, bool useOnDyingTarget = true) where P : Enum
     {
         if (target?.Priority is Enemy.PriorityInvincible or Enemy.PriorityForbidden)
+            return;
+
+        if (!useOnDyingTarget && target?.Priority is Enemy.PriorityPointless)
             return;
 
         PushGCD(aid, target?.Actor, (int)(object)priority, delay);
@@ -122,9 +145,12 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
     protected void PushOGCD<P>(AID aid, Actor? target, P priority, float delay = 0) where P : Enum
         => PushOGCD(aid, target, (int)(object)priority, delay);
 
-    protected void PushOGCD<P>(AID aid, Enemy? target, P priority, float delay = 0) where P : Enum
+    protected void PushOGCD<P>(AID aid, Enemy? target, P priority, float delay = 0, bool useOnDyingTarget = true) where P : Enum
     {
         if (target?.Priority is Enemy.PriorityInvincible or Enemy.PriorityForbidden)
+            return;
+
+        if (!useOnDyingTarget && target?.Priority is Enemy.PriorityPointless)
             return;
 
         PushOGCD(aid, target?.Actor, (int)(object)priority, delay);
@@ -220,9 +246,22 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
         var aoe = strategy.Option(SharedTrack.AOE).As<AOEStrategy>();
         var targeting = strategy.Option(SharedTrack.Targeting).As<Targeting>();
 
+        var targetOutOfCombat = primaryTarget?.Priority == Enemy.PriorityUndesirable;
+
         P targetPrio(Actor potentialTarget)
         {
-            var numTargets = Hints.NumPriorityTargetsInAOE(enemy => isInAOE(potentialTarget, enemy.Actor));
+            var numForbidden = Hints.ForbiddenTargets.Count(enemy => isInAOE(potentialTarget, enemy.Actor));
+            var numOk = Hints.PriorityTargets.Count(enemy => isInAOE(potentialTarget, enemy.Actor));
+
+            var numTargets = targetOutOfCombat && numForbidden == 1 && numOk == 0
+                // primary target will be the only one hit by aoe so they are ok to target
+                ? 1
+                : numForbidden > 0
+                    // unwanted targets will be hit
+                    ? 0
+                    // wanted targets will be hit
+                    : numOk;
+
             return prioritize(AdjustNumTargets(strategy, numTargets), potentialTarget);
         }
 
@@ -274,7 +313,7 @@ public abstract class Basexan<AID, TraitID>(RotationModuleManager manager, Actor
         }
 
         var newTarget = initial;
-        var initialTimer = getTimer(initial?.Actor);
+        var initialTimer = forbidden ? getTimer(null) : getTimer(initial?.Actor);
         var newTimer = initialTimer;
 
         var numTargets = 0;
@@ -542,16 +581,16 @@ static class Extendxan
     public static RotationModuleDefinition DefineSharedTA(this RotationModuleDefinition def)
     {
         def.Define(SharedTrack.Targeting).As<Targeting>("Targeting")
-            .AddOption(xan.Targeting.Manual, "Manual", "Use player's current target for all actions")
-            .AddOption(xan.Targeting.Auto, "Auto", "Automatically select best target (highest number of nearby targets) for AOE actions")
-            .AddOption(xan.Targeting.AutoPrimary, "AutoPrimary", "Automatically select best target for AOE actions - ensure player target is hit")
-            .AddOption(xan.Targeting.AutoTryPri, "AutoTryPri", "Automatically select best target for AOE actions - if player has a target, ensure that target is hit");
+            .AddOption(xan.Targeting.Manual, "Use player's current target for all actions")
+            .AddOption(xan.Targeting.Auto, "Automatically select best target (highest number of nearby targets) for AOE actions")
+            .AddOption(xan.Targeting.AutoPrimary, "Automatically select best target for AOE actions - ensure player target is hit")
+            .AddOption(xan.Targeting.AutoTryPri, "Automatically select best target for AOE actions - if player has a target, ensure that target is hit");
 
         def.Define(SharedTrack.AOE).As<AOEStrategy>("AOE")
-            .AddOption(AOEStrategy.AOE, "AOE", "Use AOE actions if beneficial")
-            .AddOption(AOEStrategy.ST, "ST", "Use single-target actions")
-            .AddOption(AOEStrategy.ForceAOE, "ForceAOE", "Always use AOE actions, even on one target")
-            .AddOption(AOEStrategy.ForceST, "ForceST", "Forbid any action that can hit multiple targets");
+            .AddOption(AOEStrategy.AOE, "Use AOE actions if beneficial")
+            .AddOption(AOEStrategy.ST, "Use single-target actions")
+            .AddOption(AOEStrategy.ForceAOE, "Always use AOE actions, even on one target")
+            .AddOption(AOEStrategy.ForceST, "Forbid any action that can hit multiple targets");
 
         return def;
     }
@@ -559,9 +598,9 @@ static class Extendxan
     public static RotationModuleDefinition.ConfigRef<OffensiveStrategy> DefineSimple<Index>(this RotationModuleDefinition def, Index track, string name, int minLevel = 1, float uiPriority = 0) where Index : Enum
     {
         return def.Define(track).As<OffensiveStrategy>(name, uiPriority: uiPriority)
-            .AddOption(OffensiveStrategy.Automatic, "Auto", "Use when optimal", minLevel: minLevel)
-            .AddOption(OffensiveStrategy.Delay, "Delay", "Don't use", minLevel: minLevel)
-            .AddOption(OffensiveStrategy.Force, "Force", "Use ASAP", minLevel: minLevel);
+            .AddOption(OffensiveStrategy.Automatic, "Use when optimal", minLevel: minLevel)
+            .AddOption(OffensiveStrategy.Delay, "Don't use", minLevel: minLevel)
+            .AddOption(OffensiveStrategy.Force, "Use ASAP", minLevel: minLevel);
     }
 
     public static AOEStrategy AOE(this StrategyValues strategy) => strategy.Option(SharedTrack.AOE).As<AOEStrategy>();

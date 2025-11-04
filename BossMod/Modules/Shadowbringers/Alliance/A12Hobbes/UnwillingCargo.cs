@@ -10,7 +10,7 @@ class UnwillingCargoRing(BossModule module) : Components.GenericAOEs(module)
             yield return new(new AOEShapeDonut(17.5f, 20), new(-805, -270));
     }
 
-    public override void OnEventEnvControl(byte index, uint state)
+    public override void OnMapEffect(byte index, uint state)
     {
         if (index == 4)
         {
@@ -44,7 +44,7 @@ class UnwillingCargo(BossModule module) : Components.Knockback(module, AID.Unwil
         Pink
     }
 
-    private WDir ExpectedDirection(WPos p)
+    private static WDir ExpectedDirection(Pattern pattern, WPos p)
     {
         var stripe = MathF.Abs(p.Z + 270) switch
         {
@@ -59,7 +59,7 @@ class UnwillingCargo(BossModule module) : Components.Knockback(module, AID.Unwil
         var blue = new WDir(-15, 0);
         var pink = new WDir(15, 0);
 
-        return _pattern switch
+        return pattern switch
         {
             Pattern.Blue => blue,
             Pattern.Pink => pink,
@@ -67,6 +67,7 @@ class UnwillingCargo(BossModule module) : Components.Knockback(module, AID.Unwil
             Pattern.PinkBlue => stripe == 1 ? pink : blue,
             _ => default
         };
+
     }
 
     public bool IsAffected(Actor actor) => Activation > WorldState.CurrentTime && MathF.Abs(actor.Position.Z + 270) < 20;
@@ -78,12 +79,12 @@ class UnwillingCargo(BossModule module) : Components.Knockback(module, AID.Unwil
         if (IsImmune(slot, Activation))
             yield break;
 
-        var dir = ExpectedDirection(actor.Position);
+        var dir = ExpectedDirection(_pattern, actor.Position);
         if (dir != default)
             yield return new(actor.Position, 15, Activation, Direction: Angle.FromDirection(dir), Kind: Kind.DirForward);
     }
 
-    public override void OnEventEnvControl(byte index, uint state)
+    public override void OnMapEffect(byte index, uint state)
     {
         if (index == 5)
         {
@@ -125,9 +126,10 @@ class UnwillingCargo(BossModule module) : Components.Knockback(module, AID.Unwil
         foreach (var src in Sources(slot, actor))
         {
             var dir = src.Direction.ToDirection() * src.Distance;
+            var pat = _pattern;
             hints.AddForbiddenZone(p =>
             {
-                var dir = ExpectedDirection(p);
+                var dir = ExpectedDirection(pat, p);
                 return dir != default && !(p + dir).InCircle(new WPos(-805, -270), 17.5f);
             }, Activation);
         }

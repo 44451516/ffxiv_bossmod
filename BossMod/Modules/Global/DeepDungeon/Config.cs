@@ -1,4 +1,9 @@
-﻿namespace BossMod.Global.DeepDungeon;
+﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
+using Lumina.Excel.Sheets;
+
+namespace BossMod.Global.DeepDungeon;
 
 [ConfigDisplay(Name = "自动深层迷宫（实验性）", Parent = typeof(ModuleConfig))]
 public class AutoDDConfig : ConfigNode
@@ -27,7 +32,10 @@ public class AutoDDConfig : ConfigNode
     [PropertyDisplay("自动怪物目标行为")]
     public ClearBehavior AutoClear = ClearBehavior.Leveling;
 
-    [PropertyDisplay("暂停导航前最大拉怪数量（设置为0在战斗中禁用导航）")]
+    [PropertyDisplay("在非首领楼层禁用持续伤害DOT技能（仅影响 VBM 自动旋转）")]
+    public bool ForbidDOTs = false;
+
+    [PropertyDisplay("暂停导航前的最大拉怪数量（0 = 战斗中不进行导航）")]
     [PropertySlider(0, 15)]
     public int MaxPull = 0;
     [PropertyDisplay("尝试利用地形躲避攻击")]
@@ -46,4 +54,38 @@ public class AutoDDConfig : ConfigNode
 
     [PropertyDisplay("在进入下一层前探索所有房间")]
     public bool FullClear = false;
+
+    public BitMask AutoPoms;
+    public BitMask AutoMagicite;
+    public BitMask AutoDemiclone;
+
+    public override void DrawCustom(UITree tree, WorldState ws)
+    {
+        foreach (var _ in tree.Node("Automatic pomander usage"))
+        {
+            ImGui.TextWrapped("Highlighted pomanders will be used when a gold chest contains one that you can't carry.");
+            ImGui.TextWrapped("This feature is disabled in parties.");
+
+            for (var i = 1; i < (int)PomanderID.Count; i++)
+                using (ImRaii.PushId($"pom{i}"))
+                {
+                    var row = Service.LuminaRow<DeepDungeonItem>((uint)i)!.Value;
+                    var wrap = Service.Texture.GetFromGameIcon(row.Icon).GetWrapOrEmpty();
+                    var scale = new Vector2(32, 32) * ImGuiHelpers.GlobalScale;
+                    ImGui.Image(wrap.Handle, scale, new Vector2(0, 0), tintCol: AutoPoms[i] ? new(1, 1, 1, 1) : new(1, 1, 1, 0.4f));
+                    if (ImGui.IsItemClicked())
+                    {
+                        AutoPoms.Toggle(i);
+                        Modified.Fire();
+                    }
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip(row.Name.ToString());
+                    if (i % 8 > 0)
+                        ImGui.SameLine();
+                }
+
+            ImGui.Text(""); // undo last sameline
+        }
+    }
 }
+

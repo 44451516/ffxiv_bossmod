@@ -99,10 +99,10 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         def.DefineSimple(Track.BH, "BH", minLevel: 70, uiPriority: 99).AddAssociatedActions(AID.Brotherhood);
 
         def.Define(Track.RoF).As<RoFStrategy>("RoF", uiPriority: 96)
-            .AddOption(RoFStrategy.Automatic, "Auto", "Automatically use RoF during burst window", minLevel: 68)
-            .AddOption(RoFStrategy.Force, "Force", "Use ASAP", minLevel: 68)
-            .AddOption(RoFStrategy.ForceMidWeave, "ForceMid", "Use ASAP, but retain late-weave to ensure maximum GCDs covered", minLevel: 68)
-            .AddOption(RoFStrategy.Delay, "Delay", "Do not use", minLevel: 68)
+            .AddOption(RoFStrategy.Automatic, "Automatically use RoF during burst window", minLevel: 68)
+            .AddOption(RoFStrategy.Force, "Use ASAP", minLevel: 68)
+            .AddOption(RoFStrategy.ForceMidWeave, "Use ASAP, but retain late-weave to ensure maximum GCDs covered", minLevel: 68)
+            .AddOption(RoFStrategy.Delay, "Do not use", minLevel: 68)
             .AddAssociatedActions(AID.RiddleOfFire);
         def.Define(Track.FiresReply).As<FRStrategy>("FiresReply", uiPriority: 95)
             .AddOption(FRStrategy.Automatic, "Use after Opo GCD", minLevel: 100)
@@ -129,8 +129,8 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
             .AddAssociatedActions(AID.PerfectBalance);
         def.Define(Track.Nadi).As<NadiStrategy>("Nadi", uiPriority: 88)
             .AddOption(NadiStrategy.Automatic, "Automatically choose best nadi (double lunar opener, otherwise alternate)", minLevel: 60)
-            .AddOption(NadiStrategy.Lunar, "Lunar", minLevel: 60)
-            .AddOption(NadiStrategy.Solar, "Solar", minLevel: 60);
+            .AddOption(NadiStrategy.Lunar, minLevel: 60)
+            .AddOption(NadiStrategy.Solar, minLevel: 60);
         def.Define(Track.Blitz).As<BlitzStrategy>("Blitz", uiPriority: 87)
             .AddOption(BlitzStrategy.Automatic, "Use ASAP", minLevel: 60)
             .AddOption(BlitzStrategy.RoF, "Hold blitz until Riddle of Fire is active", minLevel: 60)
@@ -385,19 +385,19 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         {
             case Form.Coeurl:
                 PushGCD(AID.Demolish, primaryTarget, GCDPriority.BasicSaver);
-                PushGCD(AID.SnapPunch, primaryTarget, prioBuffed(CoeurlStacks));
+                PushGCD(AID.SnapPunch, primaryTarget, prioBuffed(CoeurlStacks), useOnDyingTarget: false);
                 break;
             case Form.Raptor:
                 PushGCD(AID.TwinSnakes, primaryTarget, GCDPriority.BasicSaver);
-                PushGCD(AID.TrueStrike, primaryTarget, prioBuffed(RaptorStacks));
+                PushGCD(AID.TrueStrike, primaryTarget, prioBuffed(RaptorStacks), useOnDyingTarget: false);
                 break;
             case Form.OpoOpo:
                 PushGCD(AID.DragonKick, primaryTarget, GCDPriority.BasicSaver);
-                PushGCD(AID.Bootshine, primaryTarget, prioBuffed(OpoStacks));
+                PushGCD(AID.Bootshine, primaryTarget, prioBuffed(OpoStacks), useOnDyingTarget: false);
                 break;
             default:
                 PushGCD(AID.DragonKick, primaryTarget, GCDPriority.BasicSaver);
-                PushGCD(AID.Bootshine, primaryTarget, FormShiftLeft > GCD ? prioBuffed(OpoStacks) : GCDPriority.Basic);
+                PushGCD(AID.Bootshine, primaryTarget, FormShiftLeft > GCD ? prioBuffed(OpoStacks) : GCDPriority.Basic, useOnDyingTarget: false);
                 break;
         }
 
@@ -408,7 +408,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 break;
             case OffensiveStrategy.Automatic:
                 if (EffectiveDowntimeIn > 0 && !CanFitGCD(EffectiveDowntimeIn, 1))
-                    PushGCD(AID.SixSidedStar, primaryTarget, primaryTarget?.Priority >= 0 ? GCDPriority.SSS : GCDPriority.None);
+                    PushGCD(AID.SixSidedStar, primaryTarget, GCDPriority.SSS, useOnDyingTarget: false);
                 break;
         }
 
@@ -586,8 +586,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
             if (NumLineTargets >= 3)
                 PushOGCD(AID.HowlingFist, BestLineTarget, OGCDPriority.TFC);
 
-            if (primaryTarget?.Priority >= 0)
-                PushOGCD(AID.SteelPeak, primaryTarget, OGCDPriority.TFC);
+            PushOGCD(AID.SteelPeak, primaryTarget, OGCDPriority.TFC, useOnDyingTarget: false);
         }
 
         var tc = strategy.Option(Track.TC);
@@ -631,8 +630,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 if (!Player.InCombat)
                     prio = GCDPriority.Meditate;
 
-                // gross
-                if (primaryTarget == null && (UptimeIn ?? float.MaxValue) > GCD + 1)
+                if (UptimeIn > GCD + 1 || (UptimeIn ?? 0) == 0 && primaryTarget == null)
                     prio = GCDPriority.Meditate;
                 break;
             case MeditationStrategy.Greedy:

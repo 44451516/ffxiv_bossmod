@@ -161,6 +161,8 @@ public sealed class ActionDefinitions : IDisposable
     public ActionDefinition? this[ActionID action] => _definitions.GetValueOrDefault(action);
     public ActionDefinition? Spell<AID>(AID aid) where AID : Enum => _definitions.GetValueOrDefault(ActionID.MakeSpell(aid));
 
+    public readonly HashSet<uint> SupportedItems = [];
+
     public const int GCDGroup = 57;
     public const int PotionCDGroup = 58;
     public const int DutyAction0CDGroup = 80;
@@ -182,7 +184,13 @@ public sealed class ActionDefinitions : IDisposable
     public static readonly ActionID IDPotionSuper = new(ActionType.Item, 1023167);
     public static readonly ActionID IDPotionOrthos = new(ActionType.Item, 38944);
     public static readonly ActionID IDPotionHyper = new(ActionType.Item, 1038956);
+    public static readonly ActionID IDPotionPilgrim = new(ActionType.Item, 47102);
+    public static readonly ActionID IDPotionUltra = new(ActionType.Item, 1047701);
+
     public static readonly ActionID IDPotionEureka = new(ActionType.Item, 22306);
+
+    // items we support
+    public static readonly ActionID IDMiscItemGreens = new(ActionType.Item, 4868);
 
     // special general actions that we support
     public static readonly ActionID IDGeneralLimitBreak = new(ActionType.General, 3);
@@ -224,19 +232,24 @@ public sealed class ActionDefinitions : IDisposable
         ];
 
         // items (TODO: more generic approach is needed...)
-        RegisterPotion(IDPotionStr);
-        RegisterPotion(IDPotionDex);
-        RegisterPotion(IDPotionVit);
-        RegisterPotion(IDPotionInt);
-        RegisterPotion(IDPotionMnd);
+        RegisterItem(IDPotionStr);
+        RegisterItem(IDPotionDex);
+        RegisterItem(IDPotionVit);
+        RegisterItem(IDPotionInt);
+        RegisterItem(IDPotionMnd);
 
-        RegisterPotion(IDPotionSustaining, 1.1f);
-        RegisterPotion(IDPotionMax, 1.1f);
-        RegisterPotion(IDPotionEmpyrean, 1.1f);
-        RegisterPotion(IDPotionSuper, 1.1f);
-        RegisterPotion(IDPotionOrthos, 1.1f);
-        RegisterPotion(IDPotionHyper, 1.1f);
-        RegisterPotion(IDPotionEureka, 1.1f);
+        // TODO: expected anim lock says 0.5
+        RegisterItem(IDPotionSustaining, 1.1f);
+        RegisterItem(IDPotionMax, 1.1f);
+        RegisterItem(IDPotionEmpyrean, 1.1f);
+        RegisterItem(IDPotionSuper, 1.1f);
+        RegisterItem(IDPotionOrthos, 1.1f);
+        RegisterItem(IDPotionHyper, 1.1f);
+        RegisterItem(IDPotionEureka, 1.1f);
+        RegisterItem(IDPotionUltra, 1.1f);
+        RegisterItem(IDPotionPilgrim, 1.1f);
+
+        RegisterItem(IDMiscItemGreens, 2.1f);
 
         // special content actions - bozja, deep dungeons, etc
         for (var i = BozjaHolsterID.None + 1; i < BozjaHolsterID.Count; ++i)
@@ -358,7 +371,7 @@ public sealed class ActionDefinitions : IDisposable
         if (from != to && hints.PathfindMapBounds is ArenaBoundsCustom)
         {
             var len = (to - from).Length();
-            var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, to - from);
+            var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, (to - from).Normalized());
             if (distToNearestWall >= 0 && distToNearestWall < len)
                 return true;
         }
@@ -501,7 +514,7 @@ public sealed class ActionDefinitions : IDisposable
 
     private void Register(ActionID aid, ActionDefinition definition) => _definitions.Add(aid, definition);
 
-    private void RegisterPotion(ActionID aid, float animLock = 0.6f)
+    private void RegisterItem(ActionID aid, float animLock = 0.6f)
     {
         var baseId = aid.ID % 500000;
         var item = ItemData(baseId);
@@ -532,6 +545,9 @@ public sealed class ActionDefinitions : IDisposable
             Cooldown = cooldown * 0.9f,
             InstantAnimLock = animLock
         };
+
+        SupportedItems.Add(aidNQ.ID);
+        SupportedItems.Add(aidHQ.ID);
     }
 
     private void RegisterBozja(BozjaHolsterID id)

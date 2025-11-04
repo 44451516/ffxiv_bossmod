@@ -29,7 +29,7 @@ public sealed class ConfigUI : IDisposable
     private readonly WorldState _ws;
     private readonly UIPresetDatabaseEditor? _presets;
 
-    private readonly List<List<string>> _filterNodes = [["*"]];
+    private readonly List<List<string>> _filterNodes = [];
 
     public ConfigUI(ConfigRoot config, WorldState ws, DirectoryInfo? replayDir, RotationDatabase? rotationDB)
     {
@@ -37,7 +37,7 @@ public sealed class ConfigUI : IDisposable
         _ws = ws;
         _about = new(replayDir);
         _mv = new(rotationDB?.Plans, ws);
-        _presets = rotationDB != null ? new(rotationDB.Presets) : null;
+        _presets = rotationDB != null ? new(rotationDB) : null;
 
         _tabs.Add("说明", _about.Draw);
         _tabs.Add("设置", DrawSettings);
@@ -111,10 +111,7 @@ public sealed class ConfigUI : IDisposable
         _filterNodes.Clear();
 
         if (_searchText.Length == 0)
-        {
-            _filterNodes.Add(["*"]);
             return;
-        }
 
         foreach (var r in _roots)
             foreach (var path in WalkNodes(r))
@@ -210,6 +207,9 @@ public sealed class ConfigUI : IDisposable
 
     private bool MatchesFilter(List<string> path)
     {
+        if (_filterNodes.Count == 0)
+            return true;
+
         bool matchesOneFilter(List<string> filter)
         {
             var i = 0;

@@ -43,9 +43,9 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase(mana
         def.AbilityTrack(Track.Heal, "Heal");
 
         def.Define(Track.Esuna).As<HintedStrategy>("Esuna2", "Esuna")
-            .AddOption(HintedStrategy.Disabled, "Disabled", "Don't use")
-            .AddOption(HintedStrategy.HintOnly, "HintOnly", "Cleanse targets suggested by active module")
-            .AddOption(HintedStrategy.Enabled, "Enabled", "Cleanse all eligible party members")
+            .AddOption(HintedStrategy.Disabled, "Don't use")
+            .AddOption(HintedStrategy.HintOnly, "Cleanse targets suggested by active module")
+            .AddOption(HintedStrategy.Enabled, "Cleanse all eligible party members")
             .AddAssociatedActions(ClassShared.AID.Esuna);
 
         def.AbilityTrack(Track.StayNearParty, "Stay near party");
@@ -108,7 +108,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase(mana
         if (strategy.Enabled(Track.StayNearParty) && Player.InCombat)
         {
             List<(WPos pos, float radius)> allies = [.. LightParty.Exclude(Player).Select(e => (e.Position, e.HitboxRadius))];
-            Hints.GoalZones.Add(p => allies.Count(a => a.pos.InCircle(p, a.radius + Player.HitboxRadius + 15)));
+            Hints.GoalZones.Add(p => allies.Count(a => a.pos.InCircle(p, a.radius + 0.5f + 15)));
         }
 
         AutoRaise(strategy);
@@ -297,8 +297,8 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase(mana
                     if (gauge.CurrentCards.Contains(card))
                         UseOGCD(action, target);
 
-                if (!Unlocked(BossMod.AST.AID.CelestialIntersection) && NextChargeIn(BossMod.AST.AID.EssentialDignity) > 2.5f)
-                    UseGCD(BossMod.AST.AID.Benefic, target);
+                if (NextChargeIn(BossMod.AST.AID.CelestialIntersection) > GCD && NextChargeIn(BossMod.AST.AID.EssentialDignity) > GCD)
+                    UseGCD(BestActionUnlocked(BossMod.AST.AID.BeneficII, BossMod.AST.AID.Benefic), target);
             }
         });
 
@@ -306,6 +306,8 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase(mana
         {
             if (gauge.CurrentArcana == AstrologianCard.Lady)
                 UseOGCD(BossMod.AST.AID.LadyOfCrowns, Player);
+
+            UseOGCD(BossMod.AST.AID.CelestialOpposition, Player);
 
             if (Player.FindStatus(Unlocked(BossMod.AST.AID.HeliosConjunction) ? BossMod.AST.SID.HeliosConjunction : BossMod.AST.SID.AspectedHelios, World.FutureTime(15)) == null)
                 UseGCD(BossMod.AST.AID.AspectedHelios, Player);
@@ -316,6 +318,10 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase(mana
 
         if (Player.InCombat)
             Hints.ActionsToExecute.Push(ActionID.MakeSpell(BossMod.AST.AID.EarthlyStar), Player, ActionQueue.Priority.Medium, targetPos: Player.PosRot.XYZ());
+
+        foreach (var rw in Raidwides)
+            if (World.FutureTime(5) > rw)
+                UseOGCD(BossMod.AST.AID.CollectiveUnconscious, Player);
     }
 
     private void AutoSCH(StrategyValues strategy, Actor? primaryTarget)
@@ -395,7 +401,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase(mana
         });
 
         foreach (var rw in Raidwides)
-            if ((rw - World.CurrentTime).TotalSeconds < 5 && NextChargeIn(BossMod.SCH.AID.SacredSoil) == 0)
+            if (World.FutureTime(5) > rw && NextChargeIn(BossMod.SCH.AID.SacredSoil) == 0)
                 UseSoil(GetBestPartyCoverage(15));
     }
 

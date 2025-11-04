@@ -41,6 +41,14 @@ public abstract class BossModule : IDisposable
     }
     public IReadOnlyList<Actor> Enemies<OID>(OID oid) where OID : Enum => Enemies((uint)(object)oid);
 
+    public virtual Actor? GetDefaultTarget(int slot)
+    {
+        if (!PrimaryActor.IsDeadOrDestroyed && PrimaryActor.IsTargetable)
+            return PrimaryActor;
+
+        return null;
+    }
+
     // component management: at most one component of any given type can be active at any time
     private readonly List<BossComponent> _components = [];
     public IReadOnlyList<BossComponent> Components => _components;
@@ -106,13 +114,15 @@ public abstract class BossModule : IDisposable
             WorldState.Actors.StatusGain.Subscribe(OnActorStatusGain),
             WorldState.Actors.StatusLose.Subscribe(OnActorStatusLose),
             WorldState.Actors.IconAppeared.Subscribe(OnActorIcon),
+            WorldState.Actors.VFXAppeared.Subscribe(OnActorVFX),
             WorldState.Actors.CastEvent.Subscribe(OnActorCastEvent),
             WorldState.Actors.EventObjectStateChange.Subscribe(OnActorEState),
             WorldState.Actors.EventObjectAnimation.Subscribe(OnActorEAnim),
             WorldState.Actors.PlayActionTimelineEvent.Subscribe(OnActorPlayActionTimelineEvent),
             WorldState.Actors.EventNpcYell.Subscribe(OnActorNpcYell),
             WorldState.Actors.ModelStateChanged.Subscribe(OnActorModelStateChange),
-            WorldState.EnvControl.Subscribe(OnEnvControl),
+            WorldState.MapEffect.Subscribe(OnMapEffect),
+            WorldState.LegacyMapEffect.Subscribe(OnLegacyMapEffect),
             WorldState.DirectorUpdate.Subscribe(OnDirectorUpdate)
         );
 
@@ -472,6 +482,12 @@ public abstract class BossModule : IDisposable
             comp.OnEventIcon(actor, iconID, targetID);
     }
 
+    private void OnActorVFX(Actor actor, uint vfxID, ulong targetID)
+    {
+        foreach (var comp in _components)
+            comp.OnEventVFX(actor, vfxID, targetID);
+    }
+
     private void OnActorCastEvent(Actor actor, ActorCastEvent cast)
     {
         if (actor.Type is not (ActorType.Player or ActorType.Pet or ActorType.Chocobo) && cast.IsSpell())
@@ -510,10 +526,16 @@ public abstract class BossModule : IDisposable
             comp.OnActorModelStateChange(actor, actor.ModelState.ModelState, actor.ModelState.AnimState1, actor.ModelState.AnimState2);
     }
 
-    private void OnEnvControl(WorldState.OpEnvControl op)
+    private void OnMapEffect(WorldState.OpMapEffect op)
     {
         foreach (var comp in _components)
-            comp.OnEventEnvControl(op.Index, op.State);
+            comp.OnMapEffect(op.Index, op.State);
+    }
+
+    private void OnLegacyMapEffect(WorldState.OpLegacyMapEffect op)
+    {
+        foreach (var comp in _components)
+            comp.OnLegacyMapEffect(op.Sequence, op.Param, op.Data);
     }
 
     private void OnDirectorUpdate(WorldState.OpDirectorUpdate op)

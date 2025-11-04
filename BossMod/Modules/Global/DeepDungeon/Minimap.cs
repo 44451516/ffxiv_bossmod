@@ -4,7 +4,7 @@ using static FFXIVClientStructs.FFXIV.Client.Game.InstanceContent.InstanceConten
 
 namespace BossMod.Global.DeepDungeon;
 
-public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int CurrentDestination)
+public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int CurrentDestination, int PlayerSlot)
 {
     enum IconID : uint
     {
@@ -15,6 +15,7 @@ public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int Cu
         ChestBronze = 60911,
         ChestSilver = 60912,
         ChestGold = 60913,
+        Votive = 63988
     }
 
     [Flags]
@@ -39,7 +40,7 @@ public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int Cu
             if (c.Room > 0)
                 chests[c.Room] |= (RoomChest)(1 << (c.Type - 1));
 
-        var playerCell = State.Party[0].Room;
+        var playerCell = State.Party[PlayerSlot].Room;
 
         using var _ = ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(0f, 0f));
 
@@ -47,6 +48,7 @@ public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int Cu
         var mapTex = Service.Texture.GetFromGame("ui/uld/DeepDungeonNaviMap_hr1.tex").GetWrapOrEmpty();
         var passageTex = Service.Texture.GetFromGameIcon(new((uint)(State.PassageActive ? IconID.PassageOpen : IconID.PassageClosed))).GetWrapOrEmpty();
         var returnTex = Service.Texture.GetFromGameIcon(new((uint)(State.ReturnActive ? IconID.ReturnOpen : IconID.ReturnClosed))).GetWrapOrEmpty();
+        var votiveTex = Service.Texture.GetFromGameIcon(new((uint)IconID.Votive)).GetWrapOrEmpty();
         var bronzeTex = Service.Texture.GetFromGameIcon(new((uint)IconID.ChestBronze)).GetWrapOrEmpty();
         var silverTex = Service.Texture.GetFromGameIcon(new((uint)IconID.ChestSilver)).GetWrapOrEmpty();
         var goldTex = Service.Texture.GetFromGameIcon(new((uint)IconID.ChestGold)).GetWrapOrEmpty();
@@ -99,6 +101,12 @@ public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int Cu
             {
                 ImGui.SetCursorPos(pos + new Vector2(28, 44));
                 ImGui.Image(returnTex.Handle, new Vector2(32, 32));
+            }
+
+            if (((ushort)State.Rooms[i] & 0x100) != 0)
+            {
+                ImGui.SetCursorPos(pos + new Vector2(28, 44));
+                ImGui.Image(votiveTex.Handle, new Vector2(32, 32));
             }
 
             if (chests[i].HasFlag(RoomChest.Bronze))
