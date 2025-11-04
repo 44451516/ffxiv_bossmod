@@ -3,7 +3,7 @@
     <PropertyGroup>
         <Authors></Authors>
         <Company></Company>
-        <Version>0.3.6.1</Version>
+        <Version>0.4.5.0</Version>
         <Description>Boss mod.</Description>
         <Copyright></Copyright>
         <PackageProjectUrl></PackageProjectUrl>
@@ -49,6 +49,7 @@
         <Using Include="System.Numerics"/>
         <Using Include="System.Threading.Tasks;"/>
         <Using Include="System.Text"/>
+        <Using Include="Lumina.Extensions"/>
     </ItemGroup>
 
     <PropertyGroup>
@@ -121,6 +122,11 @@
             <HintPath>$(DalamudLibPath)InteropGenerator.Runtime.dll</HintPath>
             <Private>false</Private>
         </Reference>
+        
+        <Reference Include="Newtonsoft.Json">
+            <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
 
     </ItemGroup>
 
@@ -128,10 +134,8 @@
         <None Update="DefaultRotationPresets.json">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
-        <EmbeddedResource Include="Modules\Global\DeepDungeon\*.json"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <EmbeddedResource Include="Pathfinding\ObstacleMaps\*"/>
+        <EmbeddedResource Include="Modules\**\*.json" />
+        <EmbeddedResource Include="Autorotation\OptionRenames.json" />
+        <EmbeddedResource Include="Pathfinding\ObstacleMaps\*" />
     </ItemGroup>
 </Project>
