@@ -22,14 +22,13 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("模块加载的最低成熟度", tooltip: "某些模块将处于‘WIP’状态，除非你更改此设置，否则不会自动加载")]
     public BossModuleInfo.Maturity MinMaturity = BossModuleInfo.Maturity.Contributed;
 
-    [PropertyDisplay("允许模块自动使用技能", tooltip: "示例：模块可以在击退发生前自动使用防击退技能")]
-    public bool AllowAutomaticActions = false;
+    [PropertyDisplay ("允许模块自动执行操作")]
+    public bool AllowAutomaticActions = true;
 
-    [PropertyDisplay("显示测试雷达和提示窗口", tooltip: "在不进行boss战时配置雷达和提示窗口非常有用", separator: true)]
+    [PropertyDisplay ("允许模块自动与物体交互", since: "0.3.5.6")]
     public bool AllowAutomaticInteract = true;
 
-    [PropertyDisplay("显示测试雷达和提示窗口", tooltip: "用于在不进入BOSS战的情况下配置雷达和提示窗口", separator: true)]
-    public bool ShowDemo = false;
+    [PropertyDisplay ("显示测试雷达和提示窗口", tooltip: "无需进入首领战斗，即可配置雷达和提示窗口，十分实用", separator: true)]public bool ShowDemo = false;
 
       // 雷达窗口设置
     [PropertyDisplay("启用雷达")]
