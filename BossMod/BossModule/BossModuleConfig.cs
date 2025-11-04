@@ -18,7 +18,6 @@ public class BossModuleConfig : ConfigNode
         DisableActiveModuleCategory
     }
 
-    // boss模块设置
     [PropertyDisplay("模块加载的最低成熟度", tooltip: "某些模块将处于‘WIP’状态，除非你更改此设置，否则不会自动加载")]
     public BossModuleInfo.Maturity MinMaturity = BossModuleInfo.Maturity.Contributed;
 
@@ -28,12 +27,11 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay ("允许模块自动与物体交互", since: "0.3.5.6")]
     public bool AllowAutomaticInteract = true;
 
-    [PropertyDisplay ("显示测试雷达和提示窗口", tooltip: "无需进入首领战斗，即可配置雷达和提示窗口，十分实用", separator: true)]public bool ShowDemo = false;
+    [PropertyDisplay ("显示测试雷达和提示窗口", tooltip: "无需进入首领战斗，即可配置雷达和提示窗口，十分实用", separator: true)]
+    public bool ShowDemo = false;
 
-      // 雷达窗口设置
     [PropertyDisplay("启用雷达")]
     public bool Enable = true;
-
 
     [PropertyDisplay("关闭按钮行为")]
     public RadarCloseBehavior CloseBehavior = RadarCloseBehavior.Prompt;
