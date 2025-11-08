@@ -1,37 +1,36 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "通用解算器设置", Order = 7)]
+[ConfigDisplay(Name = "通用机制解算设置", Order = 7)]
 public sealed class AIHintsConfig : ConfigNode
 {
     public enum DonutFallbackBehavior
     {
-        [PropertyDisplay("假设AOE为圆形，无内部安全区")]
+        [PropertyDisplay("视为环形范围伤害（无内侧安全区）")]
         AssumeCircle,
         [PropertyDisplay("完全忽略")]
         Ignore
     }
 
-;
-    [PropertyDisplay("未知锥形AOE的猜测角度", since: "0.3.0.0", tooltip: "此设置仅在无模块激活时生效。")]
+    [PropertyDisplay("未知环形范围伤害的处理逻辑", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     public DonutFallbackBehavior DonutFallback = DonutFallbackBehavior.AssumeCircle;
 
-    [PropertyDisplay("Guessed angle for unknown cone AOEs", since: "0.3.0.0", tooltip: "This setting only applies when no module is active.")]
+    [PropertyDisplay("未知锥形范围伤害的推测角度", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     [PropertySlider(1, 180, Speed = 5)]
     public float ConeFallbackAngle = 180;
 
     public enum OmenBehavior
     {
-        [PropertyDisplay("最佳推测；忽略无预警的大型圆形技能（通常为全屏攻击）")]
+        [PropertyDisplay("自动推测（忽略无预警大型环形伤害，此类通常为全团机制）")]
         Automatic,
-        [PropertyDisplay("最佳推测；提示所有动作")]
+        [PropertyDisplay("保守自动推测（提示所有技能的机制预警）")]
         AutomaticConservative,
-        [PropertyDisplay("完全忽略")]
+        [PropertyDisplay("仅显示机制预警（忽略其他推测）")]
         OmenOnly
     }
 
-    [PropertyDisplay("无AOE指示器动作的处理方式",since: "0.3.0.0", tooltip: "此设置仅在无模块激活时生效。")]
+    [PropertyDisplay("无范围指示器技能的处理逻辑", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     public OmenBehavior OmenSetting = OmenBehavior.Automatic;
 
-    [PropertyDisplay("Run generic solver for 'Helper'-type actors", since: "0.3.0.0", tooltip: "This setting only applies when no module is active.\n\nHelpers are invisible enemies that are responsible for casting a majority of the mechanics in boss fights. Note that, although this allows the generic solver to support many more mechanics, it may cause unwanted results, since the generic solver cannot distinguish regular AOEs from gaze attacks, knockbacks, non-damaging casts that apply debuffs, and so on. Enable this option at your own discretion.")]
+    [PropertyDisplay("为「辅助型」单位启用通用机制解算", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。\n\n「辅助型」单位是指战斗中负责释放大部分首领机制的隐形敌人。请注意，启用此选项后，通用机制解算将支持更多机制类型，但可能会产生非预期结果——因为通用解算无法区分普通范围伤害、凝视攻击、击退效果、施加减益的无伤害施法等机制。请自行斟酌是否启用。")]
     public bool EnableHelperHints = false;
 }
