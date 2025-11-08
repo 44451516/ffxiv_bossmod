@@ -61,10 +61,10 @@ public class AutoDDConfig : ConfigNode
 
     public override void DrawCustom(UITree tree, WorldState ws)
     {
-        foreach (var _ in tree.Node("Automatic pomander usage"))
+        foreach (var _ in tree.Node("自动使用魔石"))
         {
-            ImGui.TextWrapped("Highlighted pomanders will be used when a gold chest contains one that you can't carry.");
-            ImGui.TextWrapped("This feature is disabled in parties.");
+            ImGui.TextWrapped("当黄金宝箱中包含你无法携带的魔石时，会自动使用已标记高亮的魔石。");
+            ImGui.TextWrapped("该功能在队伍中禁用。");
 
             for (var i = 1; i < (int)PomanderID.Count; i++)
                 using (ImRaii.PushId($"pom{i}"))

@@ -27,7 +27,7 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay ("允许模块自动与物体交互", since: "0.3.5.6")]
     public bool AllowAutomaticInteract = true;
 
-    [PropertyDisplay ("显示测试雷达和提示窗口", tooltip: "无需进入首领战斗，即可配置雷达和提示窗口，十分实用", separator: true)]
+    [PropertyDisplay ("[设置调整用]显示测试雷达和提示窗口", tooltip: "无需进入首领战斗，即可配置雷达和提示窗口，便于调试", separator: true)]
     public bool ShowDemo = false;
 
     [PropertyDisplay("启用雷达")]
@@ -84,7 +84,7 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("允许在雷达上显示非组队玩家", tooltip: "此选项仅影响特定类别的内容，如冒险突袭。", depends: nameof(ShowIrrelevantPlayers))]
     public bool ShowAllPlayers = true;
 
-    [PropertyDisplay("在雷达上为未着色的玩家显示基于角色的颜色")]
+    [PropertyDisplay("为雷达中无默认颜色的玩家按职责显示颜色")]
     public bool ColorPlayersBasedOnRole = false;
 
     [PropertyDisplay("始终显示焦点目标的队员", separator: true)]
