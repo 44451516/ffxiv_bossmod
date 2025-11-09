@@ -30,7 +30,7 @@ public sealed class AutorotationConfig : ConfigNode
 
     [PropertyDisplay("在游戏中显示位置提示", tooltip: "显示位置技能提示，指示移动到目标的侧面或后方")]
     public bool SuggestHealerAI = true;
-    
+
     [PropertyDisplay("显示朝向提示", tooltip: "显示技能朝向相关提示，指示你移动至目标的侧面或背面")]
     public bool ShowPositionals = false;
 
