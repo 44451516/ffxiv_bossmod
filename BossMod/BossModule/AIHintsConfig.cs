@@ -1,33 +1,33 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "Generic solver settings", Order = 7)]
+[ConfigDisplay(Name = "通用机制解算设置", Order = 7)]
 public sealed class AIHintsConfig : ConfigNode
 {
     public enum DonutFallbackBehavior
     {
-        [PropertyDisplay("Assume the AOE is circular, with no inner safe spot")]
+        [PropertyDisplay("视为环形范围伤害（无内侧安全区）")]
         AssumeCircle,
-        [PropertyDisplay("Ignore entirely")]
+        [PropertyDisplay("完全忽略")]
         Ignore
     }
 
-    [PropertyDisplay("Behavior for unknown donut AOEs", since: "0.3.0.0", tooltip: "This setting only applies when no module is active.")]
+    [PropertyDisplay("未知环形范围伤害的处理逻辑", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     public DonutFallbackBehavior DonutFallback = DonutFallbackBehavior.AssumeCircle;
 
-    [PropertyDisplay("Guessed angle for unknown cone AOEs", since: "0.3.0.0", tooltip: "This setting only applies when no module is active.")]
+    [PropertyDisplay("未知锥形范围伤害的推测角度", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     [PropertySlider(1, 180, Speed = 5)]
     public float ConeFallbackAngle = 180;
 
     public enum OmenBehavior
     {
-        [PropertyDisplay("Best-effort guess; ignore large untelegraphed circles, which are usually raidwides")]
+        [PropertyDisplay("自动推测（忽略无预警大型环形伤害，此类通常为全团机制）")]
         Automatic,
-        [PropertyDisplay("Best-effort guess; hint all actions")]
+        [PropertyDisplay("保守自动推测（提示所有技能的机制预警）")]
         AutomaticConservative,
-        [PropertyDisplay("Ignore entirely")]
+        [PropertyDisplay("仅显示机制预警（忽略其他推测）")]
         OmenOnly
     }
 
-    [PropertyDisplay("Behavior for actions without AOE indicators", since: "0.3.0.0", tooltip: "This setting only applies when no module is active.")]
+    [PropertyDisplay("无范围指示器技能的处理逻辑", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     public OmenBehavior OmenSetting = OmenBehavior.Automatic;
 }

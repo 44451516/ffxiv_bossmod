@@ -2,10 +2,10 @@
 
 namespace BossMod.ClassShared;
 
-[ConfigDisplay(Name = "Cross-class actions", Parent = typeof(ActionTweaksConfig), Order = -5)]
+[ConfigDisplay(Name = "跨职业通用技能", Parent = typeof(ActionTweaksConfig), Order = -5)]
 public sealed class SharedActionsConfig : ConfigNode
 {
-    [PropertyDisplay("Align dash actions with camera direction (Lost Swift, Occult Featherfoot, etc)")]
+    [PropertyDisplay("使冲刺类技能与镜头方向对齐（失落迅跑、魔猎步等）")]
     public bool AlignDashToCamera = false;
 }
 
@@ -54,10 +54,15 @@ public enum AID : uint
     Sleep = 25880, // L10 BLM/SMN/RDM/BLU, 2.5s cast, GCD, range 30, AOE 5 circle, targets=hostile
 
     // Multi-role actions
-    SecondWind = 7541, // L8 MNK/DRG/BRD/NIN/MCH/SAM/DNC/RPR, instant, 120.0s CD (group 49), range 0, single-target, targets=self
-    LucidDreaming = 7562, // L14 WHM/BLM/SMN/SCH/AST/RDM/BLU/SGE, instant, 60.0s CD (group 45), range 0, single-target, targets=self
+    SecondWind =
+        7541, // L8 MNK/DRG/BRD/NIN/MCH/SAM/DNC/RPR, instant, 120.0s CD (group 49), range 0, single-target, targets=self
+
+    LucidDreaming =
+        7562, // L14 WHM/BLM/SMN/SCH/AST/RDM/BLU/SGE, instant, 60.0s CD (group 45), range 0, single-target, targets=self
     Swiftcast = 7561, // L18 WHM/BLM/SMN/SCH/AST/RDM/BLU/SGE, instant, 60.0s CD (group 44), range 0, single-target, targets=self
-    ArmsLength = 7548, // L32 PLD/MNK/WAR/DRG/BRD/NIN/MCH/DRK/SAM/GNB/DNC/RPR, instant, 120.0s CD (group 48), range 0, single-target, targets=self
+
+    ArmsLength =
+        7548, // L32 PLD/MNK/WAR/DRG/BRD/NIN/MCH/DRK/SAM/GNB/DNC/RPR, instant, 120.0s CD (group 48), range 0, single-target, targets=self
     Surecast = 7559, // L44 WHM/BLM/SMN/SCH/AST/RDM/BLU/SGE, instant, 120.0s CD (group 48), range 0, single-target, targets=self
 
     // Misc
@@ -83,6 +88,7 @@ public enum AID : uint
     VariantRampart2 = 33864, // available in mount rokkon and aloalo island
 
     #region PvP
+
     ElixirPvP = 29055,
     RecuperatePvP = 29711,
     PurifyPvP = 29056,
@@ -105,6 +111,7 @@ public enum AID : uint
     FullSwingPvP = 43245,
     RampartPvP = 43244,
     RampagePvP = 43243,
+
     #endregion
 }
 
@@ -182,6 +189,7 @@ public sealed class Definitions : IDisposable
     public Definitions(ActionDefinitions d)
     {
         #region PvE
+
         d.RegisterSpell(AID.Sprint);
 
         // Tank
@@ -251,9 +259,11 @@ public sealed class Definitions : IDisposable
         d.RegisterSpell(AID.VariantCure2);
         d.RegisterSpell(AID.VariantSpiritDart2);
         d.RegisterSpell(AID.VariantRampart2);
+
         #endregion
 
         #region PvP
+
         d.RegisterSpell(AID.ElixirPvP);
         d.RegisterSpell(AID.RecuperatePvP);
         d.RegisterSpell(AID.PurifyPvP);
@@ -276,12 +286,15 @@ public sealed class Definitions : IDisposable
         d.RegisterSpell(AID.FullSwingPvP);
         d.RegisterSpell(AID.RampartPvP);
         d.RegisterSpell(AID.RampagePvP);
+
         #endregion
 
         #region Phantom actions
+
         foreach (var action in typeof(PhantomID).GetEnumValues())
             if ((uint)action > 0)
                 d.RegisterSpell((PhantomID)action);
+
         #endregion
 
         Customize(d);
@@ -291,8 +304,15 @@ public sealed class Definitions : IDisposable
 
     private void Customize(ActionDefinitions d)
     {
-        d.Spell(AID.Interject)!.ForbidExecute = (_, _, act, _) => !(act.Target?.CastInfo?.Interruptible ?? false); // don't use interject if target is not casting interruptible spell
-        d.Spell(AID.Reprisal)!.ForbidExecute = (_, player, _, hints) => !hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(player.Position, 5 + e.Actor.HitboxRadius)); // don't use reprisal if no one would be hit; TODO: consider checking only target?..
+        d.Spell(AID.Interject)!.ForbidExecute =
+            (_, _, act, _) =>
+                !(act.Target?.CastInfo?.Interruptible ??
+                  false); // don't use interject if target is not casting interruptible spell
+        d.Spell(AID.Reprisal)!.ForbidExecute = (_, player, _, hints) =>
+            !hints.PotentialTargets.Any(e =>
+                e.Actor.Position.InCircle(player.Position,
+                    5 + e.Actor
+                        .HitboxRadius)); // don't use reprisal if no one would be hit; TODO: consider checking only target?..
         d.Spell(AID.Shirk)!.SmartTarget = ActionDefinitions.SmartTargetCoTank;
 
         //d.Spell(AID.Repose)!.EffectDuration = 30;
@@ -328,6 +348,7 @@ public sealed class Definitions : IDisposable
         };
 
         d.Spell(PhantomID.OccultFeatherfoot)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15);
-        d.Spell(PhantomID.OccultFeatherfoot)!.TransformAngle = (ws, _, _, _) => _config.AlignDashToCamera ? ws.Client.CameraAzimuth + 180.Degrees() : null;
+        d.Spell(PhantomID.OccultFeatherfoot)!.TransformAngle = (ws, _, _, _) =>
+            _config.AlignDashToCamera ? ws.Client.CameraAzimuth + 180.Degrees() : null;
     }
 }

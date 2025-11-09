@@ -45,14 +45,18 @@ public sealed class Plugin : IDalamudPlugin
     private readonly AI.AIWindow _wndAI;
     private readonly MainDebugWindow _wndDebug;
 
-    public unsafe Plugin(IDalamudPluginInterface dalamud, ICommandManager commandManager, ISigScanner sigScanner, IDataManager dataManager)
+    public unsafe Plugin(IDalamudPluginInterface dalamud, ICommandManager commandManager, ISigScanner sigScanner,
+        IDataManager dataManager)
     {
         if (!dalamud.ConfigDirectory.Exists)
             dalamud.ConfigDirectory.Create();
-        var dalamudRoot = dalamud.GetType().Assembly.
-                GetType("Dalamud.Service`1", true)!.MakeGenericType(dalamud.GetType().Assembly.GetType("Dalamud.Dalamud", true)!).
-                GetMethod("Get")!.Invoke(null, BindingFlags.Default, null, [], null);
-        var dalamudStartInfo = dalamudRoot?.GetType().GetProperty("StartInfo", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(dalamudRoot) as DalamudStartInfo;
+        var dalamudRoot =
+            dalamud.GetType().Assembly.GetType("Dalamud.Service`1", true)!
+                .MakeGenericType(dalamud.GetType().Assembly.GetType("Dalamud.Dalamud", true)!).GetMethod("Get")!
+                .Invoke(null, BindingFlags.Default, null, [], null);
+        var dalamudStartInfo =
+            dalamudRoot?.GetType().GetProperty("StartInfo", BindingFlags.NonPublic | BindingFlags.Instance)
+                ?.GetValue(dalamudRoot) as DalamudStartInfo;
         var gameVersion = dalamudStartInfo?.GameVersion?.ToString() ?? "unknown";
 #if LOCAL_CS
         InteropGenerator.Runtime.Resolver.GetInstance.Setup(sigScanner.SearchBase, gameVersion, new(dalamud.ConfigDirectory.FullName + "/cs.json"));
@@ -75,12 +79,15 @@ public sealed class Plugin : IDalamudPlugin
         Service.Config.LoadFromFile(dalamud.ConfigFile);
         Service.Config.Modified.Subscribe(() => Task.Run(() => Service.Config.SaveToFile(dalamud.ConfigFile)));
 
-        ActionDefinitions.Instance.UnlockCheck = QuestUnlocked; // ensure action definitions are initialized and set unlock check functor (we don't really store the quest progress in clientstate, for now at least)
+        ActionDefinitions.Instance.UnlockCheck =
+            QuestUnlocked; // ensure action definitions are initialized and set unlock check functor (we don't really store the quest progress in clientstate, for now at least)
 
         _packs = new();
 
-        var qpf = (ulong)FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance()->PerformanceCounterFrequency;
-        _rotationDB = new(new(dalamud.ConfigDirectory.FullName + "/autorot"), new(dalamud.AssemblyLocation.DirectoryName! + "/DefaultRotationPresets.json"));
+        var qpf =
+            (ulong)FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance()->PerformanceCounterFrequency;
+        _rotationDB = new(new(dalamud.ConfigDirectory.FullName + "/autorot"),
+            new(dalamud.AssemblyLocation.DirectoryName! + "/DefaultRotationPresets.json"));
         _ws = new(qpf, gameVersion);
         _hints = new();
         _bossmod = new(_ws);
@@ -104,7 +111,8 @@ public sealed class Plugin : IDalamudPlugin
         _wndReplay = new(_ws, _bossmod, _rotationDB, replayDir);
         _wndRotation = new(_rotation, _amex, () => OpenConfigUI("Autorotation Presets"));
         _wndAI = new(_ai);
-        _wndDebug = new(_ws, _rotation, _zonemod, _amex, _movementOverride, _hintsBuilder, dalamud) { IsOpen = Service.IsDev };
+        _wndDebug =
+            new(_ws, _rotation, _zonemod, _amex, _movementOverride, _hintsBuilder, dalamud) { IsOpen = Service.IsDev };
 
         dalamud.UiBuilder.DisableAutomaticUiHide = true;
         dalamud.UiBuilder.Draw += DrawUI;
@@ -144,19 +152,19 @@ public sealed class Plugin : IDalamudPlugin
 
     private void RegisterSlashCommands()
     {
-        _slashCmd.SetSimpleHandler("show boss mod settings UI", () => OpenConfigUI());
-        _slashCmd.AddSubcommand("r").SetSimpleHandler("show/hide replay management window", () => _wndReplay.SetVisible(!_wndReplay.IsOpen));
+        _slashCmd.SetSimpleHandler("显示设置界面", () => OpenConfigUI());
+        _slashCmd.AddSubcommand("r").SetSimpleHandler("显示/隐藏回放管理窗口", () => _wndReplay.SetVisible(!_wndReplay.IsOpen));
         RegisterAutorotationSlashCommands(_slashCmd.AddSubcommand("ar"));
         RegisterAISlashCommands(_slashCmd.AddSubcommand("ai"));
-        _slashCmd.AddSubcommand("cfg").SetComplexHandler("<config-type> <field> [<value>]", "query or modify configuration setting", args =>
-        {
-            var output = Service.Config.ConsoleCommand(args);
-            foreach (var msg in output)
-                Service.ChatGui.Print(msg);
-            return true;
-        });
-        _slashCmd.AddSubcommand("d").SetSimpleHandler("show debug UI", _wndDebug.OpenAndBringToFront);
-        _slashCmd.AddSubcommand("gc").SetSimpleHandler("execute C# garbage collector", () =>
+        _slashCmd.AddSubcommand("cfg").SetComplexHandler("<config-type> <field> [<value>]","查询或修改配置设置", args =>
+            {
+                var output = Service.Config.ConsoleCommand(args);
+                foreach (var msg in output)
+                    Service.ChatGui.Print(msg);
+                return true;
+            });
+        _slashCmd.AddSubcommand("d").SetSimpleHandler("显示调试界面", _wndDebug.OpenAndBringToFront);
+        _slashCmd.AddSubcommand("gc").SetSimpleHandler("执行C#垃圾回收器", () =>
         {
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -205,41 +213,42 @@ public sealed class Plugin : IDalamudPlugin
                 Service.ChatGui.PrintError($"Failed to find preset '{presetName}'");
         }
 
-        cmd.SetSimpleHandler("toggle autorotation ui", () => _wndRotation.SetVisible(!_wndRotation.IsOpen));
-        cmd.AddSubcommand("clear").SetSimpleHandler("clear current preset; autorotation will do nothing unless plan is active", () =>
+        cmd.SetSimpleHandler("切换自动循环界面", () => _wndRotation.SetVisible(!_wndRotation.IsOpen));
+        cmd.AddSubcommand("clear").SetSimpleHandler("清除当前预设；除非计划激活，否则自动循环将不执行任何操作", () =>
         {
             Service.Log($"Console: clearing autorotation preset(s) '{_rotation.PresetNames}'");
             _rotation.Clear();
         });
-        cmd.AddSubcommand("disable").SetSimpleHandler("force disable autorotation; no actions will be executed automatically even if plan is active", () =>
+        cmd.AddSubcommand("disable").SetSimpleHandler("强制禁用自动循环；即使计划激活，也不会自动执行任何操作", () =>
         {
             Service.Log($"Console: force-disabling from presets '{_rotation.PresetNames}'");
             _rotation.SetForceDisabled();
         });
-        cmd.AddSubcommand("set").SetComplexHandler("<preset>", "start executing specified preset, and deactivate others", preset =>
-        {
-            SetOrToggleByName(preset, false, true);
-            return true;
-        });
+        cmd.AddSubcommand("set").SetComplexHandler("<preset>","开始执行指定预设，并停用其他预设", preset =>
+            {
+                SetOrToggleByName(preset, false, true);
+                return true;
+            });
         var toggle = cmd.AddSubcommand("toggle");
-        toggle.SetSimpleHandler("force disable autorotation if not already; otherwise clear overrides", () => SetOrToggle(RotationModuleManager.ForceDisable, true, true));
-        toggle.SetComplexHandler("<preset>", "start executing specified preset unless it's already active; clear otherwise", preset =>
+        toggle.SetSimpleHandler("如果尚未禁用则强制禁用自动循环；否则清除覆盖设置",
+            () => SetOrToggle(RotationModuleManager.ForceDisable, true, true));
+        toggle.SetComplexHandler("<preset>", " 开始执行指定预设（除非其已激活，否则清除）", preset =>
         {
             SetOrToggleByName(preset, true, true);
             return true;
         });
 
-        cmd.AddSubcommand("activate").SetComplexHandler("<preset>", "add specified preset to active list", preset =>
+        cmd.AddSubcommand("activate").SetComplexHandler("<preset>", " 将指定预设添加到激活列表 ", preset =>
         {
             SetOrToggleByName(preset, false, false);
             return true;
         });
-        cmd.AddSubcommand("deactivate").SetComplexHandler("<preset>", "remove specified preset from active list", preset =>
+        cmd.AddSubcommand("deactivate").SetComplexHandler("<preset>", " 从激活列表中移除指定预设 ", preset =>
         {
             ClearByName(preset);
             return true;
         });
-        cmd.AddSubcommand("togglemulti").SetComplexHandler("<preset>", "if specified preset is in active list, disable it, otherwise enable it", preset =>
+        cmd.AddSubcommand("togglemulti").SetComplexHandler("<preset>", " 如果指定预设在激活列表中，则禁用它；否则启用它 ", preset =>
         {
             SetOrToggleByName(preset, true, false);
             return true;
@@ -248,35 +257,40 @@ public sealed class Plugin : IDalamudPlugin
 
     private void RegisterAISlashCommands(SlashCommandHandler cmd)
     {
-        cmd.SetSimpleHandler("toggle AI ui", () => _wndAI.SetVisible(!_wndAI.IsOpen));
-        cmd.AddSubcommand("on").SetSimpleHandler("enable AI mode", () => _ai.Enabled = true);
-        cmd.AddSubcommand("off").SetSimpleHandler("disable AI mode", () => _ai.Enabled = false);
-        cmd.AddSubcommand("toggle").SetSimpleHandler("toggle AI mode", () => _ai.Enabled ^= true);
-        cmd.AddSubcommand("follow").SetComplexHandler("<name>/slot<N>", "enable AI mode and follow party member with specified name or at specified slot", masterString =>
-        {
-            var masterSlot = masterString.StartsWith("slot", StringComparison.OrdinalIgnoreCase) ? int.Parse(masterString[4..]) - 1 : _ws.Party.FindSlot(masterString);
-            if (_ws.Party[masterSlot] != null)
+        cmd.SetSimpleHandler("切换AI界面", () => _wndAI.SetVisible(!_wndAI.IsOpen));
+        cmd.AddSubcommand("on").SetSimpleHandler("启用AI模式", () => _ai.Enabled = true);
+        cmd.AddSubcommand("off").SetSimpleHandler("禁用AI模式", () => _ai.Enabled = false);
+        cmd.AddSubcommand("toggle").SetSimpleHandler("切换AI模式", () => _ai.Enabled ^= true);
+        cmd.AddSubcommand("follow").SetComplexHandler("<name>/slot<N>","启用 AI 模式并跟随具有指定名称或位于在指定位置的队伍成员", masterString =>
             {
-                _ai.SwitchToFollow(masterSlot);
-                _ai.Enabled = true;
-            }
-            else
-            {
-                Service.ChatGui.PrintError($"[AI] [Follow] Error: can't find {masterString} in our party");
-            }
-            return true;
-        });
+                var masterSlot = masterString.StartsWith("slot", StringComparison.OrdinalIgnoreCase)
+                    ? int.Parse(masterString[4..]) - 1
+                    : _ws.Party.FindSlot(masterString);
+                if (_ws.Party[masterSlot] != null)
+                {
+                    _ai.SwitchToFollow(masterSlot);
+                    _ai.Enabled = true;
+                }
+                else
+                {
+                    Service.ChatGui.PrintError($"[AI] [Follow] Error: can't find {masterString} in our party");
+                }
+
+                return true;
+            });
 
         // TODO: this should really be removed, it's a weird synonym for /vbm cfg AIConfig ...
         cmd.SetComplexHandler("", "", args =>
         {
             Span<Range> ranges = stackalloc Range[2];
-            var numRanges = args.Split(ranges, ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var numRanges = args.Split(ranges, ' ',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (numRanges == 1)
             {
                 // toggle
                 var value = Service.Config.ConsoleCommand($"AIConfig {args}");
-                return bool.TryParse(value[0], out var boolValue) && Service.Config.ConsoleCommand($"AIConfig {args} {!boolValue}").Count == 0;
+                return bool.TryParse(value[0], out var boolValue) &&
+                       Service.Config.ConsoleCommand($"AIConfig {args} {!boolValue}").Count == 0;
             }
             else if (numRanges == 2)
             {
@@ -288,13 +302,15 @@ public sealed class Plugin : IDalamudPlugin
                     value = "false";
                 return Service.Config.ConsoleCommand($"AIConfig {args[ranges[0]]} {value}").Count == 0;
             }
+
             return false;
         });
     }
 
     private void VbmaiHandler(string _, string __)
     {
-        Service.ChatGui.PrintError("/vbmai: Legacy AI mode is deprecated. Please use /vbm cfg AIConfig (args...) instead. This command will be removed in a future update.");
+        Service.ChatGui.PrintError(
+            "/vbmai: Legacy AI mode is deprecated. Please use /vbm cfg AIConfig (args...) instead. This command will be removed in a future update.");
     }
 
     private void OpenConfigUI(string showTab = "")
@@ -306,7 +322,8 @@ public sealed class Plugin : IDalamudPlugin
     private void DrawUI()
     {
         var tsStart = DateTime.Now;
-        var moveImminent = _movementOverride.IsMoveRequested() && (!_amex.Config.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());
+        var moveImminent = _movementOverride.IsMoveRequested() &&
+                           (!_amex.Config.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());
 
         _dtr.Update();
         Camera.Instance?.Update();
@@ -315,11 +332,14 @@ public sealed class Plugin : IDalamudPlugin
         _zonemod.ActiveModule?.Update();
         _hintsBuilder.Update(_hints, PartyState.PlayerSlot, moveImminent);
         _amex.QueueManualActions();
-        _rotation.Update(_amex.AnimationLockDelayEstimate, _movementOverride.IsMoving(), Service.Condition[ConditionFlag.DutyRecorderPlayback]);
+        _rotation.Update(_amex.AnimationLockDelayEstimate, _movementOverride.IsMoving(),
+            Service.Condition[ConditionFlag.DutyRecorderPlayback]);
         _ai.Update();
         _amex.FinishActionGather();
 
-        bool uiHidden = Service.GameGui.GameUiHidden || Service.Condition[ConditionFlag.OccupiedInCutSceneEvent] || Service.Condition[ConditionFlag.WatchingCutscene78] || Service.Condition[ConditionFlag.WatchingCutscene];
+        bool uiHidden = Service.GameGui.GameUiHidden || Service.Condition[ConditionFlag.OccupiedInCutSceneEvent] ||
+                        Service.Condition[ConditionFlag.WatchingCutscene78] ||
+                        Service.Condition[ConditionFlag.WatchingCutscene];
         if (!uiHidden)
         {
             Service.WindowSystem?.Draw();
@@ -336,8 +356,10 @@ public sealed class Plugin : IDalamudPlugin
         // see ActionManager.IsActionUnlocked
         var gameMain = FFXIVClientStructs.FFXIV.Client.Game.GameMain.Instance();
         return link == 0
-            || Service.LuminaRow<Lumina.Excel.Sheets.TerritoryType>(gameMain->CurrentTerritoryTypeId)?.TerritoryIntendedUse.RowId == 31 // deep dungeons check is hardcoded in game
-            || FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance()->IsUnlockLinkUnlockedOrQuestCompleted(link);
+               || Service.LuminaRow<Lumina.Excel.Sheets.TerritoryType>(gameMain->CurrentTerritoryTypeId)
+                   ?.TerritoryIntendedUse.RowId == 31 // deep dungeons check is hardcoded in game
+               || FFXIVClientStructs.FFXIV.Client.Game.UI.UIState
+                   .Instance()->IsUnlockLinkUnlockedOrQuestCompleted(link);
     }
 
     private unsafe void ExecuteHints()
@@ -352,13 +374,16 @@ public sealed class Plugin : IDalamudPlugin
 
         foreach (var s in _hints.StatusesToCancel)
         {
-            var res = FFXIVClientStructs.FFXIV.Client.Game.StatusManager.ExecuteStatusOff(s.statusId, s.sourceId != 0 ? (uint)s.sourceId : 0xE0000000);
+            var res = FFXIVClientStructs.FFXIV.Client.Game.StatusManager.ExecuteStatusOff(s.statusId,
+                s.sourceId != 0 ? (uint)s.sourceId : 0xE0000000);
             Service.Log($"[ExecHints] Canceling status {s.statusId} from {s.sourceId:X} -> {res}");
         }
+
         if (_hints.WantJump && _ws.CurrentTime > _throttleJump)
         {
             //Service.Log($"[ExecHints] Jumping...");
-            FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance()->UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 2);
+            FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance()->UseAction(
+                FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 2);
             _throttleJump = _ws.FutureTime(0.1f);
         }
 
@@ -369,7 +394,8 @@ public sealed class Plugin : IDalamudPlugin
 
             if (_amex.EffectiveAnimationLock == 0 && _ws.CurrentTime >= _throttleInteract)
             {
-                FFXIVClientStructs.FFXIV.Client.Game.Control.TargetSystem.Instance()->InteractWithObject(GetActorObject(_hints.InteractWithTarget), false);
+                FFXIVClientStructs.FFXIV.Client.Game.Control.TargetSystem.Instance()->InteractWithObject(
+                    GetActorObject(_hints.InteractWithTarget), false);
                 _throttleInteract = _ws.FutureTime(0.1f);
             }
         }
@@ -411,12 +437,14 @@ public sealed class Plugin : IDalamudPlugin
         if (actor == null)
             return null;
 
-        var obj = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObjectManager.Instance()->Objects.IndexSorted[actor.SpawnIndex].Value;
+        var obj = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObjectManager.Instance()->Objects
+            .IndexSorted[actor.SpawnIndex].Value;
         if (obj == null)
             return null;
 
         if (obj->EntityId != actor.InstanceID)
-            Service.Log($"[ExecHints] Unexpected actor: expected {actor.InstanceID:X} at #{actor.SpawnIndex}, but found {obj->EntityId:X}");
+            Service.Log(
+                $"[ExecHints] Unexpected actor: expected {actor.InstanceID:X} at #{actor.SpawnIndex}, but found {obj->EntityId:X}");
 
         return obj;
     }
