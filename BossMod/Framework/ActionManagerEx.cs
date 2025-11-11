@@ -365,9 +365,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
             // fake action types
             case ActionType.BozjaHolsterSlot0:
             case ActionType.BozjaHolsterSlot1:
-                var state = PublicContentBozja.GetState(); // note: if it's non-null, the director instance can't be null too
-                var holsterIndex = state != null ? state->HolsterActions.IndexOf((byte)action.ID) : -1;
-                return holsterIndex >= 0 && PublicContentBozja.GetInstance()->UseFromHolster((uint)holsterIndex, action.Type == ActionType.BozjaHolsterSlot1 ? 1u : 0);
+                return UseBozjaHolsterNative(action);
             case ActionType.Pomander:
                 UsePomanderNative(action);
                 return true;
@@ -568,18 +566,32 @@ public sealed unsafe class ActionManagerEx : IDisposable
 
     private bool UseBozjaFromHolsterDirectorDetour(PublicContentBozja* self, uint holsterIndex, uint slot)
     {
-        var prevRot = GetPlayerRotation();
-        var res = _useBozjaFromHolsterDirectorHook.Original(self, holsterIndex, slot);
-        var currRot = GetPlayerRotation();
-        if (res)
-        {
-            var entry = (BozjaHolsterID)self->State.HolsterActions[(int)holsterIndex];
-            HandleActionRequest(ActionID.MakeBozjaHolster(entry, (int)slot), 0, 0xE0000000, default, prevRot, currRot);
-        }
-        return res;
+        var state = PublicContentBozja.GetState();
+        if (state == null)
+            return false;
+        var action = new ActionID(slot == 0 ? ActionType.BozjaHolsterSlot0 : ActionType.BozjaHolsterSlot1, state->HolsterActions[(int)holsterIndex]);
+
+        if (_manualQueue.Push(action, 0xE0000000, 0, false, () => (0, null), () => 0xE0000000))
+            return true;
+
+        return UseBozjaHolsterNative(action);
     }
 
-    // pomander and magicite funcs are both extremely basic, they just check if animlock <= 0 and call executecommand
+    private bool UseBozjaHolsterNative(ActionID action)
+    {
+        var state = PublicContentBozja.GetState();
+        var ix = state != null ? state->HolsterActions.IndexOf((byte)action.ID) : -1;
+        var prevRot = GetPlayerRotation();
+        if (ix >= 0 && _useBozjaFromHolsterDirectorHook.Original(PublicContentBozja.GetInstance(), (uint)ix, action.Type == ActionType.BozjaHolsterSlot1 ? 1u : 0))
+        {
+            _inst->AnimationLock = 2.1f;
+            HandleActionRequest(action, 0, 0xE0000000, default, prevRot, GetPlayerRotation());
+            return true;
+        }
+
+        return false;
+    }
+
     private void UsePomanderDetour(InstanceContentDeepDungeon* self, uint slot)
     {
         var action = _ws.DeepDungeon.GetPomanderActionID((int)slot);
@@ -587,15 +599,6 @@ public sealed unsafe class ActionManagerEx : IDisposable
             return;
 
         UsePomanderNative(action);
-    }
-
-    private void UseStoneDetour(InstanceContentDeepDungeon* self, uint slot)
-    {
-        var action = new ActionID(ActionType.Magicite, slot);
-        if (_manualQueue.Push(action, 0xE0000000, 0, false, () => (0, null), () => 0xE0000000))
-            return;
-
-        UseStoneNative(action);
     }
 
     private void UsePomanderNative(ActionID action)
@@ -607,10 +610,20 @@ public sealed unsafe class ActionManagerEx : IDisposable
         var slot = _ws.DeepDungeon.GetPomanderSlot((PomanderID)action.ID);
         if (dd != null && slot >= 0)
         {
+            var prevRot = GetPlayerRotation();
             _usePomanderHook.Original(dd, (uint)slot);
             _inst->AnimationLock = 2.1f;
-            HandleActionRequest(action, 0, 0xE0000000, default, GetPlayerRotation(), GetPlayerRotation());
+            HandleActionRequest(action, 0, 0xE0000000, default, prevRot, GetPlayerRotation());
         }
+    }
+
+    private void UseStoneDetour(InstanceContentDeepDungeon* self, uint slot)
+    {
+        var action = new ActionID(ActionType.Magicite, slot + 1);
+        if (_manualQueue.Push(action, 0xE0000000, 0, false, () => (0, null), () => 0xE0000000))
+            return;
+
+        UseStoneNative(action);
     }
 
     private void UseStoneNative(ActionID action)
@@ -621,9 +634,10 @@ public sealed unsafe class ActionManagerEx : IDisposable
         var dd = EventFramework.Instance()->GetInstanceContentDeepDungeon();
         if (dd != null)
         {
-            _useStoneHook.Original(dd, action.ID);
+            var prevRot = GetPlayerRotation();
+            _useStoneHook.Original(dd, action.ID - 1);
             _inst->AnimationLock = 2.1f;
-            HandleActionRequest(action, 0, 0xE0000000, default, GetPlayerRotation(), GetPlayerRotation());
+            HandleActionRequest(action, 0, 0xE0000000, default, prevRot, GetPlayerRotation());
         }
     }
 
