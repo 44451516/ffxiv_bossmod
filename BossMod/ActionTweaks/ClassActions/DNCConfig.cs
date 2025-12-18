@@ -3,6 +3,6 @@
 [ConfigDisplay(Parent = typeof(ActionTweaksConfig))]
 class DNCConfig : ConfigNode
 {
-    [PropertyDisplay("Align En Avant with camera direction")]
+    [PropertyDisplay("将前冲步与相机方向对齐")]
     public bool AlignDashToCamera = false;
 }
