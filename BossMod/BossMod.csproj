@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/14.0.0">
+<Project Sdk="Dalamud.CN.NET.Sdk/14.0.0">
   <ItemGroup>
     <Using Include="System" />
     <Using Include="System.Collections" />
@@ -9,8 +9,47 @@
     <Using Include="System.Numerics" />
     <Using Include="Lumina.Extensions" />
   </ItemGroup>
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <OutputPath>$(MSBuildProjectDirectory)\..\release\BossMod</OutputPath>
+        <!--    <AnalysisMode>All</AnalysisMode>-->
+        <!--    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>-->
+        <!--    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>-->
+    </PropertyGroup>
 
-  <PropertyGroup>
+    <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(Configuration)' == 'Release'">
+        <ItemGroup>
+            <FilesToDelete Include="$(OutputPath)Dalamud.Common.dll" />
+            <FilesToDelete Include="$(OutputPath)Dalamud.Common.pdb" />
+            <FilesToDelete Include="$(OutputPath)System.Data.SQLite.dll" />
+            <FilesToDelete Include="$(OutputPath)TerraFX.Interop.Windows.dll" />
+        </ItemGroup>
+        <Delete Files="@(FilesToDelete)" ContinueOnError="true" />
+    </Target>
+
+    <Target Name="CreateZipPackage" AfterTargets="RemoveUnwantedFiles" Condition="'$(Configuration)' == 'Release'">
+        <PropertyGroup>
+            <ZipOutputPath>$(OutputPath)\latest.zip</ZipOutputPath>
+            <TempZipPath>$(MSBuildProjectDirectory)\..\release\latest_temp.zip</TempZipPath>
+        </PropertyGroup>
+        <Message Text="开始创建打包文件: $(ZipOutputPath)" Importance="high" />
+        <Delete Files="$(ZipOutputPath)" ContinueOnError="true" />
+        <Delete Files="$(TempZipPath)" ContinueOnError="true" />
+        <ItemGroup>
+            <FilesToZip Include="$(OutputPath)\*.*" Exclude="$(OutputPath)\latest.zip" />
+        </ItemGroup>
+        <ZipDirectory SourceDirectory="$(OutputPath)" DestinationFile="$(TempZipPath)" Overwrite="true" />
+        <Move SourceFiles="$(TempZipPath)" DestinationFiles="$(ZipOutputPath)" />
+        <Message Text="打包完成: $(ZipOutputPath)" Importance="high" />
+    </Target>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+        <!--        <OutputPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\devPlugins\BossMod\</OutputPath>-->
+        <!--    <AnalysisMode>All</AnalysisMode>-->
+        <!--    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>-->
+        <!--    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>-->
+    </PropertyGroup>
+
+    <PropertyGroup>
     <LocalCS>false</LocalCS>
   </PropertyGroup>
 
@@ -19,8 +58,8 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(LocalCS)' == 'true'">
-    <ProjectReference Include="..\..\cs\FFXIVClientStructs\FFXIVClientStructs.csproj" />
-    <ProjectReference Include="..\..\cs\InteropGenerator.Runtime\InteropGenerator.Runtime.csproj" />
+<!--    <ProjectReference Include="..\..\cs\FFXIVClientStructs\FFXIVClientStructs.csproj" />-->
+<!--    <ProjectReference Include="..\..\cs\InteropGenerator.Runtime\InteropGenerator.Runtime.csproj" />-->
   </ItemGroup>
 
   <ItemGroup>
