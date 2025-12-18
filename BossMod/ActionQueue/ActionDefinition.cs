@@ -520,7 +520,7 @@ public sealed class ActionDefinitions : IDisposable
         var baseId = aid.ID % 500000;
         var item = ItemData(baseId);
         var itemAction = item.ItemAction.Value;
-        var spellId = itemAction.RowOffset;
+        var spellId = itemAction.RowId;
         var cdgroup = SpellMainCDGroup(spellId);
         float cooldown = item.Cooldowns;
         var targets = SpellAllowedTargets(spellId);
