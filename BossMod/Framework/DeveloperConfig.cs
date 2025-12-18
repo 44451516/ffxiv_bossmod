@@ -1,4 +1,4 @@
-namespace BossMod;
+﻿namespace BossMod;
 
 [ConfigDisplay(Name = "Developer settings", Order = 9)]
 public sealed class DeveloperConfig : ConfigNode

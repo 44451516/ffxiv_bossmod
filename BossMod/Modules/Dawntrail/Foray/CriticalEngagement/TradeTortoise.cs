@@ -301,6 +301,6 @@ public class TradeTortoise(WorldState ws, Actor primary) : BossModule(ws, primar
 [ConfigDisplay(Parent = typeof(DawntrailConfig))]
 public class TradeTortoiseConfig : ConfigNode
 {
-    [PropertyDisplay("Automatically solve the coin minigame (if AI mode or NormalMovement is active)")]
+    [PropertyDisplay("自动解决硬币小游戏（如果AI模式或正常移动处于活动状态）")]
     public bool CoinGame = true;
 }

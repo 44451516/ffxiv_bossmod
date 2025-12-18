@@ -3,7 +3,7 @@
 [ConfigDisplay(Parent = typeof(DawntrailConfig))]
 public class RM05SDancingGreenConfig : ConfigNode
 {
-    [PropertyDisplay("Seconds in advance to show spotlight safe spots (default: 15)")]
+    [PropertyDisplay("提前显示聚光灯安全点的秒数（默认：15）")]
     [PropertySlider(5, 30)]
     public float SpotlightHintSeconds = 15;
 }

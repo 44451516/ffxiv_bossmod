@@ -5,46 +5,46 @@ public class RM08SHowlingBladeConfig : ConfigNode
 {
     public enum ReignStrategy
     {
-        [PropertyDisplay("Show both safespots for current role")]
+        [PropertyDisplay("显示当前职责的两个安全点")]
         Any,
-        [PropertyDisplay("Assume G1 left, G2 right when looking at boss from arena center")]
+        [PropertyDisplay("假设从竞技场中心看向首领时G1左，G2右")]
         Standard,
-        [PropertyDisplay("Assume G1 right, G2 left when looking at boss from arena center")]
+        [PropertyDisplay("假设从竞技场中心看向首领时G1右，G2左")]
         Inverse,
-        [PropertyDisplay("None")]
+        [PropertyDisplay("无")]
         Disabled
     }
 
-    [PropertyDisplay("Revolutionary Reign positioning hints")]
+    [PropertyDisplay("革命统治位置提示")]
     public ReignStrategy ReignHints = ReignStrategy.Standard;
 
     public enum TerrestrialRageStrategy
     {
-        [PropertyDisplay("No hints")]
+        [PropertyDisplay("无提示")]
         None,
-        [PropertyDisplay("Clocks - stack marker goes to N/NE safe spot, spreads adjust")]
+        [PropertyDisplay("时钟 - 集合标记去N/NE安全点，分散调整")]
         Clock,
         // Toxic, DN TODO
     }
 
-    [PropertyDisplay("Terrestrial Rage")]
+    [PropertyDisplay("大地之怒")]
     public TerrestrialRageStrategy TRHints = TerrestrialRageStrategy.None;
 
-    [PropertyDisplay("Beckon Moonlight: highlight first and third safe quadrants on minimap (aka \"quad moonlight\")")]
+    [PropertyDisplay("召唤月光：在小地图上高亮第一和第三个安全象限（即\"象限月光\"）")]
     public bool QuadMoonlightHints = false;
 
     public enum LamentTowerStrategy
     {
-        [PropertyDisplay("No tower hints")]
+        [PropertyDisplay("无塔提示")]
         None,
-        [PropertyDisplay("Rinon - healers S, long tank SW, long tank partner SE, long healer partner N, short tank and partner N")]
+        [PropertyDisplay("Rinon - 治疗S，长坦克SW，长坦克伙伴SE，长治疗伙伴N，短坦克和伙伴N")]
         Rinon,
     }
 
-    [PropertyDisplay("Lone Wolf's Lament")]
+    [PropertyDisplay("孤狼的哀叹")]
     public LamentTowerStrategy TowerHints = LamentTowerStrategy.Rinon;
 
-    [PropertyDisplay("Windfang/Stonefang clock spots", tooltip: "Only used by AI")]
+    [PropertyDisplay("风牙/石牙时钟位置", tooltip: "仅由AI使用")]
     [GroupDetails(["N", "NE", "E", "SE", "S", "SW", "W", "NW"])]
     [GroupPreset("Default", [0, 4, 6, 2, 5, 3, 7, 1])]
     public GroupAssignmentUnique WindfangStonefangSpots = new() { Assignments = [0, 4, 6, 2, 5, 3, 7, 1] };

@@ -3,6 +3,6 @@
 [ConfigDisplay(Order = 0x333, Parent = typeof(EndwalkerConfig))]
 public class C033SStaticeConfig() : ConfigNode()
 {
-    [PropertyDisplay("Darts 2: supports relative west, dd relative east")]
+    [PropertyDisplay("飞镖2：支援相对西方，DD相对东方")]
     public bool Fireworks2Invert = false;
 }

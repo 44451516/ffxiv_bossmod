@@ -3,32 +3,32 @@
 [ConfigDisplay(Parent = typeof(DawntrailConfig))]
 class RM06SSugarRiotConfig : ConfigNode
 {
-    [PropertyDisplay("Enable priority hints for adds phase (only used by VBM autorotation)")]
+    [PropertyDisplay("启用小怪阶段的优先级提示（仅由VBM自动循环使用）")]
     public bool EnableAddsHints = false;
 
-    [PropertyDisplay("Forbid DoTs on squirrels, mantas, rams, and jabberwock", depends: nameof(EnableAddsHints))]
+    [PropertyDisplay("禁止对松鼠、鳐鱼、公羊和炸脖龙使用DoT", depends: nameof(EnableAddsHints))]
     public bool SmartDots = true;
 
     public enum CatDotStrategy
     {
-        [PropertyDisplay("From ranged only")]
+        [PropertyDisplay("仅远程")]
         RangedOnly,
-        [PropertyDisplay("From all roles")]
+        [PropertyDisplay("所有职责")]
         All,
-        [PropertyDisplay("None")]
+        [PropertyDisplay("无")]
         None
     }
 
-    [PropertyDisplay("Allow DoT usage on cat", depends: nameof(EnableAddsHints))]
+    [PropertyDisplay("允许对猫使用DoT", depends: nameof(EnableAddsHints))]
     public CatDotStrategy CatDotPolicy = CatDotStrategy.RangedOnly;
 
-    [PropertyDisplay("Use single-target rotation on rays", depends: nameof(EnableAddsHints))]
+    [PropertyDisplay("对鳐鱼使用单体循环", depends: nameof(EnableAddsHints))]
     public bool MantaPrio = true;
 
-    [PropertyDisplay("Prioritize jabberwock over other adds", depends: nameof(EnableAddsHints))]
+    [PropertyDisplay("优先炸脖龙而非其他小怪", depends: nameof(EnableAddsHints))]
     public bool JabberwockPrio = true;
 
-    [PropertyDisplay("Prevent melees and tanks from hitting untethered rays", depends: nameof(EnableAddsHints))]
+    [PropertyDisplay("防止近战和坦克攻击无连线的鳐鱼", depends: nameof(EnableAddsHints))]
     public bool ForbiddenManta = true;
 }
 

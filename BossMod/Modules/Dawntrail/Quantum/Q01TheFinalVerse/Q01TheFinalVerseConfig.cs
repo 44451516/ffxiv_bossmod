@@ -8,13 +8,13 @@ public class Q01TheFinalVerseConfig : ConfigNode
     // TODO: fixed positions strat where everyone stacks at the end
     public enum SinBearer
     {
-        [PropertyDisplay("Don't assume any order")]
+        [PropertyDisplay("不假设任何顺序")]
         None,
-        [PropertyDisplay("MMRR -> Roles -> MMRR (accelerated 1st pass)")]
+        [PropertyDisplay("MMRR -> 职责 -> MMRR（加速第一次传递）")]
         AccelFirst,
     }
 
-    [PropertyDisplay("Sin Bearer pass order", tooltip: "Each party member needs a unique role in Party Roles Assignment for pass order to be calculated correctly")]
+    [PropertyDisplay("罪孽传递顺序", tooltip: "每个队伍成员需要在队伍职责分配中具有唯一职责，才能正确计算传递顺序")]
     public SinBearer SinBearerOrder = SinBearer.AccelFirst;
 
     public struct FlamebornAssignment

@@ -3,6 +3,6 @@
 [ConfigDisplay(Parent = typeof(ActionTweaksConfig))]
 class MCHConfig : ConfigNode
 {
-    [PropertyDisplay("Pause autorotation while channeling Flamethrower")]
+    [PropertyDisplay("在引导火焰喷射器时暂停自动循环")]
     public bool PauseForFlamethrower = false;
 }

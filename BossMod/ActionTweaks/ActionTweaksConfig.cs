@@ -19,7 +19,7 @@ public sealed class ActionTweaksConfig : ConfigNode
 
     public enum ModifierKey
     {
-        [PropertyDisplay("None")]
+        [PropertyDisplay("无")]
         None,
 
         [PropertyDisplay("Ctrl")]

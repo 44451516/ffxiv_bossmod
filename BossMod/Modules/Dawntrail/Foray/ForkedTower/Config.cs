@@ -7,7 +7,7 @@ class ForkedTowerConfig : ConfigNode
 {
     public enum Alliance
     {
-        [PropertyDisplay("None - only show generic hints")]
+        [PropertyDisplay("无 - 仅显示通用提示")]
         None,
         A,
         B,
@@ -20,10 +20,10 @@ class ForkedTowerConfig : ConfigNode
         F3
     }
 
-    [PropertyDisplay("Alliance assignment for hints")]
+    [PropertyDisplay("联盟分配提示")]
     public Alliance PlayerAlliance = Alliance.None;
 
-    [PropertyDisplay("Enable config overlay while inside Forked Tower")]
+    [PropertyDisplay("在分叉塔内启用配置覆盖层")]
     public bool DrawOverlay = true;
 }
 

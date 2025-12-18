@@ -3,7 +3,7 @@
 [ConfigDisplay(Parent = typeof(DawntrailConfig))]
 public class Ex4ZeleniaConfig : ConfigNode
 {
-    [PropertyDisplay("Show AOE hints for Holy Hazard (Bloom 6)", tooltip: "This mechanic can be ignored using tank LB or mit. Disable if you want less clutter on the minimap.")]
+    [PropertyDisplay("显示神圣危险（绽放6）的AOE提示", tooltip: "此机制可以使用坦克LB或减伤忽略。如果希望小地图上更简洁，请禁用。")]
     public bool ShowHolyHazard = true;
 }
 

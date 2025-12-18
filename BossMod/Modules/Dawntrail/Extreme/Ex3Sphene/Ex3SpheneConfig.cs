@@ -3,6 +3,6 @@
 [ConfigDisplay(Order = 0x030, Parent = typeof(DawntrailConfig))]
 class Ex3SpheneConfig() : ConfigNode()
 {
-    [PropertyDisplay("Absolute Authority: ignore flares, stack together")]
+    [PropertyDisplay("绝对权威：忽略光球，一起集合")]
     public bool AbsoluteAuthorityIgnoreFlares = true;
 }

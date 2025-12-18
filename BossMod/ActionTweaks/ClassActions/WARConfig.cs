@@ -3,9 +3,9 @@
 [ConfigDisplay(Parent = typeof(ActionTweaksConfig))]
 class WARConfig : ConfigNode
 {
-    [PropertyDisplay("Prefer self-targeted holmgang; requires smart targeting to be enabled (and allows overriding target by mouseover)")]
+    [PropertyDisplay("优先使用自身目标的死斗；需要启用智能目标（并允许通过鼠标悬停覆盖目标）")]
     public bool HolmgangSelf = true;
 
-    [PropertyDisplay("Forbid tomahawk too early in prepull")]
+    [PropertyDisplay("禁止在开战前过早使用战斧")]
     public bool ForbidEarlyTomahawk = true;
 }

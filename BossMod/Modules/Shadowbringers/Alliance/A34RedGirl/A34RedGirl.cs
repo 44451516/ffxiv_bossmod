@@ -3,7 +3,7 @@
 [ConfigDisplay(Parent = typeof(ShadowbringersConfig), Name = "The Tower at Paradigm's Breach - Red Girl")]
 public class A34RedGirlConfig : ConfigNode
 {
-    [PropertyDisplay("Automatically attack closest enemies during hacking minigame")]
+    [PropertyDisplay("在黑客小游戏期间自动攻击最近的敌人")]
     public bool AutoHack = true;
 }
 

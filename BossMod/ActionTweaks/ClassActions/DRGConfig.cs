@@ -6,19 +6,19 @@ class DRGConfig : ConfigNode
     // TODO: generalize to common utility
     public enum ElusiveJumpBehavior : uint
     {
-        [PropertyDisplay("Game default (character-relative, backwards)")]
+        [PropertyDisplay("游戏默认（角色相对，向后）")]
         Default = 0,
 
-        [PropertyDisplay("Character-relative, forwards")]
+        [PropertyDisplay("角色相对，向前")]
         CharacterForward = 1,
 
-        [PropertyDisplay("Camera-relative, backwards")]
+        [PropertyDisplay("相机相对，向后")]
         CameraBackward = 2,
 
-        [PropertyDisplay("Camera-relative, forwards")]
+        [PropertyDisplay("相机相对，向前")]
         CameraForward = 3,
     }
 
-    [PropertyDisplay("Elusive Jump direction")]
+    [PropertyDisplay("后跳方向")]
     public ElusiveJumpBehavior ElusiveJump = ElusiveJumpBehavior.Default;
 }

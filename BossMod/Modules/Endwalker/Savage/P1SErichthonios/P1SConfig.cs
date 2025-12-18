@@ -5,6 +5,6 @@ public class P1SConfig() : ConfigNode()
 {
     public enum Corner { NW, NE, SE, SW }
 
-    [PropertyDisplay("Intemperance: corner that swaps with N on asymmetrical pattern")]
+    [PropertyDisplay("不节制：在不对称模式下与N交换的角落")]
     public Corner IntemperanceAsymmetricalSwapCorner = Corner.NW;
 }

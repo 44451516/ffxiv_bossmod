@@ -3,12 +3,12 @@
 [ConfigDisplay(Order = 0x142, Parent = typeof(EndwalkerConfig))]
 public class P4S2Config() : ConfigNode()
 {
-    [PropertyDisplay("Act 4: go 1/8 CCW to soak tower with dark debuff")]
+    [PropertyDisplay("第四幕：逆时针1/8去吸收带有暗debuff的塔")]
     public bool Act4DarkSoakCCW = false;
 
-    [PropertyDisplay("Act 4: go 3/8 CCW to break water tether")]
+    [PropertyDisplay("第四幕：逆时针3/8去打破水连线")]
     public bool Act4WaterBreakCCW = false;
 
-    [PropertyDisplay("Curtain call: DD break debuff first")]
+    [PropertyDisplay("谢幕：DD先打破debuff")]
     public bool CurtainCallDDFirst = false;
 }
