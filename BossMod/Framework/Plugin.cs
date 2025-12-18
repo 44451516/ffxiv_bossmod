@@ -5,6 +5,7 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
+using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -33,6 +34,7 @@ public sealed class Plugin : IDalamudPlugin
     private TimeSpan _prevUpdateTime;
     private DateTime _throttleJump;
     private DateTime _throttleInteract;
+    private DateTime _throttleFateSync;
     private readonly PackLoader _packs;
 
     // windows
@@ -58,6 +60,10 @@ public sealed class Plugin : IDalamudPlugin
             dalamudRoot?.GetType().GetProperty("StartInfo", BindingFlags.NonPublic | BindingFlags.Instance)
                 ?.GetValue(dalamudRoot) as DalamudStartInfo;
         var gameVersion = dalamudStartInfo?.GameVersion?.ToString() ?? "unknown";
+
+        // FIXME
+        dataManager.GameData.Options.PanicOnSheetChecksumMismatch = false;
+
 #if LOCAL_CS
         InteropGenerator.Runtime.Resolver.GetInstance.Setup(sigScanner.SearchBase, gameVersion, new(dalamud.ConfigDirectory.FullName + "/cs.json"));
         FFXIVClientStructs.Interop.Generated.Addresses.Register();
@@ -399,6 +405,8 @@ public sealed class Plugin : IDalamudPlugin
                 _throttleInteract = _ws.FutureTime(0.1f);
             }
         }
+
+        HandleFateSync();
     }
 
     private unsafe void SetTarget(Actor? target, FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject** targetPtr)
@@ -429,7 +437,32 @@ public sealed class Plugin : IDalamudPlugin
         if (targetObj->ObjectKind is FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind.Treasure)
             return player?.DistanceToHitbox(target) <= 2.09f;
 
-        return EventFramework.Instance()->CheckInteractRange(playerObj, targetObj, 1, false);
+        // FIXME extra arg (int*) before logErrorsToUser
+        var checkFn = (delegate* unmanaged<EventFramework*, FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*, FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*, byte, int*, byte, byte>)EventFramework.MemberFunctionPointers.CheckInteractRange;
+
+        var ret = 0;
+        return checkFn(EventFramework.Instance(), playerObj, targetObj, 1, &ret, 0) == 1;
+    }
+
+    private unsafe void HandleFateSync()
+    {
+        var fm = FateManager.Instance();
+        var fate = fm->CurrentFate;
+        if (fate == null)
+            return;
+
+        var shouldDoSomething = _hints.WantFateSync switch
+        {
+            AIHints.FateSync.Enable => !fm->IsSyncedToFate(fate),
+            AIHints.FateSync.Disable => fm->IsSyncedToFate(fate),
+            _ => false
+        };
+
+        if (shouldDoSomething && _ws.CurrentTime >= _throttleFateSync)
+        {
+            fm->LevelSync();
+            _throttleFateSync = _ws.FutureTime(0.5f);
+        }
     }
 
     private unsafe FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject* GetActorObject(Actor? actor)

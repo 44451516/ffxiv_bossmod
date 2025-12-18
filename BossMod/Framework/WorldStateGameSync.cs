@@ -118,7 +118,7 @@ sealed class WorldStateGameSync : IDisposable
         _processPacketEffectResultHook.Enable();
         Service.Log($"[WSG] ProcessPacketEffectResult address = 0x{_processPacketEffectResultHook.Address:X}");
 
-        _processPacketEffectResultBasicHook = Service.Hook.HookFromSignature<ProcessPacketEffectResultDelegate>("40 53 41 54 41 55 48 83 EC 40", ProcessPacketEffectResultBasicDetour);
+        _processPacketEffectResultBasicHook = Service.Hook.HookFromSignature<ProcessPacketEffectResultDelegate>("40 53 41 54 41 55 48 83 EC 40 83 3D ?? ?? ?? ?? ??", ProcessPacketEffectResultBasicDetour);
         _processPacketEffectResultBasicHook.Enable();
         Service.Log($"[WSG] ProcessPacketEffectResultBasic address = 0x{_processPacketEffectResultBasicHook.Address:X}");
 
@@ -177,7 +177,10 @@ sealed class WorldStateGameSync : IDisposable
             Service.Log($"[WSG] ApplyKnockback address = {_applyKnockbackHook.Address:X}");
         }
 
+
         _inventoryAckHook = Service.Hook.HookFromSignature<InventoryAckDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 57 ?? 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D7", InventoryAckDetour);
+        // _inventoryAckHook = Service.Hook.HookFromSignature<InventoryAckDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 57 10 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D7", InventoryAckDetour);
+
         _inventoryAckHook.Enable();
         Service.Log($"[WSG] InventoryAck address = {_inventoryAckHook.Address:X}");
     }
@@ -323,7 +326,7 @@ sealed class WorldStateGameSync : IDisposable
         var nameID = chr != null ? chr->NameId : 0;
         var classID = chr != null ? (Class)chr->ClassJob : Class.None;
         var level = chr != null ? chr->Level : 0;
-        var posRot = new Vector4(obj->Position, obj->Rotation);
+        var posRot = new Vector4(*obj->GetPosition(), obj->Rotation);
         var hpmp = new ActorHPMP();
         bool inCombat = false;
         if (chr != null)
@@ -430,6 +433,23 @@ sealed class WorldStateGameSync : IDisposable
                     curStatus.ExpireAt = _ws.CurrentTime.AddSeconds(dur);
                 }
                 UpdateActorStatus(act, i, curStatus);
+            }
+        }
+
+        var aeh = chr != null ? chr->GetActionEffectHandler() : null;
+        if (aeh != null)
+        {
+            for (int i = 0; i < aeh->IncomingEffects.Length; ++i)
+            {
+                ref var eff = ref aeh->IncomingEffects[i];
+                ref var prev = ref act.IncomingEffects[i];
+                if ((prev.GlobalSequence, prev.TargetIndex) != (eff.GlobalSequence != 0 ? (eff.GlobalSequence, eff.TargetIndex) : (0, 0)))
+                {
+                    var effects = new ActionEffects();
+                    for (int j = 0; j < ActionEffects.MaxCount; ++j)
+                        effects[j] = *(ulong*)eff.Effects.Effects.GetPointer(j);
+                    _ws.Execute(new ActorState.OpIncomingEffect(act.InstanceID, i, new(eff.GlobalSequence, eff.TargetIndex, eff.Source, new((ActionType)eff.ActionType, eff.ActionId), effects)));
+                }
             }
         }
     }
@@ -740,6 +760,11 @@ sealed class WorldStateGameSync : IDisposable
         if (_ws.Client.ActivePet != pet)
             _ws.Execute(new ClientState.OpActivePetChange(pet));
 
+        var chocoinfo = uiState->Buddy.CompanionInfo;
+        var chocobo = new ClientState.Companion(chocoinfo.Companion->EntityId, chocoinfo.ActiveCommand, chocoinfo.TimeLeft);
+        if (_ws.Client.ActiveCompanion != chocobo)
+            _ws.Execute(new ClientState.OpActiveCompanionChange(chocobo));
+
         var focusTarget = TargetSystem.Instance()->FocusTarget;
         var focusTargetId = focusTarget != null ? SanitizedObjectID(focusTarget->GetGameObjectId()) : 0;
         if (_ws.Client.FocusTargetId != focusTargetId)
@@ -816,7 +841,16 @@ sealed class WorldStateGameSync : IDisposable
             var currentId = (DeepDungeonState.DungeonType)dd->DeepDungeonId;
             var fullUpdate = currentId != _ws.DeepDungeon.DungeonId;
 
-            var progress = new DeepDungeonState.DungeonProgress(dd->Floor, dd->ActiveLayoutIndex, dd->WeaponLevel, dd->ArmorLevel, dd->SyncedGearLevel, dd->HoardCount, dd->ReturnProgress, dd->PassageProgress);
+            // TODO: dd->ActiveLayoutIndex is named incorrectly, i don't actually know what it does (both RoomA and RoomC get ActiveLayoutIndex=0)
+            byte tileset = dd->LayoutInitializationType switch
+            {
+                1 => 0,
+                2 => 1,
+                5 => 2,
+                _ => 0xFF
+            };
+
+            var progress = new DeepDungeonState.DungeonProgress(dd->Floor, tileset, dd->WeaponLevel, dd->ArmorLevel, dd->SyncedGearLevel, dd->HoardCount, dd->ReturnProgress, dd->PassageProgress, (Utils.ReadField<byte>(dd, 0x211E) & 1) != 0);
             if (fullUpdate || progress != _ws.DeepDungeon.Progress)
                 _ws.Execute(new DeepDungeonState.OpProgressChange(currentId, progress));
 
@@ -1077,8 +1111,9 @@ sealed class WorldStateGameSync : IDisposable
 
     private unsafe void ApplyKnockbackDetour(Character* thisPtr, float a2, float a3, float a4, byte a5, int a6)
     {
-        Service.Log("applying knockback to player");
         _applyKnockbackHook.Original(thisPtr, a2, a3, a4, a5, a6);
+        if (Service.IsDev)
+            _globalOps.Add(new WorldState.OpUserMarker($"Knockback applied to player with a2={a2:f3}, a3={a3:f3}, a4={a4:f3}, a5={a5:X2}, a6={a6:X8}"));
     }
 
     private unsafe byte ProcessLegacyMapEffectDetour(EventFramework* fwk, EventId eventId, byte seq, byte unk, void* data, ulong length)

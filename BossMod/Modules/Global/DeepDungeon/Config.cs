@@ -26,7 +26,11 @@ public class AutoDDConfig : ConfigNode
     public bool EnableMinimap = true;
     [PropertyDisplay("尝试避开陷阱", tooltip: "避开源自PalacePal数据的已知陷阱位置。（无论此设置如何，由洞察宝玉揭示的陷阱始终会被避开。）")]
     public bool TrapHints = true;
-    [PropertyDisplay("自动导航到通路祭坛")]
+
+
+    [PropertyDisplay("Draw potential trap locations in game world")]
+    public bool DrawTraps = false;
+    [PropertyDisplay("Automatically navigate to Cairn of Passage")]
     public bool AutoPassage = true;
 
     [PropertyDisplay("自动怪物目标行为")]
@@ -71,8 +75,8 @@ public class AutoDDConfig : ConfigNode
                 {
                     var row = Service.LuminaRow<DeepDungeonItem>((uint)i)!.Value;
                     var wrap = Service.Texture.GetFromGameIcon(row.Icon).GetWrapOrEmpty();
-                    var scale = new Vector2(32, 32) * ImGuiHelpers.GlobalScale;
-                    ImGui.Image(wrap.Handle, scale, new Vector2(0, 0), tintCol: AutoPoms[i] ? new(1, 1, 1, 1) : new(1, 1, 1, 0.4f));
+                    var scale = new Vector2(32 * ImGuiHelpers.GlobalScale);
+                    ImGui.Image(wrap.Handle, scale, new Vector2(0), tintCol: new Vector4(1) with { W = AutoPoms[i] ? 1 : 0.4f });
                     if (ImGui.IsItemClicked())
                     {
                         AutoPoms.Toggle(i);

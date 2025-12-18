@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace BossMod;
@@ -21,11 +22,30 @@ public static partial class Utils
         : obj.SubKind == 0 ? $"{obj.ObjectKind}"
         : $"{obj.ObjectKind}/{obj.SubKind}";
 
+    public static string ShowObject<T>(T obj)
+    {
+        var sb = new StringBuilder(typeof(T).Name);
+        sb.Append(" {");
+        var first = true;
+        foreach (var f in typeof(T).GetFields())
+        {
+            if (!first)
+                sb.Append(',');
+            var v = f.GetValue(obj);
+            sb.Append($" {f.Name} = {v}");
+            first = false;
+        }
+        sb.Append(" }");
+        return sb.ToString();
+    }
+
     public static Vector2 XY(this Vector4 v) => new(v.X, v.Y);
     public static Vector3 XYZ(this Vector4 v) => new(v.X, v.Y, v.Z);
     public static Vector2 XZ(this Vector4 v) => new(v.X, v.Z);
     public static Vector2 XZ(this Vector3 v) => new(v.X, v.Z);
     public static Vector3 ToSystem(this FFXIVClientStructs.FFXIV.Common.Math.Vector3 v) => new(v.X, v.Y, v.Z);
+
+    public static WPos ToWPos(this Vector3 v) => new(v.X, v.Z);
 
     public static bool AlmostEqual(float a, float b, float eps) => MathF.Abs(a - b) <= eps;
     public static bool AlmostEqual(Vector3 a, Vector3 b, float eps) => (a - b).LengthSquared() <= eps * eps;
@@ -393,4 +413,6 @@ public static partial class Utils
                 list.RemoveAt(i);
             }
     }
+
+    public static Vector3 ToSystem(this Lumina.Data.Parsing.Common.Vector3 v) => new(v.X, v.Y, v.Z);
 }

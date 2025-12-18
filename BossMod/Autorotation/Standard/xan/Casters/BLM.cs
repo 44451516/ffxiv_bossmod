@@ -5,9 +5,44 @@ using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOld<AID, TraitID>(manager, player, PotionType.Intelligence)
+public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<AID, TraitID, BLM.Strategy>(manager, player, PotionType.Intelligence)
 {
-    public enum Track { Scathe = SharedTrack.Buffs, Thunder, Leylines, Triplecast, Iainuki, Zeninage, LLMove, TimeMage, Manafont }
+    public struct Strategy : IStrategyCommon
+    {
+        public Track<Targeting> Targeting;
+        public Track<AOEStrategy> AOE;
+
+        [Track(Action = AID.Scathe)]
+        public Track<ScatheStrategy> Scathe;
+
+        [Track(InternalName = "DoT", Actions = [AID.Thunder1, AID.Thunder2, AID.Thunder3, AID.Thunder4, AID.HighThunder, AID.HighThunder2])]
+        public Track<ThunderStrategy> Thunder;
+
+        [Track(InternalName = "LL", Actions = [AID.LeyLines, AID.Retrace, AID.BetweenTheLines])]
+        public Track<LeylinesStrategy> Leylines;
+
+        [Track(InternalName = "TC", Action = AID.Triplecast)]
+        public Track<TriplecastStrategy> Triplecast;
+
+        [Track("Phantom Samurai: Use Iainuki on cooldown", UiPriority = -10, MinLevel = 100, Action = PhantomID.Iainuki)]
+        public Track<EnabledByDefault> Iainuki;
+
+        [Track("Phantom Samurai: Use Zeninage under raid buffs (coffer required)", UiPriority = -10, MinLevel = 100, Action = PhantomID.Zeninage)]
+        public Track<EnabledByDefault> Zeninage;
+
+        [Track("Allow automatic usage of Leylines while moving", Action = AID.LeyLines)]
+        public Track<DisabledByDefault> LLMove;
+
+        [Track("Phantom Time Mage: Use Occult Quick/Occult Comet on cooldown", UiPriority = -10, MinLevel = 100, Actions = [PhantomID.OccultQuick, PhantomID.OccultComet])]
+        public Track<EnabledByDefault> AutoTimeMage;
+
+        [Track(Action = AID.Manafont)]
+        public Track<OffensiveStrategy> Manafont;
+
+        readonly Targeting IStrategyCommon.Targeting => Targeting.Value;
+        readonly AOEStrategy IStrategyCommon.AOE => AOE.Value;
+    }
+
     public enum ScatheStrategy
     {
         Forbid,
@@ -16,72 +51,41 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
 
     public enum ThunderStrategy
     {
+        [Option("Automatically refresh on main target according to standard rotation", Targets = ActionTargets.Hostile)]
         Automatic,
+        [Option("Don't apply")]
         Delay,
+        [Option("Force refresh ASAP", Targets = ActionTargets.Hostile)]
         Force,
+        [Option("Allow Thunder if an instant cast is needed, but don't try to maintain uptime", Targets = ActionTargets.Hostile)]
         InstantOnly,
+        [Option("Use only for DoT refresh, not as a utility instant cast", Targets = ActionTargets.Hostile)]
         ForbidInstant
     }
 
     public enum LeylinesStrategy
     {
+        [Option("Use Leylines in opener, otherwise do not use automatically")]
         OpenerOnly,
+        [Option("Do not use")]
         Delay,
+        [Option("Use ASAP", Effect = 20, DefaultPriority = DefaultOGCDPriority)]
         Force
     }
 
     public enum TriplecastStrategy
     {
+        [Option("Only automatically use for instant fire/ice swaps")]
         Automatic,
+        [Option("Don't use")]
         Delay,
+        [Option("Use ASAP", Effect = 15, DefaultPriority = DefaultOGCDPriority)]
         Force
     }
 
     public static RotationModuleDefinition Definition()
     {
-        var def = new RotationModuleDefinition("xan BLM", "Black Mage", "Standard rotation (xan)|Casters", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.BLM, Class.THM), 100);
-
-        def.DefineSharedTA();
-
-        def.Define(Track.Scathe).As<ScatheStrategy>("Scathe")
-            .AddOption(ScatheStrategy.Forbid)
-            .AddOption(ScatheStrategy.Allow);
-
-        def.Define(Track.Thunder).As<ThunderStrategy>("DoT", "Thunder")
-            .AddOption(ThunderStrategy.Automatic, "Automatically refresh on main target according to standard rotation", supportedTargets: ActionTargets.Hostile)
-            .AddOption(ThunderStrategy.Delay, "Don't apply")
-            .AddOption(ThunderStrategy.Force, "Force refresh ASAP", supportedTargets: ActionTargets.Hostile)
-            .AddOption(ThunderStrategy.InstantOnly, "Allow Thunder if an instant cast is needed, but don't try to maintain uptime", supportedTargets: ActionTargets.Hostile)
-            .AddOption(ThunderStrategy.ForbidInstant, "Use only for standard refresh, not as a utility instant cast", supportedTargets: ActionTargets.Hostile);
-
-        def.Define(Track.Leylines).As<LeylinesStrategy>("LL", "Leylines")
-            .AddOption(LeylinesStrategy.OpenerOnly, "Use Leylines in opener; otherwise do not use automatically")
-            .AddOption(LeylinesStrategy.Delay, "Do not use")
-            .AddOption(LeylinesStrategy.Force, "Use ASAP", effect: 20, defaultPriority: DefaultOGCDPriority)
-            .AddAssociatedActions(AID.LeyLines, AID.Retrace, AID.BetweenTheLines);
-
-        def.Define(Track.Triplecast).As<TriplecastStrategy>("TC", "Triplecast")
-            .AddOption(TriplecastStrategy.Automatic, "Use for instant fire/ice swaps, otherwise hold")
-            .AddOption(TriplecastStrategy.Delay, "Don't use")
-            .AddOption(TriplecastStrategy.Force, "Use ASAP", effect: 15, defaultPriority: DefaultOGCDPriority)
-            .AddAssociatedActions(AID.Triplecast);
-
-        def.AbilityTrack(Track.Iainuki, "Iainuki", "PSAM: Use Iainuki on cooldown", uiPriority: -10);
-        def.AbilityTrack(Track.Zeninage, "Zeninage", "PSAM: Use Zeninage under raid buffs (costs 10,000 gil)", uiPriority: -10);
-
-        def.AbilityTrack(Track.LLMove, "LLMove", "Allow automatic usage of Leylines while moving")
-            .AddAssociatedActions(AID.LeyLines);
-
-        def.AbilityTrack(Track.TimeMage, "AutoTimeMage", "PTME: Use Occult Quick/Occult Comet on cooldown", uiPriority: -10)
-            .AddAssociatedActions(PhantomID.OccultQuick, PhantomID.OccultComet);
-
-        def.Define(Track.Manafont).As<OffensiveStrategy>("Manafont")
-            .AddOption(OffensiveStrategy.Automatic, "Use at 0 MP")
-            .AddOption(OffensiveStrategy.Delay, "Do not use")
-            .AddOption(OffensiveStrategy.Force, "Use ASAP")
-            .AddAssociatedActions(AID.Manafont);
-
-        return def;
+        return new RotationModuleDefinition("xan BLM", "Black Mage", "Standard rotation (xan)|Casters", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.BLM, Class.THM), 100).WithStrategies<Strategy>();
     }
 
     public int Element; // -3 (ice) <=> 3 (fire), 0 for none
@@ -206,7 +210,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
 
     private static GCDPriority ForMove(InstantCastPriority p) => GCDPriority.InstantMove + (int)p;
 
-    public override void Exec(StrategyValues strategy, Enemy? primaryTarget)
+    public override void Exec(in Strategy strategy, Enemy? primaryTarget)
     {
         SelectPrimaryTarget(strategy, ref primaryTarget, range: 25);
 
@@ -230,9 +234,9 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
 
         (BestAOETarget, NumAOETargets) = SelectTargetByHP(strategy, primaryTarget, 25, IsSplashTarget);
 
-        var dotTarget = Hints.FindEnemy(ResolveTargetOverride(strategy.Option(Track.Thunder).Value)) ?? primaryTarget;
+        var dotTarget = ResolveTargetOverride(strategy.Thunder) ?? primaryTarget;
 
-        if (strategy.Option(Track.Thunder).As<ThunderStrategy>() is ThunderStrategy.Force or ThunderStrategy.Delay)
+        if (strategy.Thunder.Value is ThunderStrategy.Force or ThunderStrategy.Delay)
         {
             BestThunderTarget = dotTarget;
             TargetThunderLeft = GetTargetThunderLeft(dotTarget?.Actor);
@@ -257,8 +261,8 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
                     PushGCD(AID.Fire3, primaryTarget, GCDPriority.Standard);
             }
 
-            if (strategy.Option(Track.Leylines).As<LeylinesStrategy>() == LeylinesStrategy.Force && !HaveLeyLines)
-                PushAction(AID.LeyLines, Player, strategy.Option(Track.Leylines).Priority(), 0);
+            if (strategy.Leylines == LeylinesStrategy.Force && !HaveLeyLines)
+                PushAction(AID.LeyLines, Player, strategy.Leylines.Priority(), 0);
 
             return;
         }
@@ -292,10 +296,10 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID == 0x179 && x.OwnerID == Player.InstanceID) is Actor ll)
             Hints.GoalZones.Add(p => p.InCircle(ll.Position, 3) ? 0.5f : 0);
 
-        if (strategy.Enabled(Track.Zeninage) && RaidBuffsLeft > GCD && DutyActionReadyIn(PhantomID.Zeninage) <= GCD)
+        if (strategy.Zeninage.IsEnabled() && RaidBuffsLeft > GCD && DutyActionReadyIn(PhantomID.Zeninage) <= GCD)
             PushGCD((AID)PhantomID.Zeninage, primaryTarget, GCDPriority.Max);
 
-        if (strategy.Enabled(Track.Iainuki) && (CombatTimer > 10 || RaidBuffsLeft > GCD))
+        if (strategy.Iainuki.IsEnabled() && (CombatTimer > 10 || RaidBuffsLeft > GCD))
         {
             var ready = DutyActionReadyIn(PhantomID.Iainuki);
             if (ready <= GCD)
@@ -305,7 +309,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
                 Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget.Actor, 8));
         }
 
-        if (strategy.Enabled(Track.TimeMage))
+        if (strategy.AutoTimeMage.IsEnabled())
         {
             if (DutyActionReadyIn(PhantomID.OccultQuick) <= GCD && (InLeyLines || CombatTimer > 10))
                 PushGCD((AID)PhantomID.OccultQuick, Player, GCDPriority.Max);
@@ -330,7 +334,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
 
         if (Fire > 0 && Player.InCombat)
         {
-            var manafontOk = strategy.Option(Track.Manafont).As<OffensiveStrategy>() switch
+            var manafontOk = strategy.Manafont.Value switch
             {
                 OffensiveStrategy.Automatic => MP < MinAstralFireMP,
                 OffensiveStrategy.Force => true,
@@ -365,11 +369,11 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
             PushGCD(AID.Xenoglossy, primaryTarget, prio);
         }
 
-        if (strategy.Option(Track.Scathe).As<ScatheStrategy>() == ScatheStrategy.Allow)
+        if (strategy.Scathe.Value == ScatheStrategy.Allow)
             PushGCD(AID.Scathe, primaryTarget, GCDPriority.InstantMove - 50);
     }
 
-    private void FirePhase(StrategyValues strategy, Enemy? primaryTarget)
+    private void FirePhase(in Strategy strategy, Enemy? primaryTarget)
     {
         if (NumAOETargets >= AOEBreakpoint)
         {
@@ -384,7 +388,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
             FirePhaseST(strategy, primaryTarget);
     }
 
-    private void FirePhaseST(StrategyValues strategy, Enemy? primaryTarget)
+    private void FirePhaseST(in Strategy strategy, Enemy? primaryTarget)
     {
         if (Fire < 3)
         {
@@ -425,7 +429,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         }
     }
 
-    private void StandardF4(StrategyValues strategy, Enemy? primaryTarget)
+    private void StandardF4(in Strategy strategy, Enemy? primaryTarget)
     {
         if (Paradox)
         {
@@ -468,7 +472,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
 
     }
 
-    private void FirePhaseAOE(StrategyValues strategy)
+    private void FirePhaseAOE(in Strategy strategy)
     {
         T2(strategy, GCDPriority.InstantMove);
 
@@ -484,7 +488,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         TryInstantCast(strategy, BestAOETarget, GCDPriority.InstantMove);
     }
 
-    private void FireAOELowLevel(StrategyValues strategy, Enemy? primaryTarget)
+    private void FireAOELowLevel(in Strategy strategy, Enemy? primaryTarget)
     {
         T2(strategy);
         T1(strategy);
@@ -498,7 +502,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         PushGCD(AID.Blizzard2, BestAOETarget, GCDPriority.Standard, mpCutoff: MinAstralFireMP);
     }
 
-    private void IcePhase(StrategyValues strategy, Enemy? primaryTarget)
+    private void IcePhase(in Strategy strategy, Enemy? primaryTarget)
     {
         if (NumAOETargets >= AOEBreakpoint && Unlocked(AID.Blizzard2))
         {
@@ -511,7 +515,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
             IcePhaseST(strategy, primaryTarget);
     }
 
-    private void IcePhaseST(StrategyValues strategy, Enemy? primaryTarget)
+    private void IcePhaseST(in Strategy strategy, Enemy? primaryTarget)
     {
         if (Ice < 3)
         {
@@ -542,7 +546,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
             PushGCD(AID.Blizzard1, primaryTarget, GCDPriority.Standard);
     }
 
-    private void IcePhaseAOE(StrategyValues strategy, Enemy? primaryTarget)
+    private void IcePhaseAOE(in Strategy strategy, Enemy? primaryTarget)
     {
         if (Ice == 0)
         {
@@ -566,7 +570,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         TryInstantCast(strategy, primaryTarget, GCDPriority.InstantMove);
     }
 
-    private void IceAOELowLevel(StrategyValues strategy, Enemy? primaryTarget)
+    private void IceAOELowLevel(in Strategy strategy, Enemy? primaryTarget)
     {
         if (AlmostMaxMP)
         {
@@ -584,14 +588,14 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
 
     private static GCDPriority Priomax(GCDPriority g1, GCDPriority g2) => g1 > g2 ? g1 : g2;
 
-    private void T1(StrategyValues strategy, GCDPriority prioForInstant = GCDPriority.InstantMove)
+    private void T1(in Strategy strategy, GCDPriority prioForInstant = GCDPriority.InstantMove)
     {
         if (!Thunderhead)
             return;
 
         var prioStandard = DotExpiring(TargetThunderLeft) ? GCDPriority.DotRefresh : GCDPriority.None;
 
-        var prio = strategy.Option(Track.Thunder).As<ThunderStrategy>() switch
+        var prio = strategy.Thunder.Value switch
         {
             // use to refresh normally, or use as utility cast
             ThunderStrategy.Automatic => Priomax(prioStandard, prioForInstant),
@@ -607,7 +611,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         PushGCD(AID.Thunder1, BestThunderTarget, prio);
     }
 
-    private void T2(StrategyValues strategy, GCDPriority prioForInstant = GCDPriority.InstantMove)
+    private void T2(in Strategy strategy, GCDPriority prioForInstant = GCDPriority.InstantMove)
     {
         if (!Thunderhead)
             return;
@@ -615,7 +619,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         var prioStandard = NumAOEDotTargets >= AOEBreakpoint ? GCDPriority.DotRefresh : GCDPriority.None;
         var prioInstant = NumAOETargets >= AOEBreakpoint ? prioForInstant + (int)InstantCastPriority.TP : GCDPriority.None;
 
-        var prio = strategy.Option(Track.Thunder).As<ThunderStrategy>() switch
+        var prio = strategy.Thunder.Value switch
         {
             // use to refresh normally, or use as utility cast
             ThunderStrategy.Automatic => Priomax(prioStandard, prioInstant),
@@ -640,7 +644,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
     }
 
     private void TryInstantCast(
-        StrategyValues strategy,
+        in Strategy strategy,
         Enemy? primaryTarget,
         GCDPriority prioBase,
         bool useFirestarter = true,
@@ -664,7 +668,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         }
     }
 
-    private void TryInstantOrTranspose(StrategyValues strategy, Enemy? primaryTarget, bool useThunderhead = true)
+    private void TryInstantOrTranspose(in Strategy strategy, Enemy? primaryTarget, bool useThunderhead = true)
     {
         if (useThunderhead)
         {
@@ -679,7 +683,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
             PushGCD(AID.Transpose, Player, GCDPriority.Standard);
     }
 
-    private void UseLeylines(StrategyValues strategy, Enemy? primaryTarget)
+    private void UseLeylines(in Strategy strategy, Enemy? primaryTarget)
     {
         if (Player.FindStatus(SID.LeyLines) != null)
             return;
@@ -687,15 +691,15 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         if (!Player.InCombat && CountdownRemaining == null)
             return;
 
-        var opt = strategy.Option(Track.Leylines);
-        var prio = opt.As<LeylinesStrategy>() switch
+        var opt = strategy.Leylines;
+        var prio = opt.Value switch
         {
             LeylinesStrategy.OpenerOnly => CombatTimer < 20 ? DefaultOGCDPriority : 0,
             LeylinesStrategy.Force => opt.Priority(),
             _ => 0,
         };
 
-        if (!strategy.Enabled(Track.LLMove) && IsMoving)
+        if (!strategy.LLMove.IsEnabled() && IsMoving)
             return;
 
         if (prio > 0)
@@ -706,21 +710,20 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : CastxanOl
         }
     }
 
-    private void UseTriplecastForced(StrategyValues strategy)
+    private void UseTriplecastForced(in Strategy strategy)
     {
         if (Player.FindStatus(SID.Triplecast) != null)
             return;
 
-        var opt = strategy.Option(Track.Triplecast);
-        if (opt.As<TriplecastStrategy>() == TriplecastStrategy.Force)
-            PushAction(AID.Triplecast, Player, opt.Priority(), 0);
+        if (strategy.Triplecast == TriplecastStrategy.Force)
+            PushAction(AID.Triplecast, Player, strategy.Triplecast.Priority(), 0);
     }
 
-    private bool ManafontOk(StrategyValues strategy) => strategy.Option(Track.Manafont).As<OffensiveStrategy>() != OffensiveStrategy.Delay;
+    private bool ManafontOk(in Strategy strategy) => strategy.Manafont != OffensiveStrategy.Delay;
 
-    private bool SwiftB3(StrategyValues strategy) => strategy.Option(Track.Triplecast).As<TriplecastStrategy>() == TriplecastStrategy.Automatic;
+    private bool SwiftB3(in Strategy strategy) => strategy.Triplecast == TriplecastStrategy.Automatic;
 
-    private bool ShouldTranspose(StrategyValues strategy)
+    private bool ShouldTranspose(in Strategy strategy)
     {
         if (!Unlocked(AID.Fire3))
             return Fire > 0 && MP < 1600 || Ice > 0 && MP > Player.HPMP.MaxMP * 0.9f;

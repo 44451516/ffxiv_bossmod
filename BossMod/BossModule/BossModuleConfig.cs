@@ -78,7 +78,12 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("在雷达上显示标记点")]
     public bool ShowWaymarks = false;
 
-    [PropertyDisplay("始终显示所有存活的队员", separator: true)]
+
+    [PropertyDisplay("Show signs on radar ('attack', 'bind', 'ignore', and shape markers)", since: "0.4.10.0")]
+    public bool ShowSigns = false;
+
+    [PropertyDisplay("Always show all alive party members")]
+
     public bool ShowIrrelevantPlayers = false;
 
     [PropertyDisplay("允许在雷达上显示非组队玩家", tooltip: "此选项仅影响特定类别的内容，如冒险突袭。", depends: nameof(ShowIrrelevantPlayers))]

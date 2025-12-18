@@ -28,7 +28,7 @@ public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int Cu
     }
 
     /// <summary>
-    /// 
+    ///
     /// </summary>
     /// <returns>Integer index of the room the user clicked on.</returns>
     public int Draw()
@@ -37,7 +37,8 @@ public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int Cu
 
         var chests = new RoomChest[25];
         foreach (var c in State.Chests)
-            if (c.Room > 0)
+            // FIXME
+            if (c.Room is > 0 and < 25)
                 chests[c.Room] |= (RoomChest)(1 << (c.Type - 1));
 
         var playerCell = State.Party[PlayerSlot].Room;
@@ -89,6 +90,12 @@ public record class Minimap(DeepDungeonState State, Angle PlayerRotation, int Cu
                 isValidDestination = false;
                 ImGui.SetCursorPos(pos + new Vector2(12, 12));
                 ImGui.Image(mapTex.Handle, new Vector2(64, 64), new Vector2(0.2424f, 0.4571f), new Vector2(0.4848f, 0.6857f));
+            }
+
+            if (State.Rooms[i].HasFlag(RoomFlags.Home))
+            {
+                ImGui.SetCursorPos(pos + new Vector2(12, 12));
+                ImGui.Image(mapTex.Handle, new Vector2(64), new Vector2(0.4848f, 0.4571f), new Vector2(0.7272f, 0.6657f));
             }
 
             if (State.Rooms[i].HasFlag(RoomFlags.Passage))

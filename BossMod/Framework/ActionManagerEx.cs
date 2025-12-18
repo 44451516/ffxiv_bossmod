@@ -287,7 +287,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
 
     // see ActionEffectHandler.Receive - there are a few hardcoded actions here
     private bool ExpectAnimationLockUpdate(ActionEffectHandler.Header* header)
-        => header->SourceSequence != 0 && !(header->ActionType == CSActionType.Action && (NIN.AID)header->ActionId is NIN.AID.Ten1 or NIN.AID.Chi1 or NIN.AID.Jin1 or NIN.AID.Ten2 or NIN.AID.Chi2 or NIN.AID.Jin2)
+        => header->SourceSequence != 0 && !(header->ActionType == (byte)CSActionType.Action && (NIN.AID)header->ActionId is NIN.AID.Ten1 or NIN.AID.Chi1 or NIN.AID.Jin1 or NIN.AID.Ten2 or NIN.AID.Chi2 or NIN.AID.Jin2)
         || header->ForceAnimationLock;
 
     // perform some action transformations to simplify implementation of queueing; UseActionLocation expects some normalization to be already done
@@ -311,7 +311,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
                     return id != 0 ? new(ActionType.Spell, id) : action;
                 }
                 // special case for lunar sprint, copied from UseGeneralAction
-                else if (action == ActionDefinitions.IDGeneralSprint && GameMain.Instance()->CurrentTerritoryIntendedUseId == 60)
+                else if (action == ActionDefinitions.IDGeneralSprint && GameMain.Instance()->CurrentTerritoryIntendedUseId == FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse.CosmicExploration)
                 {
                     return new(ActionType.Spell, 43357);
                 }
@@ -399,7 +399,12 @@ public sealed unsafe class ActionManagerEx : IDisposable
         var currentTargetId = isCasting ? (ulong)castInfo->TargetId : (AutoQueue.Target?.InstanceID ?? 0xE0000000);
         var currentTargetSelf = currentTargetId == player->EntityId;
         var currentTargetObj = currentTargetSelf ? &player->GameObject : currentTargetId is not 0 and not 0xE0000000 ? GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(currentTargetId) : null;
-        WPos? currentTargetPos = currentTargetObj != null ? new WPos(currentTargetObj->Position.X, currentTargetObj->Position.Z) : null;
+        WPos? currentTargetPos = null;
+        if (currentTargetObj != null)
+        {
+            var realPos = *currentTargetObj->GetPosition();
+            currentTargetPos = new(realPos.X, realPos.Z);
+        }
         var currentTargetLoc = isCasting ? new WPos(castInfo->TargetLocation.X, castInfo->TargetLocation.Z) : new(AutoQueue.TargetPos.XZ()); // note: this only matters for area-targeted spells, for which targetlocation in castinfo is set correctly
         var idealOrientation = currentAction ? _smartRotationTweak.GetSpellOrientation(GetSpellIdForAction(currentAction), new(player->Position.X, player->Position.Z), currentTargetSelf, currentTargetPos, currentTargetLoc) : null;
         // avoiding a gaze has a priority over restore
