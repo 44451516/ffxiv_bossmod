@@ -1,14 +1,20 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.CN.NET.Sdk/14.0.0">
-  <ItemGroup>
-    <Using Include="System" />
-    <Using Include="System.Collections" />
-    <Using Include="System.Collections.Generic" />
-    <Using Include="System.Collections.Immutable" />
-    <Using Include="System.Linq" />
-    <Using Include="System.Numerics" />
-    <Using Include="Lumina.Extensions" />
-  </ItemGroup>
+    <ItemGroup>
+        <Using Include="System"/>
+        <Using Include="System.Collections"/>
+        <Using Include="System.Collections.Generic"/>
+        <Using Include="System.Collections.Immutable"/>
+        <Using Include="System.Linq"/>
+        <Using Include="System.Numerics"/>
+        <Using Include="Lumina.Extensions"/>
+    </ItemGroup>
+
+
+    <PropertyGroup>
+        <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    </PropertyGroup>
+    
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <OutputPath>$(MSBuildProjectDirectory)\..\release\BossMod</OutputPath>
         <!--    <AnalysisMode>All</AnalysisMode>-->
@@ -18,12 +24,12 @@
 
     <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(Configuration)' == 'Release'">
         <ItemGroup>
-            <FilesToDelete Include="$(OutputPath)Dalamud.Common.dll" />
-            <FilesToDelete Include="$(OutputPath)Dalamud.Common.pdb" />
-            <FilesToDelete Include="$(OutputPath)System.Data.SQLite.dll" />
-            <FilesToDelete Include="$(OutputPath)TerraFX.Interop.Windows.dll" />
+            <FilesToDelete Include="$(OutputPath)Dalamud.Common.dll"/>
+            <FilesToDelete Include="$(OutputPath)Dalamud.Common.pdb"/>
+            <FilesToDelete Include="$(OutputPath)System.Data.SQLite.dll"/>
+            <FilesToDelete Include="$(OutputPath)TerraFX.Interop.Windows.dll"/>
         </ItemGroup>
-        <Delete Files="@(FilesToDelete)" ContinueOnError="true" />
+        <Delete Files="@(FilesToDelete)" ContinueOnError="true"/>
     </Target>
 
     <Target Name="CreateZipPackage" AfterTargets="RemoveUnwantedFiles" Condition="'$(Configuration)' == 'Release'">
@@ -31,15 +37,15 @@
             <ZipOutputPath>$(OutputPath)\latest.zip</ZipOutputPath>
             <TempZipPath>$(MSBuildProjectDirectory)\..\release\latest_temp.zip</TempZipPath>
         </PropertyGroup>
-        <Message Text="开始创建打包文件: $(ZipOutputPath)" Importance="high" />
-        <Delete Files="$(ZipOutputPath)" ContinueOnError="true" />
-        <Delete Files="$(TempZipPath)" ContinueOnError="true" />
+        <Message Text="开始创建打包文件: $(ZipOutputPath)" Importance="high"/>
+        <Delete Files="$(ZipOutputPath)" ContinueOnError="true"/>
+        <Delete Files="$(TempZipPath)" ContinueOnError="true"/>
         <ItemGroup>
-            <FilesToZip Include="$(OutputPath)\*.*" Exclude="$(OutputPath)\latest.zip" />
+            <FilesToZip Include="$(OutputPath)\*.*" Exclude="$(OutputPath)\latest.zip"/>
         </ItemGroup>
-        <ZipDirectory SourceDirectory="$(OutputPath)" DestinationFile="$(TempZipPath)" Overwrite="true" />
-        <Move SourceFiles="$(TempZipPath)" DestinationFiles="$(ZipOutputPath)" />
-        <Message Text="打包完成: $(ZipOutputPath)" Importance="high" />
+        <ZipDirectory SourceDirectory="$(OutputPath)" DestinationFile="$(TempZipPath)" Overwrite="true"/>
+        <Move SourceFiles="$(TempZipPath)" DestinationFiles="$(ZipOutputPath)"/>
+        <Message Text="打包完成: $(ZipOutputPath)" Importance="high"/>
     </Target>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
@@ -49,31 +55,29 @@
         <!--    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>-->
     </PropertyGroup>
 
-    <PropertyGroup>
-    <LocalCS>false</LocalCS>
-  </PropertyGroup>
+  
 
-  <PropertyGroup Condition="'$(LocalCS)' == 'true'">
-    <Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
-  </PropertyGroup>
+    <PropertyGroup Condition="'$(LocalCS)' == 'true'">
+        <Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
+    </PropertyGroup>
 
-  <ItemGroup Condition="'$(LocalCS)' == 'true'">
-<!--    <ProjectReference Include="..\..\cs\FFXIVClientStructs\FFXIVClientStructs.csproj" />-->
-<!--    <ProjectReference Include="..\..\cs\InteropGenerator.Runtime\InteropGenerator.Runtime.csproj" />-->
-  </ItemGroup>
+    <ItemGroup Condition="'$(LocalCS)' == 'true'">
+        <!--    <ProjectReference Include="..\..\cs\FFXIVClientStructs\FFXIVClientStructs.csproj" />-->
+        <!--    <ProjectReference Include="..\..\cs\InteropGenerator.Runtime\InteropGenerator.Runtime.csproj" />-->
+    </ItemGroup>
 
-  <ItemGroup>
-    <Reference Include="Dalamud.Common" />
-    <Reference Include="TerraFX.Interop.Windows" />
-    <PackageReference Include="System.Data.Sqlite" Version="2.0.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <Reference Include="Dalamud.Common"/>
+        <Reference Include="TerraFX.Interop.Windows"/>
+        <PackageReference Include="System.Data.Sqlite" Version="2.0.2"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <None Update="DefaultRotationPresets.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <EmbeddedResource Include="Modules\**\*.json" />
-    <EmbeddedResource Include="Autorotation\OptionRenames.json" />
-    <EmbeddedResource Include="Pathfinding\ObstacleMaps\*" />
-  </ItemGroup>
+    <ItemGroup>
+        <None Update="DefaultRotationPresets.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <EmbeddedResource Include="Modules\**\*.json"/>
+        <EmbeddedResource Include="Autorotation\OptionRenames.json"/>
+        <EmbeddedResource Include="Pathfinding\ObstacleMaps\*"/>
+    </ItemGroup>
 </Project>
