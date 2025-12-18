@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 
 namespace BossMod;
 
@@ -6,13 +6,13 @@ public abstract class ColumnStateMachine(Timeline timeline, StateMachineTree tre
 {
     public enum NodeTextDisplay
     {
-        [PropertyDisplay("No text")]
+        [PropertyDisplay("无文本")]
         None,
 
-        [PropertyDisplay("ID only")]
+        [PropertyDisplay("仅ID")]
         ID,
 
-        [PropertyDisplay("ID and name")]
+        [PropertyDisplay("ID和名称")]
         IDName,
     }
 

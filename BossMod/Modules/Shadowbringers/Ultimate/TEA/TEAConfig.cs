@@ -1,4 +1,4 @@
-﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
+namespace BossMod.Shadowbringers.Ultimate.TEA;
 
 public class GroupAssignmentFourUnique : GroupAssignment
 {
@@ -34,31 +34,31 @@ public class GroupAssignmentFourUnique : GroupAssignment
 [ConfigDisplay(Order = 0x200, Parent = typeof(ShadowbringersConfig))]
 public class TEAConfig() : ConfigNode()
 {
-    [PropertyDisplay("P1: Doll assignments (middle tornado = relative south)")]
+    [PropertyDisplay("P1: 人偶分配（中间龙卷风 = 相对南方）")]
     [GroupDetails(["NW", "NE", "SE", "SW", "Ignore"])]
     [GroupPreset("NA standard", [4, 4, 4, 4, 3, 2, 1, 0])]
     //[GroupPreset("Ignore dolls", [4, 4, 4, 4, 4, 4, 4, 4])]
     public GroupAssignmentFourUnique P1DollAssignments = GroupAssignmentFourUnique.Default();
 
-    [PropertyDisplay("P1: Mark other players' dolls as forbidden", tooltip: "Requires a valid configuration for 'Doll assignments' (the text must not be yellow).\n\nVBM autorot will not use actions on forbidden targets, and will also prevent you from doing so manually if you have 'Use custom queueing' enabled in the Action Tweaks settings.\n\nIf necessary, you can use actions on forbidden targets by pressing the action twice quickly.")]
+    [PropertyDisplay("P1: 将其他玩家的人偶标记为禁止目标", tooltip: "需要有效的'人偶分配'配置（文本不能是黄色）。\n\nVBM 自动旋转不会对禁止目标使用技能，如果你在动作调整设置中启用了'使用自定义队列'，也会阻止你手动这样做。\n\n如有必要，你可以通过快速按两次技能来对禁止目标使用技能。")]
     public bool P1DollPullSafety = true;
 
     public enum P2Intermission
     {
-        [PropertyDisplay("Don't show any hints")]
+        [PropertyDisplay("不显示任何提示")]
         None,
 
-        [PropertyDisplay("Always show W->NE hints")]
+        [PropertyDisplay("始终显示 W->NE 提示")]
         AlwaysFirst,
 
-        [PropertyDisplay("W->NE for 1/2/5/6, E->SW for 3/4/7/8")]
+        [PropertyDisplay("1/2/5/6 使用 W->NE，3/4/7/8 使用 E->SW")]
         FirstForOddPairs,
     }
 
-    [PropertyDisplay("Intermission: safespot hints")]
+    [PropertyDisplay("中场：安全点提示")]
     public P2Intermission P2IntermissionHints = P2Intermission.FirstForOddPairs;
 
-    [PropertyDisplay("P2: nisi pair assignments")]
+    [PropertyDisplay("P2: 尼西配对分配")]
     [GroupDetails(["Pair 1", "Pair 2", "Pair 3", "Pair 4"])]
     [GroupPreset("Melee together", [0, 1, 2, 3, 0, 1, 2, 3])]
     [GroupPreset("DD CCW", [0, 2, 1, 3, 1, 0, 2, 3])]

@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Lumina.Excel.Sheets;
@@ -28,9 +28,9 @@ public class AutoDDConfig : ConfigNode
     public bool TrapHints = true;
 
 
-    [PropertyDisplay("Draw potential trap locations in game world")]
+    [PropertyDisplay("在游戏世界中绘制潜在陷阱位置")]
     public bool DrawTraps = false;
-    [PropertyDisplay("Automatically navigate to Cairn of Passage")]
+    [PropertyDisplay("自动导航到通道祭坛")]
     public bool AutoPassage = true;
 
     [PropertyDisplay("自动怪物目标行为")]

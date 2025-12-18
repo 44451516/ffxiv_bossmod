@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using System.Reflection;
 
 namespace BossMod.Stormblood.Foray;
@@ -16,14 +16,14 @@ public sealed class NMAttribute(uint nameID, uint prepNameID, uint fateID = 0) :
 [ConfigDisplay(Name = "Eureka", Parent = typeof(StormbloodConfig))]
 public class EurekaConfig : ConfigNode
 {
-    [PropertyDisplay("Enable zone module")]
+    [PropertyDisplay("启用区域模块")]
     public bool Enabled = true;
 
-    [PropertyDisplay("Max range to look for new mobs to pull")]
+    [PropertyDisplay("寻找新怪物的最大范围")]
     [PropertySlider(20, 100, Speed = 0.1f)]
     public float MaxPullDistance = 30f;
 
-    [PropertyDisplay("Max number of mobs to pull at once (0 for no limit)")]
+    [PropertyDisplay("一次最多拉取的怪物数量（0 表示无限制）")]
     [PropertySlider(0, 30, Speed = 0.1f)]
     public int MaxPullCount = 10;
 

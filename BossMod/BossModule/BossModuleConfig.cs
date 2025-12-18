@@ -1,4 +1,4 @@
-﻿namespace BossMod;
+namespace BossMod;
 
 [ConfigDisplay(Name = "Boss模块和雷达", Order = 1)]
 public class BossModuleConfig : ConfigNode
@@ -79,10 +79,10 @@ public class BossModuleConfig : ConfigNode
     public bool ShowWaymarks = false;
 
 
-    [PropertyDisplay("Show signs on radar ('attack', 'bind', 'ignore', and shape markers)", since: "0.4.10.0")]
+    [PropertyDisplay("在雷达上显示标记（'攻击'、'束缚'、'忽略'和形状标记）", since: "0.4.10.0")]
     public bool ShowSigns = false;
 
-    [PropertyDisplay("Always show all alive party members")]
+    [PropertyDisplay("始终显示所有存活的队伍成员")]
 
     public bool ShowIrrelevantPlayers = false;
 

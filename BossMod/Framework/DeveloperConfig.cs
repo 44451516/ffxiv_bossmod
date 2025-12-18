@@ -1,14 +1,14 @@
-﻿namespace BossMod;
+namespace BossMod;
 
 [ConfigDisplay(Name = "Developer settings", Order = 9)]
 public sealed class DeveloperConfig : ConfigNode
 {
-    [PropertyDisplay("Module packs: source directory")]
+    [PropertyDisplay("模块包：源目录")]
     public string ModulePackDirectory = "";
 
-    [PropertyDisplay("Obstacle maps: load from source")]
+    [PropertyDisplay("障碍物地图：从源加载")]
     public bool MapLoadFromSource;
 
-    [PropertyDisplay("Obstacle maps: source path", tooltip: "Should be <repo root>/BossMod/Pathfinding/ObstacleMaps/maplist.json")]
+    [PropertyDisplay("障碍物地图：源路径", tooltip: "应为 <repo root>/BossMod/Pathfinding/ObstacleMaps/maplist.json")]
     public string MapSourcePath = "";
 }
