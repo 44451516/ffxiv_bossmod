@@ -1,4 +1,4 @@
-namespace BossMod;
+﻿namespace BossMod;
 
 // matches FFXIVClientStructs.FFXIV.Client.Game.ActionType, with some custom additions
 public enum ActionType : byte
@@ -29,7 +29,6 @@ public enum ActionType : byte
     Magicite = 0xE3, // id = slot (1-3)
 }
 
-// public enum Positional { Any, Flank, Rear, Front }
 public enum Positional { Any, Flank, Rear, Front }
 
 // high byte is type, low 3 bytes is ID
@@ -58,7 +57,7 @@ public readonly record struct ActionID(uint Raw)
     public readonly uint SpellId() => Type switch
     {
         ActionType.Spell => ID,
-        ActionType.Item => Service.LuminaRow<Lumina.Excel.Sheets.Item>(ID % 500000)?.ItemAction.ValueNullable?.RowId ?? 0,
+        ActionType.Item => Service.LuminaRow<Lumina.Excel.Sheets.Item>(ID % 500000)?.ItemAction.ValueNullable?.Action.RowId ?? 0,
         ActionType.KeyItem => Service.LuminaRow<Lumina.Excel.Sheets.EventItem>(ID)?.Action.RowId ?? 0,
         ActionType.Ability => 2, // 'interaction'
         ActionType.General => Service.LuminaRow<Lumina.Excel.Sheets.GeneralAction>(ID)?.Action.RowId ?? 0, // note: duty action 1/2 (26/27) use special code

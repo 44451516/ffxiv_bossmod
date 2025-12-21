@@ -61,9 +61,6 @@ public sealed class Plugin : IDalamudPlugin
                 ?.GetValue(dalamudRoot) as DalamudStartInfo;
         var gameVersion = dalamudStartInfo?.GameVersion?.ToString() ?? "unknown";
 
-        // FIXME
-        dataManager.GameData.Options.PanicOnSheetChecksumMismatch = false;
-
 #if LOCAL_CS
         InteropGenerator.Runtime.Resolver.GetInstance.Setup(sigScanner.SearchBase, gameVersion, new(dalamud.ConfigDirectory.FullName + "/cs.json"));
         FFXIVClientStructs.Interop.Generated.Addresses.Register();
