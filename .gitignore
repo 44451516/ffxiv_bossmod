@@ -6,7 +6,6 @@ logs/
 .idea
 
 # Release output
-release/BossMod/
-release/BossMod/BossMod.deps.json
-release/BossMod/BossMod.dll
-release/BossMod/BossMod.json
+release/BossMod.deps.json
+release/BossMod.dll
+release/BossMod.json
