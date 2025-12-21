@@ -13,6 +13,7 @@
 
     <PropertyGroup>
         <AssemblyVersion>1.0.0.3</AssemblyVersion>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     </PropertyGroup>
     
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -21,6 +22,7 @@
     
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
         <OutputPath>C:\Games\FF14\Dalamud\XIVLauncher\devPlugins\BossMod\</OutputPath>
+        
     </PropertyGroup>
 
     <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(Configuration)' == 'Release'">
@@ -32,7 +34,16 @@
         </ItemGroup>
         <Delete Files="@(FilesToDelete)" ContinueOnError="true"/>
     </Target>
-    
+    <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(Configuration)' == 'Debug'">
+        <ItemGroup>
+            <FilesToDelete Include="$(OutputPath)Dalamud.Common.dll"/>
+            <FilesToDelete Include="$(OutputPath)Dalamud.Common.pdb"/>
+            <FilesToDelete Include="$(OutputPath)System.Data.SQLite.dll"/>
+            <FilesToDelete Include="$(OutputPath)TerraFX.Interop.Windows.dll"/>
+        </ItemGroup>
+        <Delete Files="@(FilesToDelete)" ContinueOnError="true"/>
+    </Target>
+
 
     <PropertyGroup Condition="'$(LocalCS)' == 'true'">
         <Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
