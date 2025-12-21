@@ -12,14 +12,14 @@
 
 
     <PropertyGroup>
-        <AssemblyVersion>1.0.0.2</AssemblyVersion>
+        <AssemblyVersion>1.0.0.3</AssemblyVersion>
     </PropertyGroup>
     
-    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <OutputPath>$(MSBuildProjectDirectory)\..\release\BossMod</OutputPath>
     </PropertyGroup>    
     
-    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
         <OutputPath>C:\Games\FF14\Dalamud\XIVLauncher\devPlugins\BossMod\</OutputPath>
     </PropertyGroup>
 
@@ -32,31 +32,7 @@
         </ItemGroup>
         <Delete Files="@(FilesToDelete)" ContinueOnError="true"/>
     </Target>
-
-    <Target Name="CreateZipPackage" AfterTargets="RemoveUnwantedFiles" Condition="'$(Configuration)' == 'Release'">
-        <PropertyGroup>
-            <ZipOutputPath>$(OutputPath)\latest.zip</ZipOutputPath>
-            <TempZipPath>$(MSBuildProjectDirectory)\..\release\latest_temp.zip</TempZipPath>
-        </PropertyGroup>
-        <Message Text="开始创建打包文件: $(ZipOutputPath)" Importance="high"/>
-        <Delete Files="$(ZipOutputPath)" ContinueOnError="true"/>
-        <Delete Files="$(TempZipPath)" ContinueOnError="true"/>
-        <ItemGroup>
-            <FilesToZip Include="$(OutputPath)\*.*" Exclude="$(OutputPath)\latest.zip"/>
-        </ItemGroup>
-        <ZipDirectory SourceDirectory="$(OutputPath)" DestinationFile="$(TempZipPath)" Overwrite="true"/>
-        <Move SourceFiles="$(TempZipPath)" DestinationFiles="$(ZipOutputPath)"/>
-        <Message Text="打包完成: $(ZipOutputPath)" Importance="high"/>
-    </Target>
-
-    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-        <!--        <OutputPath>E:\Games\FFVIX\Dalamud6.0\XIVLauncher\devPlugins\BossMod\</OutputPath>-->
-        <!--    <AnalysisMode>All</AnalysisMode>-->
-        <!--    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>-->
-        <!--    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>-->
-    </PropertyGroup>
-
-  
+    
 
     <PropertyGroup Condition="'$(LocalCS)' == 'true'">
         <Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
