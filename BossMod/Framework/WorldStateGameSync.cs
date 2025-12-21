@@ -177,9 +177,7 @@ sealed class WorldStateGameSync : IDisposable
             Service.Log($"[WSG] ApplyKnockback address = {_applyKnockbackHook.Address:X}");
         }
 
-
-        _inventoryAckHook = Service.Hook.HookFromSignature<InventoryAckDelegate>("48 89 5C 24 ?? 57 48 83 EC ?? 48 8B 05 ?? ?? ?? ?? 48 8B D9 41 0F B6 50", InventoryAckDetour);
-
+        _inventoryAckHook = Service.Hook.HookFromSignature<InventoryAckDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 57 ?? 41 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D7", InventoryAckDetour);
         _inventoryAckHook.Enable();
         Service.Log($"[WSG] InventoryAck address = {_inventoryAckHook.Address:X}");
     }

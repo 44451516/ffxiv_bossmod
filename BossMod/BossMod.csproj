@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.CN.NET.Sdk/14.0.0">
+<Project Sdk="Dalamud.CN.NET.Sdk/14.0.1">
     <ItemGroup>
         <Using Include="System"/>
         <Using Include="System.Collections"/>
@@ -15,11 +15,12 @@
         <AssemblyVersion>1.0.0.2</AssemblyVersion>
     </PropertyGroup>
     
-    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
         <OutputPath>$(MSBuildProjectDirectory)\..\release\BossMod</OutputPath>
-        <!--    <AnalysisMode>All</AnalysisMode>-->
-        <!--    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>-->
-        <!--    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>-->
+    </PropertyGroup>    
+    
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <OutputPath>C:\Games\FF14\Dalamud\XIVLauncher\devPlugins\BossMod\</OutputPath>
     </PropertyGroup>
 
     <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(Configuration)' == 'Release'">
