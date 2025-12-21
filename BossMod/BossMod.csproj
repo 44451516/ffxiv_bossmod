@@ -25,7 +25,7 @@
         
     </PropertyGroup>
 
-    <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(Configuration)' == 'Release'">
+    <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory">
         <ItemGroup>
             <FilesToDelete Include="$(OutputPath)Dalamud.Common.dll"/>
             <FilesToDelete Include="$(OutputPath)Dalamud.Common.pdb"/>
