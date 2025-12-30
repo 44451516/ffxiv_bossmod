@@ -12,7 +12,7 @@
 
 
     <PropertyGroup>
-        <AssemblyVersion>1.0.0.4</AssemblyVersion>
+        <AssemblyVersion>1.0.0.5</AssemblyVersion>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     </PropertyGroup>
     
@@ -53,7 +53,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Update="DefaultRotationPresets.json">
+        <None Include="DefaultRotationPresets.json">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
         <EmbeddedResource Include="Modules\**\*.json"/>
