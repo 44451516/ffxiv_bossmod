@@ -12,7 +12,7 @@
 
 
     <PropertyGroup>
-        <AssemblyVersion>1.0.0.5</AssemblyVersion>
+        <AssemblyVersion>1.0.0.6</AssemblyVersion>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     </PropertyGroup>
     
@@ -24,18 +24,7 @@
         <OutputPath>C:\Games\FF14\Dalamud\XIVLauncher\devPlugins\BossMod\</OutputPath>
         
     </PropertyGroup>
-
-    <Target Name="RemoveUnwantedFiles" AfterTargets="CopyFilesToOutputDirectory">
-        <ItemGroup>
-            <FilesToDelete Include="$(OutputPath)Dalamud.Common.dll"/>
-            <FilesToDelete Include="$(OutputPath)Dalamud.Common.pdb"/>
-            <FilesToDelete Include="$(OutputPath)System.Data.SQLite.dll"/>
-            <FilesToDelete Include="$(OutputPath)TerraFX.Interop.Windows.dll"/>
-        </ItemGroup>
-        <Delete Files="@(FilesToDelete)" ContinueOnError="true"/>
-    </Target>
     
-
 
     <PropertyGroup Condition="'$(LocalCS)' == 'true'">
         <Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
@@ -47,9 +36,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Reference Include="Dalamud.Common"/>
-        <Reference Include="TerraFX.Interop.Windows"/>
-        <PackageReference Include="System.Data.Sqlite" Version="2.0.2"/>
+        <Reference Include="Dalamud.Common" Private="false" />
+        <Reference Include="TerraFX.Interop.Windows" Private="false" />
+        <PackageReference Include="System.Data.Sqlite" Version="2.0.2" />
     </ItemGroup>
 
     <ItemGroup>
