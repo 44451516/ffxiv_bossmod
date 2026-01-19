@@ -2,10 +2,12 @@
 
 namespace BossMod.Components;
 
+// TODO: this is more or less a generalization of all the other bait/spread/stack components, created because there was no fitting component for cone-shaped stack/spreads that are commonly used in savage
+// it might be good to reimplement other components in terms of this one to reduce code duplication
 class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(module, aid)
 {
     // indicate that `count` number of players matching some `targets` filter (e.g. both healers, all supports, 2 closest players, etc etc) will be hit by an aoe
-    public struct Bait(WPos origin, BitMask targets, AOEShape shape, DateTime activation = default, int count = int.MaxValue, int stackSize = 1, BitMask forbiddenTargets = default, bool isProximity = false, bool centerAtTarget = false, PredictedDamageType damageType = PredictedDamageType.None)
+    public struct Bait(WPos origin, BitMask targets, AOEShape shape, DateTime activation = default, int count = int.MaxValue, int stackSize = 1, BitMask forbiddenTargets = default, bool isProximity = false, bool centerAtTarget = false, PredictedDamageType type = PredictedDamageType.None)
     {
         public WPos Origin = origin;
         public AOEShape Shape = shape;
@@ -14,7 +16,7 @@ class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(modul
         public int Count = count;
         public int StackSize = stackSize;
         public DateTime Activation = activation;
-        public PredictedDamageType DamageType = damageType;
+        public PredictedDamageType Type = type == PredictedDamageType.None ? (stackSize > 1 ? PredictedDamageType.Shared : PredictedDamageType.Raidwide) : type;
         public bool IsProximity = isProximity;
         public bool CenterAtTarget = centerAtTarget;
 
@@ -36,6 +38,7 @@ class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(modul
 
     public bool IsStackTarget(int slot) => CurrentBaits.Any(b => b.IsStack && b.Targets[slot]);
     public bool IsSpreadTarget(int slot) => CurrentBaits.Any(b => b.IsSpread && b.Targets[slot]);
+    public bool IsDifferentTarget(in Bait b, int slot) => !b.Targets[slot] || b.Count > 1;
 
     public override void Update()
     {
@@ -59,9 +62,10 @@ class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(modul
         {
             if (bait.IsStack)
                 bait.Shape.Draw(Arena, bait.Position(pc), bait.Angle(pc), bait.ForbiddenTargets[pcSlot] ? ArenaColor.AOE : ArenaColor.SafeFromAOE);
-            else if (bait.Count > 1)
+
+            if (bait.Count > 1)
                 foreach (var b in PossibleTargets(bait).Exclude(pc))
-                    bait.Shape.Draw(Arena, bait.Position(b), bait.Angle(b), ArenaColor.AOE);
+                    bait.Shape.Draw(Arena, bait.Position(b), bait.Angle(b), bait.IsStack ? ArenaColor.SafeFromAOE : ArenaColor.AOE);
         }
 
         foreach (var bait in BaitsNotOn(pcSlot))
@@ -96,7 +100,7 @@ class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(modul
                 {
                     ++numStacked;
                     avoid |= myBait.ForbiddenTargets[j];
-                    overlap |= IsStackTarget(j) && !myBait.Targets[j];
+                    overlap |= IsStackTarget(j) && IsDifferentTarget(myBait, j);
                 }
                 hints.Add("Stack!", numStacked < myBait.StackSize);
                 if (avoid || overlap)
@@ -161,7 +165,7 @@ class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(modul
                 hints.AddForbiddenZone(actorSpread.Shape.CheckFn(actorSpread.Position(target), actorSpread.Angle(target)), actorSpread.Activation);
         }
 
-        foreach (var avoid in CurrentBaits.Where(s => !s.Targets[slot] && s.IsStack && s.ForbiddenTargets[slot]))
+        foreach (var avoid in CurrentBaits.Where(s => s.IsStack && s.ForbiddenTargets[slot]))
         {
             foreach (var t in PossibleTargets(avoid))
                 hints.AddForbiddenZone(avoid.Shape.CheckFn(avoid.Position(t), avoid.Angle(t)), avoid.Activation);
@@ -169,14 +173,16 @@ class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(modul
 
         if (CurrentBaits.Where(s => s.IsStack && s.Targets[slot]).FirstOrNull() is { } actorStack)
         {
-            foreach (var stackWith in CurrentBaits.Where(s => s.IsStack && !s.Targets[slot]))
+            // avoid stacks where we are not the target
+            // avoid multi-instance stacks where we are the target, since overlap is assumed to be fatal
+            foreach (var stackWith in CurrentBaits.Where(s => s.IsStack && IsDifferentTarget(s, slot)))
             {
                 foreach (var t in PossibleTargets(stackWith).Exclude(actor))
                     hints.AddForbiddenZone(stackWith.Shape.CheckFn(stackWith.Position(t), stackWith.Angle(t)), stackWith.Activation);
             }
 
             // stack with closest player who is either baiting the same aoe as us, or not baiting anything
-            var closest = Raid.WithSlot().Exclude(actor).ExcludedFromMask(actorStack.ForbiddenTargets).WhereSlot(p => actorStack.Targets[p] || !IsStackTarget(p) && !IsSpreadTarget(p)).Select(p => p.Item2).Closest(actor.Position);
+            var closest = Raid.WithSlot().Exclude(actor).ExcludedFromMask(actorStack.ForbiddenTargets).WhereSlot(p => !IsDifferentTarget(actorStack, p) || !IsStackTarget(p) && !IsSpreadTarget(p)).Select(p => p.Item2).Closest(actor.Position);
             if (closest != null)
             {
                 bool cf(WPos p) => !actorStack.Shape.Check(p, actorStack.Position(closest), actorStack.Angle(closest));
@@ -196,25 +202,26 @@ class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(modul
         foreach (var s in CurrentBaits)
         {
             if (s.IsSpread)
-                hints.AddPredictedDamage(s.Targets, s.Activation, s.DamageType);
+                hints.AddPredictedDamage(s.Targets, s.Activation, s.Type);
             else
                 foreach (var target in PossibleTargets(s))
                 {
-                    hints.AddPredictedDamage(Raid.WithSlot().InShape(s.Shape, s.Position(target), s.Angle(target)).Mask(), s.Activation, s.DamageType);
+                    hints.AddPredictedDamage(Raid.WithSlot().InShape(s.Shape, s.Position(target), s.Angle(target)).Mask(), s.Activation, s.Type);
                 }
         }
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
     {
-        foreach (var bait in CurrentBaits)
-        {
-            if (bait.Targets[playerSlot] && bait.ForbiddenTargets[pcSlot])
-                return PlayerPriority.Danger;
-            if (bait.Targets[playerSlot])
-                return PlayerPriority.Interesting;
-        }
+        // special case: if we need to spread, highlight only the other players we spread with
+        if (CurrentBaits.FirstOrNull(s => s.IsSpread && s.Targets[pcSlot]) is { } mySpread)
+            return mySpread.Targets[playerSlot] ? PlayerPriority.Interesting : PlayerPriority.Irrelevant;
 
-        return PlayerPriority.Irrelevant;
+        // special case: if we are a random target for a stack that only has one instance, all other players should not be highlighted (the component assumes that the player is the bait target)
+        // for stacks that have more than one instance (i.e. baited on supports/healers) other targets will be highlighted as normal
+        if (CurrentBaits.FirstOrNull(s => s.IsStack && s.Targets[pcSlot]) is { } myStack && myStack.Count == 1 && myStack.Targets[playerSlot])
+            return PlayerPriority.Irrelevant;
+
+        return CurrentBaits.Any(s => s.Targets[playerSlot]) ? PlayerPriority.Interesting : PlayerPriority.Irrelevant;
     }
 }

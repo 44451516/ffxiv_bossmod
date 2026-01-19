@@ -13,7 +13,12 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         [Track(Actions = [AID.Embolden, AID.Manafication])]
         public Track<OffensiveStrategy> Buffs;
 
-        [Track("Melee combo")]
+        [Track(Targets = ActionTargets.Hostile, MinLevel = 100)]
+        public Track<OffensiveStrategy> Prefulgence;
+
+        [Track(Targets = ActionTargets.Hostile)]
+        public Track<MeleeStrategy> Melee;
+
         public Track<ComboStrategy> Combo;
 
         [Track("Corps-a-corps", Targets = ActionTargets.Hostile)]
@@ -23,11 +28,23 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         readonly AOEStrategy IStrategyCommon.AOE => AOE.Value;
     }
 
+    public enum MeleeStrategy
+    {
+        [PropertyDisplay("Use at full mana, if needed for movement, or during burst")]
+        Automatic,
+        [PropertyDisplay("Do not use")]
+        Delay,
+        [PropertyDisplay("Use ASAP, break combos if necessary")]
+        Force
+    }
+
     public enum ComboStrategy
     {
-        [Option("Always complete combo; if target moves out of melee range, wait")]
-        Complete,
-        [Option("Break combo if target moves out of melee range")]
+        [PropertyDisplay("Always complete combo (hold if target moves out of range)")]
+        Preserve,
+        [PropertyDisplay("Always complete combo; use Reprise as fallback if enough mana")]
+        Reprise,
+        [PropertyDisplay("Break combo if target is out of range")]
         Break
     }
 
@@ -66,10 +83,14 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         || ComboLastMove is AID.Verflare or AID.Verholy && Unlocked(AID.Scorch)
         || ComboLastMove is AID.Scorch && Unlocked(AID.Resolution);
 
-    private bool InCombo
+    private bool InMeleeCombo
         => ComboLastMove == AID.Riposte && Unlocked(AID.Zwerchhau)
         || ComboLastMove == AID.Zwerchhau && Unlocked(AID.Redoublement)
         || ComboLastMove is AID.EnchantedMoulinetDeux or AID.EnchantedMoulinet;
+
+    private bool InCombo => InMeleeCombo || InRangedCombo;
+
+    private bool PostOpener => Player.InCombat && (OnCooldown(AID.Embolden) || CombatTimer > 5);
 
     protected override float GetCastTime(AID aid)
     {
@@ -91,6 +112,30 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         }
 
         return base.GetCastTime(aid);
+    }
+
+    public enum GCDPriority : int
+    {
+        None = 0,
+        MeleeMove = 100,
+        Standard = 200,
+        Proc = 250, // wind/fire
+        StandardAOE = 275,
+        GI = 300,
+        MeleeStart = 400,
+        Instant = 500, // long casts
+        InstantAOE = 525,
+        Combo = 600,
+        Force = 700,
+    }
+
+    public enum OGCDPriority : int
+    {
+        None = 0,
+        Fleche = 400,
+        Manafic = 450,
+        Pref = 475,
+        Embolden = 500,
     }
 
     public override void Exec(in Strategy strategy, Enemy? primaryTarget)
@@ -129,106 +174,141 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
             : Unlocked(AID.Zwerchhau) ? 35
             : 20;
 
-        if (primaryTarget is { } tar && Manafication <= GCD && (Swordplay > 0 || LowestMana >= comboMana || InCombo))
+        if (primaryTarget is { } tar && Manafication <= GCD && (Swordplay > 0 || LowestMana >= comboMana || InMeleeCombo))
             Hints.GoalZones.Add(Hints.GoalSingleTarget(tar.Actor, 3));
 
         GoalZoneSingle(25);
 
+        DoGCD(strategy, primaryTarget, comboMana);
         OGCD(strategy, primaryTarget);
+    }
 
+    void DoGCD(in Strategy strategy, Enemy? primaryTarget, int comboMana)
+    {
+        // combo continuations
         if (ComboLastMove is AID.Scorch)
-            PushGCD(AID.Resolution, BestLineTarget);
+            PushGCD(AID.Resolution, BestLineTarget, GCDPriority.Combo);
 
         if (ComboLastMove is AID.Verflare or AID.Verholy)
-            PushGCD(AID.Scorch, BestAOETarget);
+            PushGCD(AID.Scorch, BestAOETarget, GCDPriority.Combo);
 
         if (Stacks == 3)
-            PushGCD(BlackMana > WhiteMana ? AID.Verholy : AID.Verflare, BestAOETarget);
+            PushGCD(BlackMana > WhiteMana ? AID.Verholy : AID.Verflare, BestAOETarget, GCDPriority.Combo);
 
         if (ComboLastMove == AID.Zwerchhau && Unlocked(AID.Redoublement))
-            PushGCD(AID.Redoublement, primaryTarget);
+            PushGCD(AID.Redoublement, primaryTarget, GCDPriority.Combo);
 
         if (ComboLastMove == AID.Riposte && Unlocked(AID.Zwerchhau))
-            PushGCD(AID.Zwerchhau, primaryTarget);
+            PushGCD(AID.Zwerchhau, primaryTarget, GCDPriority.Combo);
 
         if (ComboLastMove == AID.EnchantedMoulinetDeux)
-            PushGCD(AID.EnchantedMoulinetTrois, BestConeTarget);
+            PushGCD(AID.EnchantedMoulinetTrois, BestConeTarget, GCDPriority.Combo);
 
         if (ComboLastMove == AID.EnchantedMoulinet)
-            PushGCD(AID.EnchantedMoulinetDeux, BestConeTarget);
+            PushGCD(AID.EnchantedMoulinetDeux, BestConeTarget, GCDPriority.Combo);
 
-        if (InCombo && strategy.Combo == ComboStrategy.Complete)
+        if (strategy.Combo != ComboStrategy.Break && InCombo)
             return;
 
         if (GrandImpact > GCD)
-            PushGCD(AID.GrandImpact, BestAOETarget);
+        {
+            if (!CanFitGCD(GrandImpact, 1)) // expiring soon
+                PushGCD(AID.GrandImpact, BestAOETarget, GCDPriority.Combo);
 
-        if (Acceleration > GCD)
+            if (PostOpener)
+                PushGCD(AID.GrandImpact, BestAOETarget, GCDPriority.GI);
+        }
+
+        if (Acceleration > GCD || Dualcast > GCD || SwiftcastLeft > GCD)
         {
             if (NumAOETargets > 2)
-                PushGCD(AID.Scatter, BestAOETarget);
+                PushGCD(AID.Scatter, BestAOETarget, GCDPriority.InstantAOE);
 
-            if (BlackMana > WhiteMana)
-                PushGCD(AID.Veraero, primaryTarget);
+            if (BlackMana > WhiteMana && CombatTimer > 6)
+                PushGCD(AID.Veraero, primaryTarget, GCDPriority.Instant);
 
-            PushGCD(AID.Verthunder, primaryTarget);
+            PushGCD(AID.Verthunder, primaryTarget, GCDPriority.Instant);
         }
 
-        if (Dualcast == 0 && (Swordplay > 0 || LowestMana >= comboMana))
-        {
-            if (NumConeTargets > 2)
-                PushGCD(AID.EnchantedMoulinet, BestConeTarget);
-
-            PushGCD(AID.Riposte, primaryTarget);
-        }
-
-        if (Dualcast > GCD || SwiftcastLeft > GCD)
-        {
-            if (NumAOETargets > 2)
-                PushGCD(AID.Scatter, BestAOETarget);
-
-            if (BlackMana > WhiteMana)
-                PushGCD(AID.Veraero, primaryTarget);
-
-            PushGCD(AID.Verthunder, primaryTarget);
-        }
+        UseMelee(strategy, primaryTarget, comboMana);
 
         if (NumAOETargets > 2)
         {
             if (BlackMana > WhiteMana)
-                PushGCD(AID.VeraeroII, BestAOETarget);
+                PushGCD(AID.VeraeroII, BestAOETarget, GCDPriority.StandardAOE);
 
-            PushGCD(AID.VerthunderII, BestAOETarget);
+            PushGCD(AID.VerthunderII, BestAOETarget, GCDPriority.StandardAOE);
         }
 
-        if (VerfireReady > GCD)
-            PushGCD(AID.Verfire, primaryTarget);
+        if (VerfireReady > GCD + 1.5f)
+            PushGCD(AID.Verfire, primaryTarget, GCDPriority.Proc);
 
-        if (VerstoneReady > GCD)
-            PushGCD(AID.Verstone, primaryTarget);
+        if (VerstoneReady > GCD + 1.5f)
+            PushGCD(AID.Verstone, primaryTarget, GCDPriority.Proc);
 
-        PushGCD(AID.Jolt, primaryTarget);
+        PushGCD(AID.Jolt, primaryTarget, GCDPriority.Standard);
     }
 
-    private void OGCD(Strategy strategy, Enemy? primaryTarget)
+    void UseMelee(in Strategy strategy, Enemy? primaryTarget, int comboMana)
     {
+        void doit(GCDPriority p, in Strategy strategy, Enemy? primaryTarget)
+        {
+            if (NumConeTargets > 2 && Player.DistanceToHitbox(BestConeTarget) <= 8)
+                PushGCD(AID.EnchantedMoulinet, ResolveTargetOverride(strategy.Melee) ?? BestConeTarget, p);
+
+            if (Player.DistanceToHitbox(primaryTarget) <= 3 || Manafication > GCD)
+                PushGCD(AID.Riposte, ResolveTargetOverride(strategy.Melee) ?? primaryTarget, p);
+        }
+
+        if (
+            // disabled by strategy
+            strategy.Melee == MeleeStrategy.Delay
+            // insufficient resources
+            || Swordplay <= GCD && LowestMana < comboMana
+            // already mid combo, using riposte again would break it
+            || InCombo
+        )
+            return;
+
+        if (strategy.Melee == MeleeStrategy.Force)
+        {
+            doit(GCDPriority.Force, strategy, primaryTarget);
+            return;
+        }
+
+        if (Dualcast > GCD || SwiftcastLeft > GCD)
+            return;
+
+        if (
+            // overcap incoming (TODO: maybe ignore this condition if buffs are imminent)
+            LowestMana >= 89
+            // start combo early for buff window
+            || CanWeave(AID.Embolden, extraFixedDelay: 5.2f) && strategy.Buffs != OffensiveStrategy.Delay
+            // full combo is 12.7s
+            || Embolden > GCD + 12.7f
+        )
+            doit(GCDPriority.MeleeStart, strategy, primaryTarget);
+
+        doit(GCDPriority.MeleeMove, strategy, primaryTarget);
+    }
+
+    private void OGCD(in Strategy strategy, Enemy? primaryTarget)
+    {
+        UseEmbolden(strategy);
+
         if (!Player.InCombat || primaryTarget == null)
             return;
 
-        PushOGCD(AID.Swiftcast, Player);
+        if (!InCombo && PostOpener)
+            PushOGCD(AID.Manafication, Player, OGCDPriority.Manafic);
 
-        PushOGCD(AID.Fleche, primaryTarget);
+        if (GetCastTime(NextGCD) > 0)
+            PushOGCD(AID.Swiftcast, Player);
 
-        // intentionally checking for max charges - balance says to save a charge for movement
+        PushOGCD(AID.Fleche, primaryTarget, OGCDPriority.Fleche);
+
         if (CanWeave(MaxChargesIn(AID.Acceleration), 0.6f))
             PushOGCD(AID.Acceleration, Player);
-
-        if (strategy.Buffs != OffensiveStrategy.Delay)
-        {
-            PushOGCD(AID.Embolden, Player);
-            if (!(InCombo || InRangedCombo))
-                PushOGCD(AID.Manafication, Player);
-        }
 
         PushOGCD(AID.ContreSixte, BestAOETarget);
         PushOGCD(AID.Engagement, primaryTarget);
@@ -236,16 +316,46 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         if (strategy.Dash.IsEnabled())
             PushOGCD(AID.CorpsACorps, ResolveTargetOverride(strategy.Dash) ?? primaryTarget);
 
-        if (ThornedFlourish > 0)
+        if (ThornedFlourish > AnimLock)
             PushOGCD(AID.ViceOfThorns, BestAOETarget);
 
-        if (Prefulgence > 0)
-            PushOGCD(AID.Prefulgence, BestAOETarget);
+        UsePrefulgence(strategy);
 
-        if (RaidBuffsLeft > GCD && Acceleration == 0)
+        if (RaidBuffsLeft > GCD && Acceleration <= AnimLock && GrandImpact <= AnimLock)
             PushOGCD(AID.Acceleration, Player);
 
         if (MP <= Player.HPMP.MaxMP * 0.7f)
             PushOGCD(AID.LucidDreaming, Player);
+    }
+
+    void UseEmbolden(in Strategy strategy)
+    {
+        if (strategy.Buffs == OffensiveStrategy.Force)
+        {
+            PushOGCD(AID.Embolden, Player, OGCDPriority.Embolden);
+            return;
+        }
+
+        if (strategy.Buffs == OffensiveStrategy.Delay)
+            return;
+
+        if (Player.InCombat && CombatTimer > 5)
+            PushOGCD(AID.Embolden, Player, OGCDPriority.Embolden);
+    }
+
+    void UsePrefulgence(in Strategy strategy)
+    {
+        if (Prefulgence <= AnimLock)
+            return;
+
+        var shouldUse = strategy.Prefulgence.Value switch
+        {
+            OffensiveStrategy.Automatic => Embolden > AnimLock || !CanFitGCD(Prefulgence, 1) || NumAOETargets > 1,
+            OffensiveStrategy.Force => true,
+            _ => false
+        };
+
+        if (shouldUse)
+            PushOGCD(AID.Prefulgence, ResolveTargetOverride(strategy.Prefulgence) ?? BestAOETarget, OGCDPriority.Pref);
     }
 }
