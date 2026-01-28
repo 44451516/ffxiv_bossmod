@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Savage.RM05SDancingGreen;
 
-[ConfigDisplay(Parent = typeof(DawntrailConfig))]
+[ConfigDisplay(Parent = typeof(DawntrailConfig), Order = -8)]
 public class RM05SDancingGreenConfig : ConfigNode
 {
     [PropertyDisplay("提前显示聚光灯安全点的秒数（默认：15）")]

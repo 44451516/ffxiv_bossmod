@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Savage.RM06SSugarRiot;
 
-[ConfigDisplay(Parent = typeof(DawntrailConfig))]
+[ConfigDisplay(Parent = typeof(DawntrailConfig), Order = -7)]
 class RM06SSugarRiotConfig : ConfigNode
 {
     [PropertyDisplay("启用小怪阶段的优先级提示（仅由VBM自动循环使用）")]
