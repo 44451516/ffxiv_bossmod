@@ -249,7 +249,7 @@ public sealed class ReplayManager : IDisposable
             _fileDialog ??= new("select_log", "Select file or directory", "Log files{.log},All files{.*}", _fileDialogStartPath, "", ".log", 1, false, ImGuiFileDialogFlags.SelectOnly);
             // work around an oversight(?) in dalamud
             // TODO: we should use FileDialogManager instead
-            _fileDialog.SelectionChanged += (e, s) => { };
+            // _fileDialog.SelectionChanged += (e, s) => { };
             _fileDialog.Show();
         }
         ImGui.SameLine();
