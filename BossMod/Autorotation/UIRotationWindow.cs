@@ -11,7 +11,7 @@ public sealed class UIRotationWindow : UIWindow
     private readonly AutorotationConfig _config = Service.Config.Get<AutorotationConfig>();
     private readonly EventSubscriptions _subscriptions;
 
-    public UIRotationWindow(RotationModuleManager mgr, ActionManagerEx amex, Action openConfig) : base("Autorotation", false, new(400, 400), ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoFocusOnAppearing)
+    public UIRotationWindow(RotationModuleManager mgr, ActionManagerEx amex, Action openConfig) : base("自动循环", false, new(400, 400), ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoFocusOnAppearing)
     {
         _mgr = mgr;
         _amex = amex;
@@ -20,7 +20,6 @@ public sealed class UIRotationWindow : UIWindow
             _config.Modified.ExecuteAndSubscribe(() => IsOpen = _config.ShowUI)
         );
         RespectCloseHotkey = false;
-        TitleBarButtons.Add(new() { Icon = FontAwesomeIcon.Cog, IconOffset = new(1), Click = _ => openConfig() });
     }
 
     protected override void Dispose(bool disposing)
@@ -56,7 +55,7 @@ public sealed class UIRotationWindow : UIWindow
         var activeModule = _mgr.Bossmods.ActiveModule;
         if (activeModule != null)
         {
-            ImGui.TextUnformatted($"CD Plan:");
+            ImGui.TextUnformatted("冷却计划：");
 
             if (activeModule.Info?.PlanLevel > 0)
             {
@@ -70,11 +69,11 @@ public sealed class UIRotationWindow : UIWindow
                 }
 
                 ImGui.SameLine();
-                if (ImGui.Button(plans.SelectedIndex >= 0 ? "Edit" : "New"))
+                if (ImGui.Button(plans.SelectedIndex >= 0 ? "编辑" : "新建"))
                 {
                     if (plans.SelectedIndex < 0)
                     {
-                        var plan = new Plan($"New {plans.Plans.Count + 1}", activeModule.GetType()) { Guid = Guid.NewGuid().ToString(), Class = player.Class, Level = activeModule.Info.PlanLevel };
+                        var plan = new Plan($"新建 {plans.Plans.Count + 1}", activeModule.GetType()) { Guid = Guid.NewGuid().ToString(), Class = player.Class, Level = activeModule.Info.PlanLevel };
                         plans.SelectedIndex = plans.Plans.Count;
                         _mgr.Database.Plans.ModifyPlan(null, plan);
                     }
@@ -85,19 +84,19 @@ public sealed class UIRotationWindow : UIWindow
                 {
                     ImGui.SameLine();
                     using var style = ImRaii.PushColor(ImGuiCol.Text, 0xff00ffff);
-                    UIMisc.HelpMarker(() => "You have a preset activated, which fully overrides the CD plan!", FontAwesomeIcon.ExclamationTriangle);
+                    UIMisc.HelpMarker(() => "你已启用预设，它会完全覆盖冷却计划！", FontAwesomeIcon.ExclamationTriangle);
                 }
             }
         }
 
-        ImGui.TextUnformatted("Modules: ");
+        ImGui.TextUnformatted("模块：");
 
         var dups = _mgr.DuplicateModules.ToList();
         if (dups.Count > 0)
         {
             ImGui.SameLine();
             using var style = ImRaii.PushColor(ImGuiCol.Text, 0xff00ffff);
-            UIMisc.HelpMarker(() => $"You have multiple copies of the same module active ({string.Join(", ", dups)}). Only one of each will execute. This is probably not what you want.", FontAwesomeIcon.ExclamationTriangle);
+            UIMisc.HelpMarker(() => $"你启用了同一模块的多个副本（{string.Join(", ", dups)}）。每种模块只会执行一个，这通常不是你想要的结果。", FontAwesomeIcon.ExclamationTriangle);
         }
 
         if (_mgr.Presets.Any(p => p.Modules.Any(m => m.TransientSettings.Count > 0)))
@@ -108,7 +107,7 @@ public sealed class UIRotationWindow : UIWindow
             if (ImGui.IsItemHovered())
             {
                 using var tooltip = ImRaii.Tooltip();
-                ImGui.TextUnformatted("Transient strategies:");
+                ImGui.TextUnformatted("临时策略：");
                 foreach (var p in _mgr.Presets)
                 {
                     foreach (var m in p.Modules.Where(m => m.TransientSettings.Count > 0))
@@ -143,7 +142,7 @@ public sealed class UIRotationWindow : UIWindow
         if (mgr.Player == null)
             return modified;
 
-        ImGui.TextUnformatted("Presets:");
+        ImGui.TextUnformatted("预设：");
 
         ImGui.SameLine();
 
@@ -151,7 +150,7 @@ public sealed class UIRotationWindow : UIWindow
         using (ImRaii.PushColor(ImGuiCol.ButtonHovered, 0xff000050, mgr.IsForceDisabled))
         using (ImRaii.PushColor(ImGuiCol.ButtonActive, 0xff000060, mgr.IsForceDisabled))
         {
-            if (ImGui.Button("Disabled"))
+            if (ImGui.Button("已禁用"))
             {
                 if (mgr.IsForceDisabled)
                     mgr.Clear();

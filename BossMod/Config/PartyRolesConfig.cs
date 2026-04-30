@@ -71,7 +71,7 @@ public class PartyRolesConfig : ConfigNode
             {
                 foreach (var r in typeof(Assignment).GetEnumValues())
                     ImGui.TableSetupColumn(r.ToString(), ImGuiTableColumnFlags.None, 25);
-                ImGui.TableSetupColumn("Name");
+                ImGui.TableSetupColumn("名称");
                 ImGui.TableHeadersRow();
 
                 List<(ulong cid, string name, char role, Assignment assignment)> party = [];
@@ -112,7 +112,7 @@ public class PartyRolesConfig : ConfigNode
         else
         {
             using var color = ImRaii.PushColor(ImGuiCol.Text, 0xff00ff00);
-            ImGui.TextUnformatted("All good!");
+            ImGui.TextUnformatted("分配有效。");
         }
     }
 }

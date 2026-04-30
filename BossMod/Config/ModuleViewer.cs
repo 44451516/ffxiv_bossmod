@@ -63,10 +63,10 @@ public sealed class ModuleViewer : IDisposable
         Customize(BossModuleInfo.Category.TreasureHunt, contentType.GetRow(9));
         Customize(BossModuleInfo.Category.GoldSaucer, contentType.GetRow(19));
         Customize(BossModuleInfo.Category.DeepDungeon, contentType.GetRow(21));
-        Customize(BossModuleInfo.Category.Quantum, contentType.GetRow(21), "Quantum");
+        Customize(BossModuleInfo.Category.Quantum, contentType.GetRow(21), "量子难度");
         Customize(BossModuleInfo.Category.Ultimate, contentType.GetRow(28));
-        Customize(BossModuleInfo.Category.Variant, contentType.GetRow(30), "Variant Dungeons");
-        Customize(BossModuleInfo.Category.Criterion, contentType.GetRow(30), "Criterion Dungeons");
+        Customize(BossModuleInfo.Category.Variant, contentType.GetRow(30), "多变迷宫");
+        Customize(BossModuleInfo.Category.Criterion, contentType.GetRow(30), "异闻迷宫");
 
         var playStyle = Service.LuminaSheet<CharaCardPlayStyle>()!;
         Customize(BossModuleInfo.Category.Foray, playStyle.GetRow(6));
@@ -141,7 +141,7 @@ public sealed class ModuleViewer : IDisposable
     private void DrawFilters()
     {
         ImGui.AlignTextToFramePadding();
-        ImGui.Text("Search:");
+        ImGui.Text("搜索：");
         ImGui.SameLine();
         ImGui.SetNextItemWidth(-1);
         DrawSearchBar();
@@ -149,8 +149,8 @@ public sealed class ModuleViewer : IDisposable
 
         using (ImRaii.Child("##belowsearch"))
         {
-            DrawFiltersTable("Expansion", DrawExpansionFilters);
-            DrawFiltersTable("Category", DrawContentTypeFilters);
+            DrawFiltersTable("资料片", DrawExpansionFilters);
+            DrawFiltersTable("类别", DrawContentTypeFilters);
         }
     }
 
@@ -165,12 +165,12 @@ public sealed class ModuleViewer : IDisposable
 
     private void DrawSearchBar()
     {
-        ImGui.InputTextWithHint("##search", "e.g. \"Ultimate\"", ref _searchText, 100, ImGuiInputTextFlags.CallbackCompletion);
+        ImGui.InputTextWithHint("##search", "例如“绝境战”", ref _searchText, 100, ImGuiInputTextFlags.CallbackCompletion);
 
         if (ImGui.IsItemHovered() && !ImGui.IsItemFocused())
         {
             ImGui.BeginTooltip();
-            ImGui.Text("Type here to search for any specific instance by its respective title.");
+            ImGui.Text("在这里输入副本标题以搜索指定副本。");
             ImGui.EndTooltip();
         }
     }
@@ -191,11 +191,11 @@ public sealed class ModuleViewer : IDisposable
                 shiftRmb: () => ToggleFocus(ref _filterExpansions, bit),
                 context: () =>
                 {
-                    if (ImGui.MenuItem($"Hide expansion", "LMB", selected: _filterExpansions[bit]))
+                    if (ImGui.MenuItem("隐藏此资料片", "左键", selected: _filterExpansions[bit]))
                         _filterExpansions.Toggle(bit);
 
                     var isFocused = _filterExpansions == ~BitMask.Build(bit);
-                    if (ImGui.MenuItem($"Hide other expansions", "Shift + RMB", selected: isFocused))
+                    if (ImGui.MenuItem("隐藏其他资料片", "Shift + 右键", selected: isFocused))
                         ToggleFocus(ref _filterExpansions, bit);
                 }
             );
@@ -222,16 +222,16 @@ public sealed class ModuleViewer : IDisposable
                 shiftRmb: () => ToggleFocus(ref _filterCategories, bit),
                 context: () =>
                 {
-                    if (ImGui.MenuItem($"Hide category", "LMB", selected: _filterCategories[bit]))
+                    if (ImGui.MenuItem("隐藏此类别", "左键", selected: _filterCategories[bit]))
                         _filterCategories.Toggle(bit);
 
                     var isFocused = _filterCategories == ~BitMask.Build(bit);
-                    if (ImGui.MenuItem($"Hide other categories", "Shift + RMB", selected: isFocused))
+                    if (ImGui.MenuItem("隐藏其他类别", "Shift + 右键", selected: isFocused))
                         ToggleFocus(ref _filterCategories, bit);
 
                     ImGui.Separator();
 
-                    if (ImGui.MenuItem("Disable all modules in this category", "", isDisabledCategory))
+                    if (ImGui.MenuItem("禁用此类别中的所有模块", "", isDisabledCategory))
                     {
                         modified = true;
                         if (isDisabledCategory)
@@ -295,7 +295,7 @@ public sealed class ModuleViewer : IDisposable
         }
 
         if (ImGui.IsItemHovered() && disabled)
-            ImGui.SetTooltip("All modules in this category are disabled. Individual module settings are ignored.");
+            ImGui.SetTooltip("此类别中的所有模块已禁用，单个模块设置会被忽略。");
         if (ImGui.IsItemClicked())
             click?.Invoke();
         if (ImGui.IsItemClicked(ImGuiMouseButton.Right) && shift)
@@ -408,10 +408,10 @@ public sealed class ModuleViewer : IDisposable
                 groupId |= module.GroupID;
                 var mcRow = Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value;
                 var mcSort = uint.Parse(mcRow.ShortCode.ToString().AsSpan(3), CultureInfo.InvariantCulture); // 'aozNNN'
-                var mcName = $"Stage {mcSort}: {FixCase(mcRow.Name)}";
+                var mcName = $"第 {mcSort} 关：{FixCase(mcRow.Name)}";
                 return (new(mcName, groupId, mcSort), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.RemovedUnreal:
-                return (new("Removed Content", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new("已移除内容", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.Quest:
                 var questRow = Service.LuminaRow<Quest>(module.GroupID)!.Value;
                 groupId |= questRow.JournalGenre.RowId;
@@ -422,32 +422,32 @@ public sealed class ModuleViewer : IDisposable
                 return (new($"{module.Expansion.ShortName()} FATE", groupId, groupId, _iconFATE), new(module, $"{fateRow.Name}: {BNpcName(module.NameID)}", module.SortOrder));
             case BossModuleInfo.GroupType.Hunt:
                 groupId |= module.GroupID;
-                return (new($"{module.Expansion.ShortName()} Hunt {(BossModuleInfo.HuntRank)module.GroupID}", groupId, groupId, _iconHunt), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new($"{module.Expansion.ShortName()} 狩猎 {(BossModuleInfo.HuntRank)module.GroupID}", groupId, groupId, _iconHunt), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.BozjaCE:
                 groupId |= module.GroupID;
                 var ceName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} CE";
                 return (new(ceName, groupId, groupId), new(module, Service.LuminaRow<DynamicEvent>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
             case BossModuleInfo.GroupType.BozjaDuel:
                 groupId |= module.GroupID;
-                var duelName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} Duel";
+                var duelName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} 单挑";
                 return (new(duelName, groupId, groupId), new(module, Service.LuminaRow<DynamicEvent>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
             case BossModuleInfo.GroupType.EurekaNM:
                 groupId |= module.GroupID;
                 var nmName = FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name);
                 return (new(nmName, groupId, groupId), new(module, Service.LuminaRow<Fate>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
             case BossModuleInfo.GroupType.GoldSaucer:
-                return (new("Gold saucer", groupId, groupId), new(module, $"{Service.LuminaRow<GoldSaucerTextData>(module.GroupID)?.Text}: {BNpcName(module.NameID)}", module.SortOrder));
+                return (new("金碟游乐场", groupId, groupId), new(module, $"{Service.LuminaRow<GoldSaucerTextData>(module.GroupID)?.Text}: {BNpcName(module.NameID)}", module.SortOrder));
             default:
-                return (new("Ungrouped", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new("未分组", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
         }
     }
 
     private string ModuleHelpText(ModuleInfo info)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(CultureInfo.CurrentCulture, $"Cooldown planning: {(info.Info.PlanLevel > 0 ? $"L{info.Info.PlanLevel}" : "not supported")}");
+        sb.AppendLine(CultureInfo.CurrentCulture, $"冷却规划：{(info.Info.PlanLevel > 0 ? $"L{info.Info.PlanLevel}" : "不支持")}");
         if (info.Info.Contributors.Length > 0)
-            sb.AppendLine(CultureInfo.CurrentCulture, $"Contributors: {info.Info.Contributors}");
+            sb.AppendLine(CultureInfo.CurrentCulture, $"贡献者：{info.Info.Contributors}");
         return sb.ToString();
     }
 
@@ -461,7 +461,7 @@ public sealed class ModuleViewer : IDisposable
         {
             foreach (var plan in plans.Plans)
             {
-                if (ImGui.Selectable($"Edit {cls} '{plan.Name}' ({plan.Guid})"))
+                if (ImGui.Selectable($"编辑 {cls} '{plan.Name}' ({plan.Guid})"))
                 {
                     UIPlanDatabaseEditor.StartPlanEditor(_planDB, plan);
                 }
@@ -471,10 +471,10 @@ public sealed class ModuleViewer : IDisposable
         var player = _ws.Party.Player();
         if (player != null)
         {
-            if (ImGui.Selectable($"New plan for {player.Class}..."))
+            if (ImGui.Selectable($"为 {player.Class} 新建计划..."))
             {
                 var plans = mplans.GetOrAdd(player.Class);
-                var plan = new Plan($"New {plans.Plans.Count + 1}", info.ModuleType) { Guid = Guid.NewGuid().ToString(), Class = player.Class, Level = info.PlanLevel };
+                var plan = new Plan($"新建 {plans.Plans.Count + 1}", info.ModuleType) { Guid = Guid.NewGuid().ToString(), Class = player.Class, Level = info.PlanLevel };
                 _planDB.ModifyPlan(null, plan);
                 UIPlanDatabaseEditor.StartPlanEditor(_planDB, plan);
             }

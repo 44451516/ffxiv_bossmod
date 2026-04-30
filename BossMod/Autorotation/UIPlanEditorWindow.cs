@@ -29,10 +29,10 @@ public class UIPlanEditorWindow : UIWindow
 
     public override void Draw()
     {
-        if (UIMisc.Button("Save", !_planner.Modified, "No changes"))
+        if (UIMisc.Button("保存", !_planner.Modified, "没有更改"))
             Save();
         ImGui.SameLine();
-        if (UIMisc.Button("Delete", !ImGui.GetIO().KeyShift, "Hold shift to delete"))
+        if (UIMisc.Button("删除", !ImGui.GetIO().KeyShift, "按住 Shift 删除"))
             Delete();
         ImGui.SameLine();
         _planner.DrawCommonControls();

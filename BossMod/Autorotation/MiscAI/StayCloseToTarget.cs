@@ -16,11 +16,11 @@ public sealed class StayCloseToTarget(RotationModuleManager manager, Actor playe
 
     public static RotationModuleDefinition Definition()
     {
-        RotationModuleDefinition def = new("Misc AI: Stay within range of target", "Module for use by AutoDuty preset.", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000);
+        RotationModuleDefinition def = new("杂项 AI：保持在目标范围内", "供 AutoDuty 预设使用的模块。", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000);
 
-        var configRef = def.Define(Tracks.Range).As<RangeDefinition>("range", "Range to target", renderer: typeof(FakeFloatRenderer));
+        var configRef = def.Define(Tracks.Range).As<RangeDefinition>("range", "到目标的距离", renderer: typeof(FakeFloatRenderer));
 
-        configRef.AddOption(RangeDefinition.OnHitbox, "Stay on edge of hitbox (+/- 1 unit)");
+        configRef.AddOption(RangeDefinition.OnHitbox, "停在碰撞箱边缘（+/- 1 单位）");
 
         for (float f = 1.1f; f <= 30f; f = MathF.Round(f + 0.1f, 1))
         {

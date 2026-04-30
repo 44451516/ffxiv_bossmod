@@ -17,41 +17,41 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
 
     public static RotationModuleDefinition Definition()
     {
-        var res = new RotationModuleDefinition("Automatic movement", "Automatically move character based on pathfinding or explicit coordinates.", "AI", "veyn", RotationModuleQuality.Good, new(~0ul), 1000, 1, RotationModuleOrder.Movement, CanUseWhileRoleplaying: true);
-        res.Define(Track.Destination).As<DestinationStrategy>("Destination", "Destination", 30)
-            .AddOption(DestinationStrategy.None, "No automatic movement")
-            .AddOption(DestinationStrategy.Pathfind, "Use standard pathfinding to find best position")
-            .AddOption(DestinationStrategy.Explicit, "Move to specific point", supportedTargets: ActionTargets.Area);
+        var res = new RotationModuleDefinition("自动移动", "根据寻路或显式坐标自动移动角色。", "AI", "veyn", RotationModuleQuality.Good, new(~0ul), 1000, 1, RotationModuleOrder.Movement, CanUseWhileRoleplaying: true);
+        res.Define(Track.Destination).As<DestinationStrategy>("Destination", "目的地", 30)
+            .AddOption(DestinationStrategy.None, "不自动移动")
+            .AddOption(DestinationStrategy.Pathfind, "使用标准寻路寻找最佳位置")
+            .AddOption(DestinationStrategy.Explicit, "移动到指定地点", supportedTargets: ActionTargets.Area);
 
         // note that these options used to be melee-specific - internal names are kept unchanged for convenience
-        res.Define(Track.Range).As<RangeStrategy>("Range", "Range", 20)
-            .AddOption(RangeStrategy.Any, "Go directly to destination")
-            .AddOption(RangeStrategy.MaxRange, "Stay within maximum effective range of target closest to destination", supportedTargets: ActionTargets.Hostile)
-            .AddOption(RangeStrategy.GreedGCDExplicit, "Stay within effective range until last GCD; ensure destination is reached by the plan entry end", supportedTargets: ActionTargets.Hostile)
-            .AddOption(RangeStrategy.GreedLastMomentExplicit, "Stay within effective range until last possible moment; ensure destination is reached by the plan entry end", supportedTargets: ActionTargets.Hostile)
-            .AddOption(RangeStrategy.GreedAutomatic, "Stay within effective range as long as possible; try to ensure safety is reached before mechanic resolves", supportedTargets: ActionTargets.Hostile)
+        res.Define(Track.Range).As<RangeStrategy>("Range", "距离", 20)
+            .AddOption(RangeStrategy.Any, "直接前往目的地")
+            .AddOption(RangeStrategy.MaxRange, "停留在离目的地最近目标的最大有效攻击距离内", supportedTargets: ActionTargets.Hostile)
+            .AddOption(RangeStrategy.GreedGCDExplicit, "保持在有效攻击距离内直到最后一个 GCD；确保在计划条目结束前到达目的地", supportedTargets: ActionTargets.Hostile)
+            .AddOption(RangeStrategy.GreedLastMomentExplicit, "保持在有效攻击距离内直到最后可能时刻；确保在计划条目结束前到达目的地", supportedTargets: ActionTargets.Hostile)
+            .AddOption(RangeStrategy.GreedAutomatic, "尽可能久地保持在有效攻击距离内；尝试在机制判定前到达安全位置", supportedTargets: ActionTargets.Hostile)
             /*.AddOption(RangeStrategy.Drag, "Drag", "Drag the target to specified spot, but maintain gcd uptime", supportedTargets: ActionTargets.Hostile)*/; // TODO
 
-        res.Define(Track.Cast).As<CastStrategy>("Cast", "Cast", 10)
-            .AddOption(CastStrategy.Leeway, "Continue slidecasting as long as there is enough time to get to safety")
-            .AddOption(CastStrategy.Explicit, "Continue slidecasting as long as there is enough time to reach destination by the plan entry end")
-            .AddOption(CastStrategy.Greedy, "Don't stop casting, even when it risks getting clipped by aoes")
-            .AddOption(CastStrategy.FinishMove, "Start moving as soon as cast ends, use instants until destination is reached")
-            .AddOption(CastStrategy.DropMove, "Start moving asap, interrupting casts if necessary, use instants until destination is reached")
-            .AddOption(CastStrategy.FinishInstants, "Don't use any more casts after current cast ends")
-            .AddOption(CastStrategy.DropInstants, "Don't cast, interrupt current cast if needed");
-        res.Define(Track.SpecialModes).As<SpecialModesStrategy>("SpecialModes", "Special", -1)
-            .AddOption(SpecialModesStrategy.Automatic, "Automatically deal with special conditions (knockbacks, pyretics, etc)")
-            .AddOption(SpecialModesStrategy.Ignore, "Ignore any special conditions (knockbacks, pyretics, etc)");
-        res.Define(Track.ForbiddenZoneCushion).As<ForbiddenZoneCushionStrategy>("ForbiddenZoneCushion", "Overdodge", 25)
-            .AddOption(ForbiddenZoneCushionStrategy.None, "Do not use any buffer in pathfinding")
-            .AddOption(ForbiddenZoneCushionStrategy.Small, "Prefer to stay 0.5y away from forbidden zones")
-            .AddOption(ForbiddenZoneCushionStrategy.Medium, "Prefer to stay 1.5y away from forbidden zones")
-            .AddOption(ForbiddenZoneCushionStrategy.Large, "Prefer to stay 3y away from forbidden zones");
-        res.Define(Track.DelayMovement).As<DelayMovementStrategy>("DelayMovement", "Delay Movement", 9)
-            .AddOption(DelayMovementStrategy.None, "Do not delay movement")
-            .AddOption(DelayMovementStrategy.Short, "Delay movement by 0.5s")
-            .AddOption(DelayMovementStrategy.Long, "Delay movement by 1s");
+        res.Define(Track.Cast).As<CastStrategy>("Cast", "读条", 10)
+            .AddOption(CastStrategy.Leeway, "只要有足够时间到达安全位置，就继续滑步读条")
+            .AddOption(CastStrategy.Explicit, "只要有足够时间在计划条目结束前到达目的地，就继续滑步读条")
+            .AddOption(CastStrategy.Greedy, "不要停止读条，即使有被 AoE 擦到的风险")
+            .AddOption(CastStrategy.FinishMove, "当前读条结束后立即开始移动，到达目的地前使用瞬发技能")
+            .AddOption(CastStrategy.DropMove, "尽快开始移动，必要时打断读条，到达目的地前使用瞬发技能")
+            .AddOption(CastStrategy.FinishInstants, "当前读条结束后不再使用任何读条技能")
+            .AddOption(CastStrategy.DropInstants, "不读条，必要时打断当前读条");
+        res.Define(Track.SpecialModes).As<SpecialModesStrategy>("SpecialModes", "特殊", -1)
+            .AddOption(SpecialModesStrategy.Automatic, "自动处理特殊条件（击退、热病等）")
+            .AddOption(SpecialModesStrategy.Ignore, "忽略所有特殊条件（击退、热病等）");
+        res.Define(Track.ForbiddenZoneCushion).As<ForbiddenZoneCushionStrategy>("ForbiddenZoneCushion", "过度躲避", 25)
+            .AddOption(ForbiddenZoneCushionStrategy.None, "寻路时不使用任何缓冲距离")
+            .AddOption(ForbiddenZoneCushionStrategy.Small, "优先与禁区保持 0.5y 距离")
+            .AddOption(ForbiddenZoneCushionStrategy.Medium, "优先与禁区保持 1.5y 距离")
+            .AddOption(ForbiddenZoneCushionStrategy.Large, "优先与禁区保持 3y 距离");
+        res.Define(Track.DelayMovement).As<DelayMovementStrategy>("DelayMovement", "延迟移动", 9)
+            .AddOption(DelayMovementStrategy.None, "不延迟移动")
+            .AddOption(DelayMovementStrategy.Short, "延迟移动 0.5 秒")
+            .AddOption(DelayMovementStrategy.Long, "延迟移动 1 秒");
 
         return res;
     }

@@ -95,8 +95,8 @@ public class ConfigRoot
         List<string> result = [];
         if (numRanges == 0)
         {
-            result.Add("Usage: /vbm cfg <config-type> <field> <value>");
-            result.Add("Both config-type and field can be shortened. Valid config-types:");
+            result.Add("用法：/vbm cfg <配置类型> <字段> <值>");
+            result.Add("配置类型和字段都可以缩写。有效的配置类型：");
             foreach (var t in _nodes.Keys)
                 result.Add($"- {t.Name}");
         }
@@ -118,20 +118,20 @@ public class ConfigRoot
                 }
             if (matchingNodes.Count == 0)
             {
-                result.Add("Config type not found. Valid types:");
+                result.Add("未找到配置类型。有效类型：");
                 foreach (var t in _nodes.Keys)
                     result.Add($"- {t.Name}");
             }
             else if (matchingNodes.Count > 1)
             {
-                result.Add("Ambiguous config type, pass longer pattern. Matches:");
+                result.Add("配置类型不明确，请输入更长的匹配文本。匹配项：");
                 foreach (var n in matchingNodes)
                     result.Add($"- {n.GetType().Name}");
             }
             else if (numRanges == 1)
             {
-                result.Add("Usage: /vbm cfg <config-type> <field> <value>");
-                result.Add($"Valid fields for {matchingNodes[0].GetType().Name}:");
+                result.Add("用法：/vbm cfg <配置类型> <字段> <值>");
+                result.Add($"{matchingNodes[0].GetType().Name} 的有效字段：");
                 foreach (var f in matchingNodes[0].GetType().GetFields().Where(f => f.GetCustomAttribute<PropertyDisplayAttribute>() != null))
                     result.Add($"- {f.Name}");
             }
@@ -155,13 +155,13 @@ public class ConfigRoot
                 }
                 if (matchingFields.Count == 0)
                 {
-                    result.Add($"Field not found {cmdField}, Valid fields:");
+                    result.Add($"未找到字段 {cmdField}，有效字段：");
                     foreach (var f in matchingNodes[0].GetType().GetFields().Where(f => f.GetCustomAttribute<PropertyDisplayAttribute>() != null))
                         result.Add($"- {f.Name}");
                 }
                 else if (matchingFields.Count > 1)
                 {
-                    result.Add("Ambiguous field name, pass longer pattern. Matches:");
+                    result.Add("字段名不明确，请输入更长的匹配文本。匹配项：");
                     foreach (var f in matchingFields)
                         result.Add($"- {f.Name}");
                 }
@@ -169,11 +169,11 @@ public class ConfigRoot
                 {
                     try
                     {
-                        result.Add(matchingFields[0].GetValue(matchingNodes[0])?.ToString() ?? $"Failed to get value of {matchingNodes[0].GetType().Name}.{matchingFields[0].Name}");
+                        result.Add(matchingFields[0].GetValue(matchingNodes[0])?.ToString() ?? $"无法获取 {matchingNodes[0].GetType().Name}.{matchingFields[0].Name} 的值");
                     }
                     catch (Exception e)
                     {
-                        result.Add($"Failed to get value of {matchingNodes[0].GetType().Name}.{matchingFields[0].Name} : {e}");
+                        result.Add($"无法获取 {matchingNodes[0].GetType().Name}.{matchingFields[0].Name} 的值：{e}");
                     }
                 }
                 else
@@ -184,7 +184,7 @@ public class ConfigRoot
                         var val = FromConsoleString(cmdValue, matchingFields[0].FieldType);
                         if (val == null)
                         {
-                            result.Add($"Failed to convert '{cmdValue}' to {matchingFields[0].FieldType}");
+                            result.Add($"无法将 '{cmdValue}' 转换为 {matchingFields[0].FieldType}");
                         }
                         else
                         {
@@ -195,7 +195,7 @@ public class ConfigRoot
                     }
                     catch (Exception e)
                     {
-                        result.Add($"Failed to set {matchingNodes[0].GetType().Name}.{matchingFields[0].Name} to {cmdValue}: {e}");
+                        result.Add($"无法将 {matchingNodes[0].GetType().Name}.{matchingFields[0].Name} 设置为 {cmdValue}：{e}");
                     }
                 }
             }

@@ -11,47 +11,47 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
 
     public static RotationModuleDefinition Definition()
     {
-        RotationModuleDefinition res = new("Automatic targeting", "Collection of utilities to automatically target and pull mobs based on different criteria.", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000, 1, RotationModuleOrder.HighLevel, CanUseWhileRoleplaying: true);
+        RotationModuleDefinition res = new("自动选择目标", "根据不同条件自动选择目标和拉怪的工具集合。", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000, 1, RotationModuleOrder.HighLevel, CanUseWhileRoleplaying: true);
 
-        res.Define(Track.General).As<GeneralStrategy>("General")
-            .AddOption(GeneralStrategy.Aggressive, "Automatically prioritize targets", supportedTargets: ActionTargets.Hostile)
-            .AddOption(GeneralStrategy.Passive, "Do nothing");
+        res.Define(Track.General).As<GeneralStrategy>("General", "通用")
+            .AddOption(GeneralStrategy.Aggressive, "自动优先选择目标", supportedTargets: ActionTargets.Hostile)
+            .AddOption(GeneralStrategy.Passive, "不执行操作");
 
-        res.Define(Track.Retarget).As<RetargetStrategy>("Retarget")
-            .AddOption(RetargetStrategy.NoTarget, "Only switch target if player has no target")
-            .AddOption(RetargetStrategy.Hostiles, "Only switch target if player is not targeting an ally")
-            .AddOption(RetargetStrategy.Always, "Always switch target to the highest priority enemy")
-            .AddOption(RetargetStrategy.Never, "Never switch target; only apply priority changes to enemies");
+        res.Define(Track.Retarget).As<RetargetStrategy>("Retarget", "重新选择目标")
+            .AddOption(RetargetStrategy.NoTarget, "仅在玩家没有目标时切换目标")
+            .AddOption(RetargetStrategy.Hostiles, "仅在玩家当前目标不是友方时切换目标")
+            .AddOption(RetargetStrategy.Always, "总是切换到优先级最高的敌人")
+            .AddOption(RetargetStrategy.Never, "永不切换目标；只调整敌人的优先级");
 
-        res.Define(Track.QuestBattle).As<Flag>("QuestBattle", "Prioritize bosses in quest battles", renderer: typeof(DefaultOffRenderer), uiPriority: -50)
+        res.Define(Track.QuestBattle).As<Flag>("QuestBattle", "优先选择任务战斗中的 Boss", renderer: typeof(DefaultOffRenderer), uiPriority: -50)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.DeepDungeon).As<Flag>("DD", "Prioritize deep dungeon bosses (solo only)", renderer: typeof(DefaultOffRenderer), uiPriority: -60)
+        res.Define(Track.DeepDungeon).As<Flag>("DD", "优先选择深层迷宫 Boss（仅单人）", renderer: typeof(DefaultOffRenderer), uiPriority: -60)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.EpicEcho).As<Flag>("EE", "Prioritize all targets in unsynced duties", renderer: typeof(DefaultOffRenderer), uiPriority: -70)
+        res.Define(Track.EpicEcho).As<Flag>("EE", "在解除限制的任务中优先选择所有目标", renderer: typeof(DefaultOffRenderer), uiPriority: -70)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.Hunt).As<Flag>("Hunt", "Prioritize hunt marks once they have been pulled", renderer: typeof(DefaultOffRenderer), uiPriority: -80)
+        res.Define(Track.Hunt).As<Flag>("Hunt", "狩猎怪被开怪后优先选择它们", renderer: typeof(DefaultOffRenderer), uiPriority: -80)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.FATE).As<Flag>("FATE", "Prioritize mobs in the current FATE", renderer: typeof(DefaultOffRenderer), uiPriority: -90)
+        res.Define(Track.FATE).As<Flag>("FATE", "优先选择当前 FATE 中的敌人", renderer: typeof(DefaultOffRenderer), uiPriority: -90)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.Everything).As<Flag>("Everything", "Prioritize EVERYTHING", renderer: typeof(DefaultOffRenderer), uiPriority: -100)
+        res.Define(Track.Everything).As<Flag>("Everything", "优先选择所有目标", renderer: typeof(DefaultOffRenderer), uiPriority: -100)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.CollectFATE).As<Flag>("CollectFATE", "Ignore passive mobs in hand-in FATEs", renderer: typeof(DefaultOffRenderer), uiPriority: -110)
+        res.Define(Track.CollectFATE).As<Flag>("CollectFATE", "在交付型 FATE 中忽略被动敌人", renderer: typeof(DefaultOffRenderer), uiPriority: -110)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.DefineInt(Track.MaxTargets, "Maximum targets to pull (0 = no max)", minValue: 0, maxValue: 30, uiPriority: -120);
+        res.DefineInt(Track.MaxTargets, "最大拉怪数量（0 = 不限制）", minValue: 0, maxValue: 30, uiPriority: -120);
 
         return res;
     }

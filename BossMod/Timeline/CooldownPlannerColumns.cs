@@ -86,7 +86,7 @@ public class CooldownPlannerColumns : Timeline.ColumnGroup
                     if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                     {
                         using var tooltip = ImRaii.Tooltip();
-                        if (tooltip.Success)
+                    if (tooltip.Alive)
                         {
                             ImGui.TextUnformatted("Hold shift to remove");
                             UIRotationModule.DescribeModule(m.Type, m.Definition);
@@ -103,7 +103,7 @@ public class CooldownPlannerColumns : Timeline.ColumnGroup
                     if (ImGui.IsItemHovered())
                     {
                         using var tooltip = ImRaii.Tooltip();
-                        if (tooltip.Success)
+                    if (tooltip.Alive)
                         {
                             UIRotationModule.DescribeModule(mt, m.Definition);
                         }

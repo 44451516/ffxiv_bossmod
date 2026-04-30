@@ -92,12 +92,12 @@ public sealed class ConfigUI : IDisposable
     private void DrawSettings()
     {
         ImGui.SetNextItemWidth(300);
-        if (ImGui.InputTextEx("", "Search for a setting...", ref _searchText))
+        if (ImGui.InputTextEx("", "搜索设置...", ref _searchText))
             FilterNodes();
 
         ImGui.SameLine();
         using (ImRaii.Disabled(_searchText.Length == 0))
-            if (ImGui.Button("Clear"))
+            if (ImGui.Button("清除"))
             {
                 _searchText = "";
                 FilterNodes();
@@ -392,7 +392,7 @@ public sealed class ConfigUI : IDisposable
         ImGui.AlignTextToFramePadding();
         UIMisc.IconText(Dalamud.Interface.FontAwesomeIcon.ListUl);
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("This configuration option includes presets. Right click on the dropdown to select a preset.");
+            ImGui.SetTooltip("此配置选项包含预设。右键点击下拉框可以选择预设。");
         ImGui.SameLine();
     }
 
@@ -435,7 +435,7 @@ public sealed class ConfigUI : IDisposable
             foreach (var n in group.Names)
                 ImGui.TableSetupColumn(n);
             ImGui.TableSetupColumn("----");
-            ImGui.TableSetupColumn("Name");
+            ImGui.TableSetupColumn("名称");
             ImGui.TableHeadersRow();
 
             var assignments = root.Get<PartyRolesConfig>().SlotsPerAssignment(ws.Party);

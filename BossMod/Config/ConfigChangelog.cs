@@ -30,11 +30,11 @@ class AIMigrationNotice : ChangelogNotice
     public override void Draw()
     {
         var link = "https://github.com/awgil/ffxiv_bossmod/wiki/AI-Migration-guide";
-        ImGui.TextUnformatted("AI is dead, long live AI!");
-        Bullet("AI feature is now deprecated and will be removed in one of the future versions.");
-        Bullet("The replacement is simple and much more flexible and powerful.");
-        Bullet($"See wiki ({link}) for details.");
-        if (ImGui.Button("Open wiki"))
+        ImGui.TextUnformatted("旧版 AI 已弃用，新版 AI 已上线！");
+        Bullet("旧版 AI 功能现已弃用，并会在未来某个版本中移除。");
+        Bullet("替代方案更简单，也更灵活强大。");
+        Bullet($"详情请查看 wiki（{link}）。");
+        if (ImGui.Button("打开 wiki"))
         {
             try
             {
@@ -54,9 +54,9 @@ class MultiPresetNotice : ChangelogNotice
 
     public override void Draw()
     {
-        ImGui.TextWrapped("You can now enable multiple presets at once.");
-        Bullet("A new built-in preset has been added - VBM AI. This provides the same functionality as the legacy AI feature. It will try to dodge AOEs and automatically target enemies.");
-        Bullet("The existing /vbm ar commands have unchanged behavior. For example, /vbm ar set <preset> will enable the given preset and disable all others. To use multi-preset functionality, you can use the new subcommands 'activate', 'deactivate', and 'togglemulti'.");
+        ImGui.TextWrapped("现在可以同时启用多个预设。");
+        Bullet("新增了一个内置预设：VBM AI。它提供与旧版 AI 功能相同的能力，会尝试躲避 AoE 并自动选择敌人目标。");
+        Bullet("现有 /vbm ar 命令行为不变。例如，/vbm ar set <preset> 会启用指定预设并禁用其他所有预设。若要使用多预设功能，可以使用新的子命令 'activate'、'deactivate' 和 'togglemulti'。");
     }
 }
 
@@ -66,7 +66,7 @@ class DashSafetyNotice : ChangelogNotice
 
     public override void Draw()
     {
-        ImGui.TextWrapped($"The option \"Try to prevent dashing into AOEs\" is now enabled by default. You can disable it in Settings -> Action Tweaks.");
+        ImGui.TextWrapped("选项“尝试避免冲进 AoE”现在默认启用。你可以在“设置 -> 技能调整”中禁用它。");
     }
 }
 
@@ -78,7 +78,7 @@ public class ConfigChangelogWindow : UIWindow
 
     private int StuffCount => Fields.Count + Notices.Count;
 
-    public ConfigChangelogWindow() : base("VBM Changelog", true, new(400, 300))
+    public ConfigChangelogWindow() : base("VBM 更新日志", true, new(400, 300))
     {
         PreviousVersion = GetPreviousPluginVersion();
         Service.Config.AssemblyVersion = GetCurrentPluginVersion();
@@ -99,7 +99,7 @@ public class ConfigChangelogWindow : UIWindow
 
     public override void Draw()
     {
-        ImGui.TextUnformatted($"The following config options have been added since version {PreviousVersion}:");
+        ImGui.TextUnformatted($"自版本 {PreviousVersion} 以来新增了以下配置选项：");
 
         ImGui.Separator();
 
@@ -109,7 +109,7 @@ public class ConfigChangelogWindow : UIWindow
         {
             using var id = ImRaii.PushId($"notice{n.GetType()}");
             n.Draw();
-            if (ImGui.Button("OK"))
+            if (ImGui.Button("确定"))
                 postIteration += () => Acknowledge(n);
 
             ImGui.Separator();
@@ -128,12 +128,12 @@ public class ConfigChangelogWindow : UIWindow
                 if (!string.IsNullOrEmpty(disp?.Tooltip))
                     UIMisc.HelpMarker(disp!.Tooltip);
                 ImGui.SameLine();
-                ImGui.TextUnformatted(disp?.Label ?? "unknown");
+                ImGui.TextUnformatted(disp?.Label ?? "未知");
                 ImGui.SameLine();
-                if (ImGui.Button("Enable"))
+                if (ImGui.Button("启用"))
                     postIteration += () => SetOption(f, true);
                 ImGui.SameLine();
-                if (ImGui.Button("Disable"))
+                if (ImGui.Button("禁用"))
                     postIteration += () => SetOption(f, false);
             }
         }

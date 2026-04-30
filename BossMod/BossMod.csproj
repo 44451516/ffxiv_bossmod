@@ -1,6 +1,6 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/15.0.0">
-<!--<Project Sdk="Dalamud.CN.NET.Sdk/15.0.0">-->
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.CN.NET.Sdk/15.0.0">
+<!--<Project Sdk="Dalamud.NET.Sdk/15.0.0">-->
     <ItemGroup>
         <Using Include="System"/>
         <Using Include="System.Collections"/>

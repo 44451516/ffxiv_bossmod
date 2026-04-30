@@ -9,24 +9,24 @@ public sealed class FateUtils(RotationModuleManager manager, Actor player) : Rot
 
     public static RotationModuleDefinition Definition()
     {
-        var res = new RotationModuleDefinition("FATE helper", "Utilities for completing FATEs", "AI", "xan", RotationModuleQuality.Basic, new(~0ul), 1000, 1);
+        var res = new RotationModuleDefinition("FATE 助手", "完成 FATE 的辅助工具", "AI", "xan", RotationModuleQuality.Basic, new(~0ul), 1000, 1);
 
-        res.Define(Track.Handin).As<Flag>("Hand-in")
-            .AddOption(Flag.Enabled, "Automatically hand in FATE items at 10+")
-            .AddOption(Flag.Disabled, "Do nothing");
+        res.Define(Track.Handin).As<Flag>("Hand-in", "交付")
+            .AddOption(Flag.Enabled, "FATE 道具达到 10 个以上时自动交付")
+            .AddOption(Flag.Disabled, "不执行操作");
 
-        res.Define(Track.Collect).As<Flag>("Collect")
-            .AddOption(Flag.Enabled, "Try to collect FATE items instead of engaging in combat")
-            .AddOption(Flag.Disabled, "Do nothing");
+        res.Define(Track.Collect).As<Flag>("Collect", "采集")
+            .AddOption(Flag.Enabled, "尝试采集 FATE 道具而不是参与战斗")
+            .AddOption(Flag.Disabled, "不执行操作");
 
-        res.Define(Track.Sync).As<AIHints.FateSync>("Sync")
-            .AddOption(AIHints.FateSync.None, "Do nothing")
-            .AddOption(AIHints.FateSync.Enable, "Always enable level sync if possible")
-            .AddOption(AIHints.FateSync.Disable, "Always disable level sync if possible");
+        res.Define(Track.Sync).As<AIHints.FateSync>("Sync", "等级同步")
+            .AddOption(AIHints.FateSync.None, "不执行操作")
+            .AddOption(AIHints.FateSync.Enable, "可用时始终启用等级同步")
+            .AddOption(AIHints.FateSync.Disable, "可用时始终取消等级同步");
 
-        res.Define(Track.Chocobo).As<Flag>("Chocobo")
-            .AddOption(Flag.Enabled, "Resummon chocobo if <60s on timer")
-            .AddOption(Flag.Disabled, "Do nothing");
+        res.Define(Track.Chocobo).As<Flag>("Chocobo", "陆行鸟")
+            .AddOption(Flag.Enabled, "陆行鸟剩余时间少于 60 秒时重新召唤")
+            .AddOption(Flag.Disabled, "不执行操作");
 
         return res;
     }

@@ -17,18 +17,18 @@ public sealed class StayCloseToPartyRole(RotationModuleManager manager, Actor pl
 
     public static RotationModuleDefinition Definition()
     {
-        RotationModuleDefinition def = new("Misc AI: Stay within range of party role", "Module for use by AutoDuty preset.", "AI", "erdelf", RotationModuleQuality.Basic, new(~0ul), 1000);
+        RotationModuleDefinition def = new("杂项 AI：保持在队伍角色范围内", "供 AutoDuty 预设使用的模块。", "AI", "erdelf", RotationModuleQuality.Basic, new(~0ul), 1000);
 
-        var roleRef = def.Define(Tracks.Role).As<Role>("Role", "Role to stay close to");
+        var roleRef = def.Define(Tracks.Role).As<Role>("Role", "要靠近的角色");
 
         foreach (var role in Enum.GetValues<Role>())
         {
             roleRef.AddOption(role);
         }
 
-        var rangeRef = def.Define(Tracks.Range).As<RangeDefinition>("range", "Range to ally", renderer: typeof(FakeFloatRenderer));
+        var rangeRef = def.Define(Tracks.Range).As<RangeDefinition>("range", "到队友的距离", renderer: typeof(FakeFloatRenderer));
 
-        rangeRef.AddOption(RangeDefinition.OnHitbox, "Stay on edge of hitbox (+/- 1 unit)");
+        rangeRef.AddOption(RangeDefinition.OnHitbox, "停在碰撞箱边缘（+/- 1 单位）");
         for (var f = 1.1f; f <= 30f; f = MathF.Round(f + 0.1f, 1))
         {
             rangeRef.AddOption((RangeDefinition)(f * 10f - 10f), internalNameOverride: f.ToString(CultureInfo.InvariantCulture));

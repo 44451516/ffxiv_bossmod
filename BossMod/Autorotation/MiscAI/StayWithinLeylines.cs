@@ -25,17 +25,17 @@ public sealed class StayWithinLeylines(RotationModuleManager manager, Actor play
 
     public static RotationModuleDefinition Definition()
     {
-        RotationModuleDefinition def = new("Misc AI: Stay within leylines when active", "Black Mage utility module.", "AI", "Taurenkey", RotationModuleQuality.Basic, BitMask.Build(Class.BLM), 1000);
+        RotationModuleDefinition def = new("杂项 AI：黑魔纹激活时留在范围内", "黑魔法师辅助模块。", "AI", "Taurenkey", RotationModuleQuality.Basic, BitMask.Build(Class.BLM), 1000);
 
-        var retrace = def.Define(Tracks.UseRetrace).As<RetraceDefinition>("Use Retrace", "Use Retrace", renderer: typeof(DefaultOffRenderer));
+        var retrace = def.Define(Tracks.UseRetrace).As<RetraceDefinition>("Use Retrace", "使用魔纹重置", renderer: typeof(DefaultOffRenderer));
         retrace.AddOption(RetraceDefinition.No);
         retrace.AddOption(RetraceDefinition.Yes);
 
-        var btl = def.Define(Tracks.UseBetweenTheLines).As<BetweenTheLinesDefinition>("Use Between The Lines", "Use Between The Lines", renderer: typeof(DefaultOffRenderer));
+        var btl = def.Define(Tracks.UseBetweenTheLines).As<BetweenTheLinesDefinition>("Use Between The Lines", "使用以太步", renderer: typeof(DefaultOffRenderer));
         btl.AddOption(BetweenTheLinesDefinition.No);
         btl.AddOption(BetweenTheLinesDefinition.Yes);
 
-        def.Define(Tracks.Goal).As<EnabledByDefault>("Goal", "Add goal zone to Leylines (for AI movement)", renderer: typeof(DefaultOnRenderer))
+        def.Define(Tracks.Goal).As<EnabledByDefault>("Goal", "为黑魔纹添加目标区域（供 AI 移动使用）", renderer: typeof(DefaultOnRenderer))
             .AddOption(EnabledByDefault.Enabled)
             .AddOption(EnabledByDefault.Disabled);
 
