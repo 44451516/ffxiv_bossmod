@@ -194,6 +194,8 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
     // the main entry point of the module - given a set of strategy values, fill the queue with a set of actions to execute
     public abstract void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
 
+    public virtual bool WantsLoSFix => false;
+
     public virtual string DescribeState() => "";
 
     // utility to check action/trait unlocks

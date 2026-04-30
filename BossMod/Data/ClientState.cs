@@ -37,7 +37,7 @@ public sealed class ClientState
     public record struct Gauge(ulong Low, ulong High);
     public record struct Stats(int SkillSpeed, int SpellSpeed, int Haste);
     public record struct Pet(ulong InstanceID, byte Order, byte Stance);
-    public record struct Companion(ulong InstanceID, byte Stance, float TimeLeft);
+    public record struct Companion(ulong InstanceID, byte Stance, float TimeLeft, bool Stabled);
     public record struct DutyAction(ActionID Action, byte CurCharges, byte MaxCharges);
     public record struct HateInfo(ulong InstanceID, Hate[] Targets)
     {
@@ -417,7 +417,7 @@ public sealed class ClientState
             ws.Client.ActiveCompanion = Value;
             ws.Client.ActiveCompanionChanged.Fire(this);
         }
-        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CHOC"u8).Emit(Value.InstanceID, "X8").Emit(Value.Stance).Emit(Value.TimeLeft);
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CHOC"u8).Emit(Value.InstanceID, "X8").Emit(Value.Stance).Emit(Value.TimeLeft).Emit(Value.Stabled);
     }
 
     public Event<OpFocusTargetChange> FocusTargetChanged = new();
@@ -512,5 +512,12 @@ public sealed class ClientState
         {
             output.EmitFourCC("INVT"u8).Emit(ItemId).Emit(Quantity);
         }
+    }
+
+    public Event<OpActionFailedLoS> ActionFailedLoS = new();
+    public sealed record class OpActionFailedLoS(uint ActionId, ulong TargetId) : WorldState.Operation
+    {
+        protected override void Exec(WorldState ws) => ws.Client.ActionFailedLoS.Fire(this);
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("FLOS"u8).Emit(ActionId).EmitActor(TargetId);
     }
 }

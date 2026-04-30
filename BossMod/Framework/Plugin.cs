@@ -103,7 +103,7 @@ public sealed class Plugin : IDalamudPlugin
         _wsSync = new(_ws, _amex);
         _rotation = new(_rotationDB, _bossmod, _hints);
         _ai = new(_rotation, _amex, _movementOverride);
-        _ipc = new(_rotation, _amex, _movementOverride, _ai);
+        _ipc = new(_rotation, _hintsBuilder.Obstacles);
         _dtr = new(_rotation, _ai);
         _slashCmd = new(commandManager, "/vbm");
         _mbox = new(_rotation, _ws);

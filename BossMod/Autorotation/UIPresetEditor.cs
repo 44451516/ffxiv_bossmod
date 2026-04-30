@@ -212,7 +212,7 @@ public sealed class UIPresetEditor
         if (ImGui.IsItemHovered())
         {
             using var tooltip = ImRaii.Tooltip();
-            if (tooltip)
+            if (tooltip.Success)
             {
                 UIRotationModule.DescribeModule(type, definition);
             }

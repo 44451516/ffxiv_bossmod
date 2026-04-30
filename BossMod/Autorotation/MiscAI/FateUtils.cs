@@ -1,7 +1,9 @@
-﻿namespace BossMod.Autorotation.MiscAI;
+namespace BossMod.Autorotation.MiscAI;
 
 public sealed class FateUtils(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
 {
+    public override bool WantsLoSFix => true;
+
     public enum Track { Handin, Collect, Sync, Chocobo }
     public enum Flag { Enabled, Disabled }
 
@@ -38,31 +40,81 @@ public sealed class FateUtils(RotationModuleManager manager, Actor player) : Rot
         if (!Utils.IsPlayerSyncedToFate(World))
             return;
 
-        if (strategy.Option(Track.Chocobo).As<Flag>() == Flag.Enabled && World.Client.GetInventoryItemQuantity(ActionDefinitions.IDMiscItemGreens.ID) > 0 && World.Client.ActiveCompanion.TimeLeft < 60)
+        if (strategy.Option(Track.Chocobo).As<Flag>() == Flag.Enabled && World.Client.GetInventoryItemQuantity(ActionDefinitions.IDMiscItemGreens.ID) > 0 && World.Client.ActiveCompanion is { TimeLeft: < 60, Stabled: false })
             Hints.ActionsToExecute.Push(ActionDefinitions.IDMiscItemGreens, Player, ActionQueue.Priority.VeryHigh);
 
-        if (strategy.Option(Track.Handin).As<Flag>() != Flag.Enabled)
-            return;
-
-        var fateID = World.Client.ActiveFate.ID;
-
-        var item = Utils.GetFateItem(fateID);
-        if (item == 0)
-            return;
-
-        // already turned in enough, fate is ending, do nothing
-        if (World.Client.ActiveFate.HandInCount >= TurnInGoldReq && World.Client.ActiveFate.Progress >= 100)
-            return;
-
-        // until fate is completed, hand in batches of 10; if other people complete the fate, we stop doing stuff
-        if (World.Client.GetInventoryItemQuantity(item) >= TurnInGoldReq)
+        var goal = GetGoal(strategy);
+        if (goal is CollectFateGoal.HandIn)
         {
-            Hints.InteractWithTarget = World.Actors.Find(World.Client.ActiveFate.ObjectiveNpc);
+            var target = World.Actors.Find(World.Client.ActiveFate.ObjectiveNpc);
+            Hints.InteractWithTarget = target;
+            // if the auto generated obstacle map is bad, it'll get stuck so force movement regardless
+            if (target != null && ShouldForceMovement(target))
+                Hints.ForcedMovement = Player.DirectionTo(target).ToVec3(Player.PosRot.Y);
+            return;
+        }
+        else if (goal is CollectFateGoal.Pickup)
+        {
+            var target = World.Actors.Where(a => a.FateID == World.Client.ActiveFate.ID && a.IsTargetable && a.Type == ActorType.EventObj).MinBy(Player.DistanceToHitbox);
+            Hints.InteractWithTarget = target;
+            if (target != null && ShouldForceMovement(target))
+                Hints.ForcedMovement = Player.DirectionTo(target).ToVec3(Player.PosRot.Y);
             return;
         }
 
-        // otherwise, pick up stuff
-        if (strategy.Option(Track.Collect).As<Flag>() == Flag.Enabled && !Player.InCombat)
-            Hints.InteractWithTarget = World.Actors.Where(a => a.FateID == fateID && a.IsTargetable && a.Type == ActorType.EventObj).MinBy(Player.DistanceToHitbox);
+        if (Manager.LoSFix is { } los)
+        {
+            var losDelta = los.Destination - los.Origin;
+            var losDist = losDelta.Length();
+            var losDir = losDist > 1e-3f ? losDelta / losDist : default;
+
+            // tight spot with high reward to get out of where we're at
+            Hints.GoalZones.Add(Hints.GoalSingleTarget(los.Destination, 0.3f, 120));
+            // add a penalty to current position to actually encourage moving out of it
+            Hints.GoalZones.Add(p => p.InCircle(los.Origin, 1.0f) ? -25 : 0);
+            // more encouragement for going towards the destination, but need to cap it or else it'll just keep going
+            Hints.GoalZones.Add(p =>
+            {
+                var progress = WDir.Dot(p - los.Origin, losDir);
+                if (progress <= 0)
+                    return 0;
+
+                var cappedProgress = MathF.Min(progress, losDist);
+                var overshoot = MathF.Max(0, progress - losDist);
+                return cappedProgress * 8 - overshoot * 16;
+            });
+        }
+    }
+
+    private CollectFateGoal GetGoal(StrategyValues strategy)
+    {
+        if (strategy.Option(Track.Handin).As<Flag>() != Flag.Enabled)
+            return CollectFateGoal.None;
+
+        if (Utils.GetFateItem(World.Client.ActiveFate.ID) is not (not 0 and var itemId))
+            return CollectFateGoal.None;
+
+        // already turned in enough, fate is ending, do nothing
+        if (World.Client.ActiveFate.HandInCount >= TurnInGoldReq && World.Client.ActiveFate.Progress >= 100)
+            return CollectFateGoal.None;
+
+        // until fate is completed, hand in batches of 10; if other people complete the fate, we stop doing stuff
+        if (World.Client.GetInventoryItemQuantity(itemId) >= TurnInGoldReq)
+            return CollectFateGoal.HandIn;
+
+        // pick up stuff
+        return strategy.Option(Track.Collect).As<Flag>() == Flag.Enabled && !Player.InCombat ? CollectFateGoal.Pickup : CollectFateGoal.None;
+    }
+
+    // no path = force movement anyway
+    private bool ShouldForceMovement(Actor target)
+        => Hints.PathfindMapObstacles.Bitmap != null
+            && (!Hints.PathfindMapBounds.Contains(target.Position - Hints.PathfindMapCenter) || !Hints.PathfindMapObstacles.HasObstacleMapLineOfSight(Hints.PathfindMapCenter, Player.Position, target.Position));
+
+    private enum CollectFateGoal
+    {
+        None,
+        HandIn,
+        Pickup,
     }
 }
