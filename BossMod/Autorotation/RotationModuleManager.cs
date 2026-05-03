@@ -551,6 +551,7 @@ public sealed class RotationModuleManager : IDisposable
         return null;
     }
 
+    // FIXME: shouldn't be using ffi stuff in this module
     private static bool HasLineOfSightFrom(WPos from, float sourceY, Actor target)
     {
         var sourcePos = from.ToVec3(sourceY + 2);

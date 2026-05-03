@@ -557,7 +557,7 @@ class ClassDefinitions
 
         private float? DetermineDonutInner(Lumina.Excel.Sheets.Action data)
         {
-            Utils.DetermineDonutInner(data, out var innerRadius);
+            Utils.GuessDonutInner(data, out var innerRadius);
             return innerRadius;
         }
     }

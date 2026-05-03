@@ -365,6 +365,7 @@ public sealed class ReplayParserLog : IDisposable
             [new("HATE"u8)] = ParseClientHateInfo,
             [new("CLPR"u8)] = ParseClientProcTimers,
             [new("INVT"u8)] = ParseClientInventory,
+            [new("FLOS"u8)] = ParseClientFailedLoS,
             [new("DDPG"u8)] = ParseDeepDungeonProgress,
             [new("DDMP"u8)] = ParseDeepDungeonMap,
             [new("DDPT"u8)] = ParseDeepDungeonParty,
@@ -490,6 +491,7 @@ public sealed class ReplayParserLog : IDisposable
     private ClientState.OpProcTimersChange ParseClientProcTimers() => new([_input.ReadFloat(), _input.ReadFloat(), _input.ReadFloat(), _input.ReadFloat()]);
 
     private ClientState.OpInventoryChange ParseClientInventory() => new(_input.ReadUInt(false), _input.ReadUInt(false));
+    private ClientState.OpActionFailedLoS ParseClientFailedLoS() => new(_input.ReadUInt(false), _input.ReadActorID());
 
     private WaymarkState.OpWaymarkChange ParseWaymarkChange(bool set)
         => new(_version < 10 ? Enum.Parse<Waymark>(_input.ReadString()) : (Waymark)_input.ReadByte(false), set ? _input.ReadVec3() : null);

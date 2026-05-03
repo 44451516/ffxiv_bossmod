@@ -48,7 +48,7 @@ public sealed class Service
     public static WindowSystem? WindowSystem;
 
     // TODO: remove this and use UiBuilder.IconFont once we switch to dalamock
-    public static ImFontPtr IconFont;
+    public static ImFontPtr IconFont = ImFontPtr.Null;
 #pragma warning restore CA2211
 
     public static bool IsUIDev => PluginInterface == null;

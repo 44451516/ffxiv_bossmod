@@ -76,7 +76,6 @@ public sealed class Plugin : IDalamudPlugin
         Service.WindowSystem = new("vbm");
         //Service.Device = pluginInterface.UiBuilder.Device;
         Service.Condition.ConditionChange += OnConditionChanged;
-        Service.IconFont = UiBuilder.IconFont;
         MultiboxUnlock.Exec();
         Camera.Instance = new();
 
@@ -326,6 +325,9 @@ public sealed class Plugin : IDalamudPlugin
 
     private void DrawUI()
     {
+        if (Service.IconFont.IsNull)
+            Service.IconFont = UiBuilder.IconFont;
+
         var tsStart = DateTime.Now;
         var moveImminent = _movementOverride.IsMoveRequested() &&
                            (!_amex.Config.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());

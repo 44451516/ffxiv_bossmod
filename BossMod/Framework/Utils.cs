@@ -97,9 +97,9 @@ public static partial class Utils
     ];
 
     // returns false only if the action has no valid omen at all; if it's a regular omen but we can't parse it, return value will be true but out-param will still be null
-    public static bool DetermineDonutInner(Lumina.Excel.Sheets.Action data, out float? innerRadius)
+    public static bool GuessDonutInner(Lumina.Excel.Sheets.Action data, out float? radius)
     {
-        innerRadius = null;
+        radius = null;
 
         if (data.Omen.ValueNullable is not { } omen || omen.RowId == 0)
             return false;
@@ -110,14 +110,23 @@ public static partial class Utils
         {
             var tagLen = tag.Length;
             var pos = path.IndexOf(tag, StringComparison.Ordinal);
-            if (pos >= 0 && pos + tagLen + 4 <= path.Length && int.TryParse(path.AsSpan(pos + tagLen + 2, 2), out var inner))
+            if (pos >= 0 && pos + tagLen + 4 <= path.Length)
             {
-                innerRadius = inner;
-                return true;
+                if (int.TryParse(path.AsSpan(pos + tagLen, 2), out var outer))
+                {
+                    if (int.TryParse(path.AsSpan(pos + tagLen + 2, 2), out var inner))
+                    {
+                        var scaleFactor = data.EffectRange / (float)outer;
+                        if (MathF.Abs(scaleFactor - 1) > float.Epsilon)
+                            inner = (int)(inner * scaleFactor);
+                        radius = inner;
+                        break;
+                    }
+                }
             }
         }
 
-        return false;
+        return true;
     }
 
     // lumina extensions
