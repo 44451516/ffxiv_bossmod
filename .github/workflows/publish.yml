@@ -1,4 +1,4 @@
-name: Build & Publish to Dynamis
+name: Build & Publish Release
 
 on:
   push:
@@ -81,27 +81,6 @@ jobs:
         with:
           name: latest_zip
           path: latest.zip
-
-  publish_dynamis:
-    runs-on: ubuntu-latest
-    needs: build
-    if: needs.build.outputs.completed == 'true'
-    steps:
-      - uses: actions/download-artifact@v5
-        with:
-          name: latest_zip
-
-      - name: Publish new release
-        uses: PunishXIV/dynamis-action@v1
-        with:
-          plugin_id: 30
-          internal_name: BossMod
-          version_number: ${{ needs.build.outputs.version }}
-          path: latest.zip
-          type: ${{ needs.build.outputs.release_type }}
-          dalamud_version: 15
-        env:
-          PUBLISHER_KEY: ${{ secrets.PUBLISHER_KEY }}
 
   make_release:
     runs-on: ubuntu-latest
