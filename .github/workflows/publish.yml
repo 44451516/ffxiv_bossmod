@@ -102,35 +102,3 @@ jobs:
           files: latest.zip
           fail_on_unmatched_files: true
           overwrite_files: true
-
-      - name: Checkout DalamudPlugins
-        uses: actions/checkout@v4
-        with:
-          repository: 44451516-ff14/DalamudPlugins
-          ref: master
-          path: DalamudPlugins
-          token: ${{ secrets.DALAMUD_PLUGINS_TOKEN }}
-          persist-credentials: false
-
-      - name: Sync DalamudPlugins Release Asset
-        working-directory: DalamudPlugins
-        env:
-          GITHUB_TOKEN: ${{ secrets.DALAMUD_PLUGINS_TOKEN }}
-        run: python sync_release_plugins.py
-
-      - name: Commit DalamudPlugins Sync
-        working-directory: DalamudPlugins
-        env:
-          DALAMUD_PLUGINS_TOKEN: ${{ secrets.DALAMUD_PLUGINS_TOKEN }}
-          BOSS_VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add plugins/BossMod/latest.zip
-          if git diff --cached --quiet; then
-            echo "No DalamudPlugins changes to commit."
-            exit 0
-          fi
-          git commit -m "Sync BossMod ${BOSS_VERSION}"
-          git remote set-url origin "https://x-access-token:${DALAMUD_PLUGINS_TOKEN}@github.com/44451516-ff14/DalamudPlugins.git"
-          git push origin HEAD:master
