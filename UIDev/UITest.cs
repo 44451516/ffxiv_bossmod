@@ -2,7 +2,6 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiNotification;
-using Dalamud.Interface.Utility;
 using Dalamud.Plugin.Services;
 using ImGuiScene;
 using Microsoft.Win32;
@@ -90,12 +89,8 @@ class UITest
             }
         };
 
-        var newFrame = (Action)Delegate.CreateDelegate(typeof(Action), typeof(ImGuiHelpers).GetMethod("NewFrame", BindingFlags.Static | BindingFlags.NonPublic)!);
         scene.OnBuildUI += () =>
         {
-            // this hack is needed to ensure we use correct global scale
-            newFrame.Invoke();
-
             // dalamud trying to draw a fadeout effect causes a deadlock in uidev as the TextureManager service isn't present
             foreach (var w in Service.WindowSystem.Windows)
                 w.DisableFadeInFadeOut = true;

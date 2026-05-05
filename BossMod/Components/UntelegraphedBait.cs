@@ -7,7 +7,18 @@ namespace BossMod.Components;
 class UntelegraphedBait(BossModule module, Enum? aid = null) : CastCounter(module, aid)
 {
     // indicate that `count` number of players matching some `targets` filter (e.g. both healers, all supports, 2 closest players, etc etc) will be hit by an aoe
-    public struct Bait(WPos origin, BitMask targets, AOEShape shape, DateTime activation = default, int count = int.MaxValue, int stackSize = 1, BitMask forbiddenTargets = default, bool isProximity = false, bool centerAtTarget = false, PredictedDamageType type = PredictedDamageType.None)
+    public struct Bait(
+        WPos origin,
+        BitMask targets,
+        AOEShape shape,
+        DateTime activation = default,
+        int count = int.MaxValue,
+        int stackSize = 1,
+        BitMask forbiddenTargets = default,
+        bool isProximity = false,
+        bool centerAtTarget = false,
+        PredictedDamageType type = PredictedDamageType.None
+    )
     {
         public WPos Origin = origin;
         public AOEShape Shape = shape;

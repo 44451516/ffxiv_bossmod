@@ -13,7 +13,7 @@
 
 
     <PropertyGroup>
-        <AssemblyVersion>1.0.0.27</AssemblyVersion>
+        <AssemblyVersion>7.5.0.0</AssemblyVersion>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     </PropertyGroup>
     

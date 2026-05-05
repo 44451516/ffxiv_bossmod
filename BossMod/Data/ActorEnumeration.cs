@@ -175,14 +175,18 @@ public static class ActorEnumeration
         return sum.ToWPos();
     }
 
-    public static IEnumerable<(int, Actor)> ClockOrder(this IEnumerable<(int, Actor)> range, Actor starting, WPos center, bool counterclockwise = false)
+    public static IEnumerable<Actor> ClockOrder(this IEnumerable<Actor> range, Actor starting, WPos center, bool counterclockwise = false) => ClockOrderWith(range, p => p, starting, center, counterclockwise);
+
+    public static IEnumerable<(int, Actor)> ClockOrder(this IEnumerable<(int, Actor)> range, Actor starting, WPos center, bool counterclockwise = false) => ClockOrderWith(range, p => p.Item2, starting, center, counterclockwise);
+
+    public static IEnumerable<T> ClockOrderWith<T>(this IEnumerable<T> range, Func<T, Actor> map, Actor starting, WPos center, bool counterclockwise = false)
     {
         var startingAngle = (starting.Position - center).ToAngle();
 
         return counterclockwise
             ? range.OrderBy(r =>
             {
-                var (slot, actor) = r;
+                var actor = map(r);
                 var thisAngle = (actor.Position - center).ToAngle();
                 if (actor != starting && thisAngle.Rad < startingAngle.Rad)
                     thisAngle.Rad += MathF.PI * 2;
@@ -191,7 +195,7 @@ public static class ActorEnumeration
             })
             : range.OrderByDescending(r =>
             {
-                var (slot, actor) = r;
+                var actor = map(r);
                 var thisAngle = (actor.Position - center).ToAngle();
                 if (actor != starting && thisAngle.Rad > startingAngle.Rad)
                     thisAngle.Rad -= MathF.PI * 2;
@@ -199,6 +203,4 @@ public static class ActorEnumeration
                 return thisAngle.Rad;
             });
     }
-
-    public static IEnumerable<Actor> ClockOrder(this IEnumerable<Actor> range, Actor starting, WPos center, bool counterclockwise = false) => range.Select(r => (0, r)).ClockOrder(starting, center, counterclockwise).Select(r => r.Item2);
 }

@@ -83,8 +83,8 @@ public class Replication2Tethers
 
     public void DrawCustom(UITree tree, Event modified)
     {
-        ConfigUI.DrawGroupPresetIndicator();
-        foreach (var _ in tree.Node("Replication 2: clone assignments", contextMenu: () => DrawContextMenu(modified)))
+        ConfigUI.DrawGroupPresetIndicator("rep2clone", () => DrawContextMenu(modified));
+        foreach (var _ in tree.Node("Replication 2: clone assignments"))
         {
             if (UICombo.Enum("Relative north (for tether priority)", ref RelativeNorth))
                 modified.Fire();
@@ -193,8 +193,8 @@ public class Replication3Tethers
 
     public void DrawCustom(UITree tree, Event modified)
     {
-        ConfigUI.DrawGroupPresetIndicator();
-        foreach (var _ in tree.Node("Idyllic Dream: clone assignments", contextMenu: () => DrawContextMenu(modified)))
+        ConfigUI.DrawGroupPresetIndicator("dreamclone", () => DrawContextMenu(modified));
+        foreach (var _ in tree.Node("Idyllic Dream: clone assignments"))
         {
             using (var table = ImRaii.Table("tab2", 10, ImGuiTableFlags.SizingFixedFit))
             {

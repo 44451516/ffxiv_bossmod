@@ -387,10 +387,17 @@ public sealed class ConfigUI : IDisposable
         return modified;
     }
 
-    public static void DrawGroupPresetIndicator()
+    public static void DrawGroupPresetIndicator(string text, Action contextMenu)
     {
         ImGui.AlignTextToFramePadding();
-        UIMisc.IconText(Dalamud.Interface.FontAwesomeIcon.ListUl);
+        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.ListUl, $"###{text}open"))
+            ImGui.OpenPopup($"{text}popup");
+
+        if (ImGui.BeginPopup($"{text}popup"))
+        {
+            contextMenu();
+            ImGui.EndPopup();
+        }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("此配置选项包含预设。右键点击下拉框可以选择预设。");
         ImGui.SameLine();
@@ -415,7 +422,7 @@ public sealed class ConfigUI : IDisposable
         if (member.GetCustomAttributes<GroupPresetAttribute>().Any())
         {
             spaced = true;
-            DrawGroupPresetIndicator();
+            DrawGroupPresetIndicator(label, () => DrawPropertyContextMenu(node, member, v));
         }
 
         if (!spaced)
@@ -425,7 +432,7 @@ public sealed class ConfigUI : IDisposable
         }
 
         var modified = false;
-        foreach (var tn in tree.Node(label, false, v.Validate() ? 0xffffffff : 0xff00ffff, () => DrawPropertyContextMenu(node, member, v)))
+        foreach (var tn in tree.Node(label, false, v.Validate() ? 0xffffffff : 0xff00ffff))
         {
             using var indent = ImRaii.PushIndent();
             using var table = ImRaii.Table("table", group.Names.Length + 2, ImGuiTableFlags.SizingFixedFit);
