@@ -89,7 +89,7 @@ public enum AID : uint
     WeightOfNothing = 50021, // Helper->player, 5.0s cast, range 100 width 8 rect, tankbuster
     Nothingness = 50017, // ProtectiveShadow/AggressiveShadow/SoothingShadow->self, 3.0s cast, range 100 width 4 rect
 
-    DrainTouchCast = 50018, // ProtectiveShadow->self, 5.0s cast, single-target, tank add enrage
+    DrainTouchCast = 50018, // ProtectiveShadow->self, 5.0s cast, single-target, interruptible
     DrainTouch = 50019, // Helper->player, no cast, single-target, lifesteal
     SelfDestruct = 50799, // AggressiveShadow/SoothingShadow->self, 5.0s cast, range 60 circle
 

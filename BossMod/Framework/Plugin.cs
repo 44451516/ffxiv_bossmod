@@ -1,7 +1,6 @@
 using BossMod.Autorotation;
 using Dalamud.Common;
 using Dalamud.Game.ClientState.Conditions;
-using Dalamud.Interface;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
@@ -325,9 +324,6 @@ public sealed class Plugin : IDalamudPlugin
 
     private void DrawUI()
     {
-        if (Service.IconFont.IsNull)
-            Service.IconFont = UiBuilder.IconFont;
-
         var tsStart = DateTime.Now;
         var moveImminent = _movementOverride.IsMoveRequested() &&
                            (!_amex.Config.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());
