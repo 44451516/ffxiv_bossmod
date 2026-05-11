@@ -137,7 +137,7 @@ class UITest
         var faMin = (ushort)Enum.GetValues<FontAwesomeIcon>().Where(x => x > 0).Min();
         var faMax = (ushort)Enum.GetValues<FontAwesomeIcon>().Where(x => x > 0).Max();
         var hnd = GCHandle.Alloc(new ushort[] { faMin, faMax, 0 }, GCHandleType.Pinned);
-        Service.IconFont = ImGui.GetIO().Fonts.AddFontFromFileTTF(fontPathFA, 17, null, (ushort*)hnd.AddrOfPinnedObject());
+        Service.IconFontDev = ImGui.GetIO().Fonts.AddFontFromFileTTF(fontPathFA, 17, null, (ushort*)hnd.AddrOfPinnedObject());
 
         ImGui.GetIO().Fonts.Build();
 

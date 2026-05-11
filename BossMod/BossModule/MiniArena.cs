@@ -293,9 +293,9 @@ public sealed class MiniArena(BossModuleConfig config, WPos center, ArenaBounds 
 
     public void IconScreen(Vector2 center, FontAwesomeIcon icon, uint color, float fontSize = 17)
     {
-        var size = ImGui.CalcTextSizeA(UiBuilder.IconFont, fontSize, float.MaxValue, float.MaxValue, icon.ToIconString(), out var i);
+        var size = ImGui.CalcTextSizeA(Service.IconFont, fontSize, float.MaxValue, float.MaxValue, icon.ToIconString(), out var i);
         size.X -= i * 0.5f;
-        ImGui.GetWindowDrawList().AddText(UiBuilder.IconFont, fontSize, center - size / 2, color, icon.ToIconString());
+        ImGui.GetWindowDrawList().AddText(Service.IconFont, fontSize, center - size / 2, color, icon.ToIconString());
     }
 
     public void IconWorld(WPos center, FontAwesomeIcon icon, uint color, float fontSize = 17)

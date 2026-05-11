@@ -72,13 +72,13 @@ public static class UIMisc
 
     public static bool IconButton(FontAwesomeIcon icon, string text)
     {
-        using var scope = ImRaii.PushFont(UiBuilder.IconFont);
+        using var scope = ImRaii.PushFont(Service.IconFont);
         return ImGui.Button(icon.ToIconString() + text);
     }
 
     public static void IconText(FontAwesomeIcon icon)
     {
-        using var scope = ImRaii.PushFont(UiBuilder.IconFont);
+        using var scope = ImRaii.PushFont(Service.IconFont);
         ImGui.TextUnformatted(icon.ToIconString());
     }
 
