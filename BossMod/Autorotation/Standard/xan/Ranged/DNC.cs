@@ -354,10 +354,10 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
             _ => null
         };
 
-        if (partner?.Type == ActorType.Player)
+        if (partner != null)
         {
             // target is in cutscene, we're probably in a raid or something - wait for it to finish
-            if (World.Party.Members[World.Party.FindSlot(partner.InstanceID)].InCutscene)
+            if (World.Party.Members.BoundSafeAt(World.Party.FindSlot(partner.InstanceID)).InCutscene)
                 return null;
         }
 

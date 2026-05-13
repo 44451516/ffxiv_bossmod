@@ -42,16 +42,50 @@ class PenetratorMissile(BossModule module) : Components.StackWithCastTargets(mod
 class AntiPersonnelMissile(BossModule module) : Components.SpreadFromCastTargets(module, AID.AntiPersonnelMissile, 6);
 class MotionScanner(BossModule module) : Components.StayMove(module)
 {
+    Actor? _scanner;
+    BitMask _exclude;
+
     public override void OnStatusGain(Actor actor, ActorStatus status)
     {
         if ((SID)status.ID == SID.MotionTracker && Raid.TryFindSlot(actor, out var slot))
-            SetState(slot, new(Requirement.Stay, WorldState.CurrentTime));
+            SetState(slot, new(Requirement.Stay, WorldState.CurrentTime, 1));
     }
 
     public override void OnStatusLose(Actor actor, ActorStatus status)
     {
         if ((SID)status.ID == SID.MotionTracker && Raid.TryFindSlot(actor, out var slot))
+        {
+            _exclude.Set(slot);
             ClearState(slot);
+        }
+    }
+
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
+    {
+        if ((OID)actor.OID == OID.MotionScanner && id == 0x248B)
+            _scanner = actor;
+
+        if ((OID)actor.OID == OID.MotionScanner && id == 0x1E3C)
+        {
+            _scanner = null;
+            _exclude.Reset();
+        }
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        if (_scanner != null)
+            Arena.ZoneRect(_scanner.Position, _scanner.Rotation, 7.5f, 7.5f, 20, 0x807969D2);
+    }
+
+    // we have to anticipate scanner appearing, since reacting to status gain is too late
+    public override void Update()
+    {
+        if (_scanner != null)
+        {
+            foreach (var (i, _) in Raid.WithSlot().ExcludedFromMask(_exclude).InShape(new AOEShapeRect(9.5f, 15, 7.5f), _scanner))
+                SetState(i, new(Requirement.Stay, WorldState.CurrentTime));
+        }
     }
 }
 
