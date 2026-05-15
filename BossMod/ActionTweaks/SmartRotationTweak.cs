@@ -5,10 +5,9 @@ class SmartRotationConfig : ConfigNode
 {
     [PropertyDisplay("启用该功能", tooltip: "替换游戏内“自动面向目标”选项为更智能的替代方案。\n使用动作时，只有在目标不在前方视锥内时才改变方向。\n施法期间，保持角色面向目标。")]
     public bool Enabled = false;
-    
+
     [PropertyDisplay("自动避开注视", depends: nameof(Enabled))]
     public bool AvoidGazes = true;
-
 
     [PropertyDisplay("凝视激活前开始躲避的时间", depends: nameof(Enabled))]
     [PropertySlider(0, 10, Speed = 0.01f)]
