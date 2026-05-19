@@ -6,7 +6,7 @@ public sealed class ZoneModuleConfig : ConfigNode
     [PropertyDisplay("加载区域模块所需的成熟度")]
     public BossModuleInfo.Maturity MinMaturity = BossModuleInfo.Maturity.Contributed;
 
-    [PropertyDisplay("启用任务战斗 / 单人任务的自动执行")]
+    [PropertyDisplay("自动执行讨伐任务 / 单人副本战斗")]
     public bool EnableQuestBattles = false;
 
     [PropertyDisplay("在游戏世界中绘制导航点")]
