@@ -4,7 +4,7 @@ namespace BossMod.Autorotation.MiscAI;
 
 public sealed class AutoTarget(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
 {
-    public enum Track { General, Retarget, QuestBattle, DeepDungeon, EpicEcho, Hunt, FATE, Everything, CollectFATE, MaxTargets }
+    public enum Track { General, Retarget, QuestBattle, DeepDungeon, EpicEcho, Hunt, FATE, Everything, CollectFATE, Treasure, MaxTargets }
     public enum GeneralStrategy { Aggressive, Passive }
     public enum RetargetStrategy { NoTarget, Hostiles, Always, Never }
     public enum Flag { Disabled, Enabled }
@@ -52,6 +52,11 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
             .AddOption(Flag.Enabled);
 
         res.DefineInt(Track.MaxTargets, "最大拉怪数量（0 = 不限制）", minValue: 0, maxValue: 30, uiPriority: -120);
+        res.Define(Track.Treasure).As<Flag>("Treasure", "Open treasure chests", renderer: typeof(DefaultOffRenderer))
+            .AddOption(Flag.Disabled)
+            .AddOption(Flag.Enabled);
+
+
 
         return res;
     }
@@ -62,6 +67,9 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
         var generalStrategy = generalOpt.As<GeneralStrategy>();
         if (generalStrategy == GeneralStrategy.Passive)
             return;
+
+        if (strategy.Option(Track.Treasure).As<Flag>() == Flag.Enabled)
+            Hints.InteractWithTarget ??= World.Actors.Where(a => a.Type == ActorType.Treasure && a.IsTargetable && !a.IsOpenTreasure).OrderBy(a => (a.Position - Player.Position).LengthSq()).FirstOrDefault();
 
         var maxTargets = strategy.GetInt(Track.MaxTargets);
         var canPullMore = maxTargets == 0 || World.Actors.Count(a => a.AggroPlayer && !a.IsDead) < maxTargets;

@@ -6,10 +6,15 @@ class SmartRotationConfig : ConfigNode
     [PropertyDisplay("启用该功能", tooltip: "替换游戏内“自动面向目标”选项为更智能的替代方案。\n使用动作时，只有在目标不在前方视锥内时才改变方向。\n施法期间，保持角色面向目标。")]
     public bool Enabled = false;
 
-    [PropertyDisplay("自动避开注视", depends: nameof(Enabled))]
+
+
+    [PropertyDisplay("启用该功能", tooltip: "替换游戏原版「自动转向目标」为智能转向方案。释放技能时，仅当目标不在角色正面扇形范围才转身；施法读条期间，固定保持角色面朝目标。")]
+    public bool Enabled2 = true;
+
+    [PropertyDisplay("自动避开注视", depends: nameof(Enabled2))]
     public bool AvoidGazes = true;
 
-    [PropertyDisplay("凝视激活前开始躲避的时间", depends: nameof(Enabled))]
+    [PropertyDisplay("凝视激活前开始躲避的时间", depends: nameof(Enabled2))]
     [PropertySlider(0, 10, Speed = 0.01f)]
     public float MinTimeToAvoid = 0.5f;
 }
@@ -24,7 +29,7 @@ public sealed class SmartRotationTweak(WorldState ws, AIHints hints)
     private readonly DisjointSegmentList _forbidden = new();
     private readonly Angle _minWindow = 5.Degrees();
 
-    public bool Enabled => _config.Enabled;
+    public bool Enabled => _config.Enabled2;
 
     // return 'ideal orientation' for a spell, or null if spell is not oriented (self-targeted or does not require facing)
     public Angle? GetSpellOrientation(uint spellId, WPos playerPos, bool targetIsSelf, WPos? targetPos, WPos targetLoc)
@@ -41,7 +46,7 @@ public sealed class SmartRotationTweak(WorldState ws, AIHints hints)
 
     public Angle? GetSafeRotation(Angle currentDirection, Angle? preferredDirection, Angle preferredHalfWidth)
     {
-        if (!_config.Enabled)
+        if (!_config.Enabled2)
             return null;
 
         var midpoint = preferredDirection ?? default; // center angles in forbidden list around this midpoint, to simplify preferred check later

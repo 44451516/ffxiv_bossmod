@@ -1,4 +1,5 @@
-﻿using Dalamud.Bindings.ImGui;
+﻿using BossMod.Services;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 
@@ -7,11 +8,12 @@ namespace BossMod.Autorotation;
 public sealed class UIRotationWindow : UIWindow
 {
     private readonly RotationModuleManager _mgr;
-    private readonly ActionManagerEx _amex;
+    private readonly IAmex _amex;
     private readonly AutorotationConfig _config = Service.Config.Get<AutorotationConfig>();
     private readonly EventSubscriptions _subscriptions;
 
-    public UIRotationWindow(RotationModuleManager mgr, ActionManagerEx amex, Action openConfig) : base("自动循环", false, new(400, 400), ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoFocusOnAppearing)
+    public UIRotationWindow(RotationModuleManager mgr, IAmex amex, Action openConfig) : base("自动循环", false,
+        new(400, 400), ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoFocusOnAppearing)
     {
         _mgr = mgr;
         _amex = amex;
@@ -73,11 +75,18 @@ public sealed class UIRotationWindow : UIWindow
                 {
                     if (plans.SelectedIndex < 0)
                     {
-                        var plan = new Plan($"新建 {plans.Plans.Count + 1}", activeModule.GetType()) { Guid = Guid.NewGuid().ToString(), Class = player.Class, Level = activeModule.Info.PlanLevel };
+                        var plan = new Plan($"新建 {plans.Plans.Count + 1}", activeModule.GetType())
+                        {
+                            Guid = Guid.NewGuid().ToString(),
+                            Class = player.Class,
+                            Level = activeModule.Info.PlanLevel
+                        };
                         plans.SelectedIndex = plans.Plans.Count;
                         _mgr.Database.Plans.ModifyPlan(null, plan);
                     }
-                    UIPlanDatabaseEditor.StartPlanEditor(_mgr.Database.Plans, plans.Plans[plans.SelectedIndex], activeModule.StateMachine);
+
+                    UIPlanDatabaseEditor.StartPlanEditor(_mgr.Database.Plans, plans.Plans[plans.SelectedIndex],
+                        activeModule.StateMachine);
                 }
 
                 if (newSel >= 0 && _mgr.Presets.Count > 0)
@@ -96,7 +105,8 @@ public sealed class UIRotationWindow : UIWindow
         {
             ImGui.SameLine();
             using var style = ImRaii.PushColor(ImGuiCol.Text, 0xff00ffff);
-            UIMisc.HelpMarker(() => $"你启用了同一模块的多个副本（{string.Join(", ", dups)}）。每种模块只会执行一个，这通常不是你想要的结果。", FontAwesomeIcon.ExclamationTriangle);
+            UIMisc.HelpMarker(() => $"你启用了同一模块的多个副本（{string.Join(", ", dups)}）。每种模块只会执行一个，这通常不是你想要的结果。",
+                FontAwesomeIcon.ExclamationTriangle);
         }
 
         if (_mgr.Presets.Any(p => p.Modules.Any(m => m.TransientSettings.Count > 0)))
@@ -127,7 +137,8 @@ public sealed class UIRotationWindow : UIWindow
         ImGui.SameLine();
         ImGui.TextUnformatted(_mgr.ToString());
 
-        ImGui.TextUnformatted($"GCD={_mgr.WorldState.Client.Cooldowns[ActionDefinitions.GCDGroup].Remaining:f3}, AnimLock={_amex.EffectiveAnimationLock:f3}+{_amex.AnimationLockDelayEstimate:f3}, Combo={_amex.ComboTimeLeft:f3}, RBIn={_mgr.Bossmods.RaidCooldowns.NextDamageBuffIn():f3}");
+        ImGui.TextUnformatted(
+            $"GCD={_mgr.WorldState.Client.Cooldowns[ActionDefinitions.GCDGroup].Remaining:f3}, AnimLock={_amex.EffectiveAnimationLock:f3}+{_amex.AnimationLockDelayEstimate:f3}, Combo={_amex.ComboTimeLeft:f3}, RBIn={_mgr.Bossmods.RaidCooldowns.NextDamageBuffIn():f3}");
         foreach (var a in _mgr.Hints.ActionsToExecute.Entries)
         {
             ImGui.TextUnformatted($"> {a.Action} ({a.Priority:f2}) @ ({a.Target?.Name ?? "<none>"})");
@@ -188,11 +199,14 @@ public sealed class UIRotationWindow : UIWindow
             switch (pos.Pos)
             {
                 case Positional.Flank:
-                    Camera.Instance?.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f, pos.Target.Rotation + 90.Degrees(), 45.Degrees(), color);
-                    Camera.Instance?.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f, pos.Target.Rotation - 90.Degrees(), 45.Degrees(), color);
+                    Camera.Instance?.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f,
+                        pos.Target.Rotation + 90.Degrees(), 45.Degrees(), color);
+                    Camera.Instance?.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f,
+                        pos.Target.Rotation - 90.Degrees(), 45.Degrees(), color);
                     break;
                 case Positional.Rear:
-                    Camera.Instance?.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f, pos.Target.Rotation + 180.Degrees(), 45.Degrees(), color);
+                    Camera.Instance?.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f,
+                        pos.Target.Rotation + 180.Degrees(), 45.Degrees(), color);
                     break;
             }
         }

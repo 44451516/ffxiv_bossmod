@@ -9,3 +9,6 @@ logs/
 release/BossMod.deps.json
 release/BossMod.dll
 release/BossMod.json
+launchSettings.json
+/dalamock_ui.json
+/DalaMockConfig.json

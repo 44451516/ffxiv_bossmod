@@ -1,5 +1,4 @@
-﻿
-namespace BossMod.Dawntrail.Alliance.A35Promathia;
+﻿namespace BossMod.Dawntrail.Alliance.A35Promathia;
 
 public enum OID : uint
 {
@@ -125,7 +124,7 @@ class BastionOfTwilight(BossModule module) : Components.GenericAOEs(module, AID.
     public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (_activation != default)
-            yield return new(new AOEShapeDonut(13, 50), Module.PrimaryActor.Position, default, _activation, Risky: Risky);
+            yield return new(new AOEShapeDonut(8, 50), Module.PrimaryActor.Position, default, _activation, Risky: Risky);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
