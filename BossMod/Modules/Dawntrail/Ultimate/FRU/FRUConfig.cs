@@ -72,7 +72,7 @@ public class FRUConfig() : ConfigNode()
     [GroupPreset("Default (healer N)", [2, 3, 0, 1, 4, 5, 6, 7])]
     public GroupAssignmentUnique P4DarklitDragonsongAssignments = new() { Assignments = [2, 3, 0, 1, 4, 5, 6, 7] };
 
-    [PropertyDisplay("P4 结晶时间：爪子分配（较低优先级去西方）", separator: true)]
+    [PropertyDisplay("P4 结晶时间：爪子分配（较低优先级去西方）")]
     [GroupDetails(["Prio 1", "Prio 2", "Prio 3", "Prio 4", "Prio 5", "Prio 6", "Prio 7", "Prio 8"])]
     [GroupPreset("Default HTMR", [3, 2, 1, 0, 4, 5, 6, 7])]
     public GroupAssignmentUnique P4CrystallizeTimeAssignments = new() { Assignments = [3, 2, 1, 0, 4, 5, 6, 7] };

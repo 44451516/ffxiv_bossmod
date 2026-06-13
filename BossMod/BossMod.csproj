@@ -52,4 +52,10 @@
         <EmbeddedResource Include="Autorotation\OptionRenames.json"/>
         <EmbeddedResource Include="Pathfinding\ObstacleMaps\*"/>
     </ItemGroup>
+
+    <!-- build: remove non-win runtime folders -->
+    <Target Name="RemoveNonWindowsRuntimes" AfterTargets="Build">
+        <RemoveDir Directories="$(OutputPath)runtimes\linux-x64;$(OutputPath)runtimes\osx-x64;$(OutputPath)runtimes\win-x64;$(OutputPath)runtimes\win-x86" />
+    </Target>
 </Project>
+

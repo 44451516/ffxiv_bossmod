@@ -62,6 +62,9 @@ public sealed class ColorConfig : ConfigNode
     public Color ArenaPlayerGenericFocus = Color.FromComponents(0, 255, 255);
 
     [PropertyDisplay("规划器：背景")]
+    public Color ArenaMeleeRing = Color.FromComponents(255, 255, 255, 128);
+
+    [PropertyDisplay("Planner: background")]
     public Color PlannerBackground = new(0x80362b00); // solarized base03; old: 0x40404040
 
     [PropertyDisplay("规划器：背景高亮")]

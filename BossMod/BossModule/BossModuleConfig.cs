@@ -28,10 +28,11 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("启用未完成模块", since: "7.5.0.10", tooltip: "未完成模块存在缺陷，可能有严重漏洞，启用风险自负")]
     public bool AllowIncompleteModules = false;
 
-    [PropertyDisplay("在探索模式副本中启用训练假人模块", since: "7.5.0.10", separator: true)]
+    [PropertyDisplay("在探索模式副本中启用训练假人模块", since: "7.5.0.10")]
     public bool EnableDummyModule = false;
 
-    // 雷达窗口设置
+    // radar window settings
+    [SectionStart]
     [PropertyDisplay("启用雷达")]
     public bool Enable = true;
 
@@ -83,7 +84,10 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("在雷达上显示指令标记（攻击、束缚、无视、图形标记）", since: "0.4.10.0")]
     public bool ShowSigns = false;
 
-    [PropertyDisplay("始终显示所有存活的队友")]
+    [PropertyDisplay("在雷达上显示近战范围提示", since: "7.5.1.2")]
+    public bool ShowMeleeRange = false;
+
+    [PropertyDisplay("始终显示所有活着的队友")]
     public bool ShowIrrelevantPlayers = false;
 
     [PropertyDisplay("允许在雷达上绘制非队友玩家", tooltip: "该选项仅对部分内容生效，如探索任务", depends: nameof(ShowIrrelevantPlayers))]
@@ -92,10 +96,12 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("雷达中无特殊颜色标记的玩家按职业职责显示颜色")]
     public bool ColorPlayersBasedOnRole = false;
 
-    [PropertyDisplay("始终显示焦点目标队友", separator: true)]
+    [PropertyDisplay("始终显示焦点目标队友")]
     public bool ShowFocusTargetPlayer = false;
 
     // 提示窗口设置
+
+    [SectionStart]
     [PropertyDisplay("在独立窗口显示文字提示", tooltip: "将雷达窗口与提示窗口分离，可单独调整提示窗口位置")]
     public bool HintsInSeparateWindow = false;
 
@@ -105,13 +111,14 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("显示团队全局提示")]
     public bool ShowGlobalHints = true;
 
-    [PropertyDisplay("显示玩家专属提示与警告", separator: true)]
+    [PropertyDisplay("显示玩家专属提示与警告")]
     public bool ShowPlayerHints = true;
 
-    // 其他设置
-    [PropertyDisplay("在游戏场景中显示移动提示", tooltip: "使用场景较少，可在游戏内显示箭头，指引部分机制的移动位置")]
-    public bool ShowWorldArrows = false;
 
+    // misc. settings
+    [SectionStart]
+    [PropertyDisplay("在游戏场景中显示移动指引", tooltip:  "该功能使用频率不高，会在场景内显示箭头，提示特定机制下的移动位置")]
+    public bool ShowWorldArrows = false;
     public List<string> DisabledModules = [];
     public List<BossModuleInfo.Category> DisabledCategories = [];
 }

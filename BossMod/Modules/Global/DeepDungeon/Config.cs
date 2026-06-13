@@ -25,6 +25,9 @@ public class AutoDDConfig : ConfigNode
     [PropertyDisplay("启用小地图")]
     public bool EnableMinimap = true;
     [PropertyDisplay("尝试避开陷阱", tooltip: "避开源自PalacePal数据的已知陷阱位置。（无论此设置如何，由洞察宝玉揭示的陷阱始终会被避开。）")]
+    [PropertySlider(min: 0.2f, max: 3, Speed = 0.05f)]
+    public float MinimapScale = 1.0f;
+    [PropertyDisplay("Try to avoid traps", tooltip: "Avoid known trap locations sourced from PalacePal data. (Traps revealed by a Pomander of Sight will always be avoided regardless of this setting.)")]
     public bool TrapHints = true;
 
 

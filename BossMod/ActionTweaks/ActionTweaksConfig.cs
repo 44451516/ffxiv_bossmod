@@ -68,6 +68,9 @@ public sealed class ActionTweaksConfig : ConfigNode
     [PropertyDisplay("自动管理自动攻击", tooltip: "此设置可防止在倒计时期间过早开始自动攻击，在开怪时、切换目标时以及使用任何不会明确取消自动攻击的技能时自动启动自动攻击。")]
     public bool AutoAutos = false;
 
+    [PropertyDisplay("自动管理自动攻击", tooltip:  "该选项可避免倒计时阶段提前触发自动攻击；进入战斗、切换目标、使用不会主动中断自动攻击的技能时，都会自动开启自动攻击。")]
+    public bool AutoAutos2 = true;
+
     [PropertyDisplay("自动下坐骑以执行技能")]
     public bool AutoDismount = true;
 

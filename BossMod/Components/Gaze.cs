@@ -12,6 +12,7 @@ public abstract class GenericGaze(BossModule module, Enum? aid = default, bool i
         float Range = 10000);
 
     public bool Inverted = inverted; // if inverted, player should face eyes instead of averting
+    public bool EnableHints = true;
 
     private const float _eyeOuterH = 10;
     private const float _eyeOuterV = 6;
@@ -24,12 +25,15 @@ public abstract class GenericGaze(BossModule module, Enum? aid = default, bool i
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (ActiveEyes(slot, actor).Any(eye => actor.Position.InCircle(eye.Position, eye.Range) && HitByEye(actor, eye) != Inverted))
+        if (EnableHints && ActiveEyes(slot, actor).Any(eye => actor.Position.InCircle(eye.Position, eye.Range) && HitByEye(actor, eye) != Inverted))
             hints.Add(Inverted ? "Face the eye!" : "Turn away from gaze!");
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
+        if (!EnableHints)
+            return;
+
         if (Inverted)
         {
             foreach (var eye in ActiveEyes(slot, actor).Where(eye => actor.Position.InCircle(eye.Position, eye.Range)))

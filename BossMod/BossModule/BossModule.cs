@@ -188,8 +188,16 @@ public abstract class BossModule : IDisposable
         }
     }
 
+    static bool IsMelee(Actor pc) => pc is { Role: Role.Melee or Role.Tank } or { Class: Class.RDM };
+
     public virtual void DrawArena(int pcSlot, Actor pc, bool haveRisks)
     {
+        if (WindowConfig.ShowWaymarks)
+            DrawWaymarks();
+
+        if (WindowConfig.ShowMeleeRange && IsMelee(pc) && WorldState.Actors.Find(pc.TargetID) is { IsAlly: false } target)
+            Arena.AddCircle(target.Position, target.HitboxRadius + pc.HitboxRadius + 3, ColorConfig.ArenaMeleeRing.ABGR);
+
         // draw background
         DrawArenaBackground(pcSlot, pc);
         foreach (var comp in _components)
@@ -200,8 +208,6 @@ public abstract class BossModule : IDisposable
             Arena.Border(haveRisks && WindowConfig.ShowBorderRisk ? ArenaColor.Enemy : ArenaColor.Border);
         if (WindowConfig.ShowCardinals)
             Arena.CardinalNames();
-        if (WindowConfig.ShowWaymarks)
-            DrawWaymarks();
         if (WindowConfig.ShowSigns)
             DrawSigns();
 
@@ -312,7 +318,7 @@ public abstract class BossModule : IDisposable
         List<Actor> highlighted = [];
         var cursor = ImGui.GetMousePos();
 
-        foreach (var actor in WorldState.Actors.Where(a => !a.IsAlly).Exclude(PrimaryActor))
+        foreach (var actor in WorldState.Actors.Where(a => !a.IsAlly || !a.IsTargetable).Exclude(PrimaryActor))
         {
             Arena.ActorInsideBounds(actor.Position, actor.Rotation, ArenaColor.Object);
             var s = Arena.WorldPositionToScreenPosition(actor.Position);

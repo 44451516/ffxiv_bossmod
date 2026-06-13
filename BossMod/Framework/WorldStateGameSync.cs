@@ -521,8 +521,8 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             _ws.Execute(new PartyState.OpLimitBreakChange(lb->CurrentUnits, lb->BarUnits));
     }
 
-    // returns player entry in game's group
-    private unsafe PartyMember* UpdatePartyPlayer(bool recorderPlaybackMode, GroupManager.Group* group)
+    // returns player contentID
+    private unsafe ulong UpdatePartyPlayer(bool recorderPlaybackMode, GroupManager.Group* group)
     {
         // in worldstate, player is always in slot #0
         // in game, there are several considerations:
@@ -568,14 +568,15 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             // else: just assume there's no player for now...
         }
 
+        // in duty support, GetPartyMemberByEntityId returns null, even for the player ID
         var member = player.InstanceId != 0 ? group->GetPartyMemberByEntityId((uint)player.InstanceId) : null;
         if (member != null)
             player.InCutscene |= (member->Flags & 0x10) != 0;
         UpdatePartySlot(PartyState.PlayerSlot, player);
-        return member;
+        return member == null ? player.ContentId : member->ContentId;
     }
 
-    private unsafe void UpdatePartyNormal(GroupManager.Group* group, PartyMember* player)
+    private unsafe void UpdatePartyNormal(GroupManager.Group* group, ulong playerContentId)
     {
         // first iterate over previous members, search for match in game state, and reconcile differences - update or remove
         for (int i = PartyState.PlayerSlot + 1; i < PartyState.MaxPartySize; ++i)
@@ -601,7 +602,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         for (int i = 0; i < group->MemberCount; ++i)
         {
             var member = group->PartyMembers.GetPointer(i);
-            if (member->ContentId != player->ContentId && Array.FindIndex(_ws.Party.Members, m => m.ContentId == member->ContentId) < 0)
+            if (member->ContentId != playerContentId && Array.FindIndex(_ws.Party.Members, m => m.ContentId == member->ContentId) < 0)
                 AddPartyMember(BuildPartyMember(member));
             // else: member is either a player (it was handled by a different function) or already exists in party state
         }
