@@ -9,6 +9,9 @@ public sealed class ColorConfig : ConfigNode
     [PropertyDisplay("竞技场：边框")]
     public Color ArenaBorder = new(0xffffffff);
 
+    [PropertyDisplay("竞技场：N 方位高亮")]
+    public Color ArenaHighlightN = new(0xff00ffff);
+
     [PropertyDisplay("竞技场：典型危险区域（AOE）")]
     public Color ArenaAOE = new(0x80008080);
 

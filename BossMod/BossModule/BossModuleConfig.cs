@@ -74,6 +74,9 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("在雷达上显示方位名称")]
     public bool ShowCardinals = false;
 
+    [PropertyDisplay("以不同颜色绘制 N 方位", depends: nameof(ShowCardinals), since: "7.5.1.6")]
+    public bool HighlightN = false;
+
     [PropertyDisplay("方位名称字体大小")]
     [PropertySlider(0.1f, 100, Speed = 1)]
     public float CardinalsFontSize = 17;
