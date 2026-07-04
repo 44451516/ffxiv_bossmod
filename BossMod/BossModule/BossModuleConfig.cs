@@ -1,3 +1,5 @@
+﻿using Dalamud.Interface.Utility;
+
 namespace BossMod;
 
 [ConfigDisplay(Name = "BOSS模块与雷达", Order = 1)]
@@ -54,6 +56,8 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("雷达战斗区域缩放比例", tooltip: "雷达窗口内战斗区域的缩放大小")]
     [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
     public float ArenaScale = 1;
+
+    public float EffectiveArenaScale => ImGuiHelpers.GlobalScale * ArenaScale;
 
     [PropertyDisplay("雷达元素线条粗细缩放比例", tooltip: "全局调整雷达元素的轮廓线条粗细")]
     [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]

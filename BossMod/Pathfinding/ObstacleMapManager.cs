@@ -1,5 +1,6 @@
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BossMod.Pathfinding;
@@ -16,15 +17,18 @@ public sealed class ObstacleMapManager : IDisposable
 
     public readonly WorldState World;
     public readonly ObstacleMapDatabase Database = new();
-    public string RootPath { get; private set; } = ""; // empty or ends with slash
     private readonly DeveloperConfig _config = Service.Config.Get<DeveloperConfig>();
     private readonly EventSubscriptions _subscriptions;
     private readonly List<(ObstacleMapDatabase.Entry entry, Bitmap data)> _entries = [];
-    private readonly object _tempMapLock = new();
+    private readonly Lock _tempMapLock = new();
+    private readonly Lock _resetLock = new();
     private (ObstacleMapDatabase.Entry entry, Bitmap data)? _tempMap;
     private Task? _generationTask;
 
-    public bool LoadFromSource => _config.MapLoadFromSource;
+    public readonly DirectoryInfo UserRoot = new(Path.Join(ReplayHistory.GetStorageDir().FullName, "obstacles"));
+    public readonly FileInfo UserList;
+
+    public readonly string SourceRoot;
 
     public ObstacleMapManager(WorldState ws)
     {
@@ -33,6 +37,12 @@ public sealed class ObstacleMapManager : IDisposable
             _config.Modified.Subscribe(ReloadDatabase),
             ws.CurrentZoneChanged.Subscribe(op => LoadMaps(op.Zone, op.CFCID))
         );
+
+        UserList = new(Path.Join(UserRoot.FullName, "maplist.json"));
+        SourceRoot = _config.MapSourcePath;
+        if (!UserRoot.Exists)
+            UserRoot.Create();
+
         ReloadDatabase();
     }
 
@@ -40,6 +50,23 @@ public sealed class ObstacleMapManager : IDisposable
     {
         ClearTempMap();
         _subscriptions.Dispose();
+    }
+
+    public string SourceFilename(string filename) => Path.Join(SourceRoot, filename);
+    public string GeneratedFilename(string filename) => Path.Join(UserRoot.FullName, filename);
+    public string EntryFilename(ObstacleMapDatabase.Entry e) => e.Embedded ? SourceFilename(e.Filename) : GeneratedFilename(e.Filename);
+
+    public void ClearGenerated()
+    {
+        lock (_resetLock)
+        {
+            if (UserRoot.Exists)
+            {
+                UserRoot.Delete(true);
+                UserRoot.Create();
+            }
+            ReloadDatabase();
+        }
     }
 
     public (ObstacleMapDatabase.Entry? entry, Bitmap? data) Find(Vector3 pos)
@@ -51,7 +78,6 @@ public sealed class ObstacleMapManager : IDisposable
         }
         return _entries.FirstOrDefault(e => e.entry.Contains(pos));
     }
-    public bool CanEditDatabase() => _config.MapLoadFromSource;
     public uint ZoneKey(ushort zoneId, ushort cfcId) => ((uint)zoneId << 16) | cfcId;
     public uint CurrentKey() => ZoneKey(World.CurrentZone, World.CurrentCFCID);
     public TaskStatus GenerationStatus => _generationTask?.Status ?? TaskStatus.RanToCompletion;
@@ -230,13 +256,18 @@ public sealed class ObstacleMapManager : IDisposable
 
     public void ReloadDatabase()
     {
-        Service.Log($"Loading obstacle database from {(_config.MapLoadFromSource ? _config.MapSourcePath : "<embedded>")}");
-        RootPath = _config.MapLoadFromSource ? _config.MapSourcePath[..(_config.MapSourcePath.LastIndexOfAny(['\\', '/']) + 1)] : "";
-
         try
         {
-            using var dbStream = _config.MapLoadFromSource ? File.OpenRead(_config.MapSourcePath) : GetEmbeddedResource("maplist.json");
-            Database.Load(dbStream);
+            Database.Entries.Clear();
+
+            using (var builtin = GetEmbeddedResource("maplist.json"))
+                Database.Load(builtin, true);
+
+            if (File.Exists(UserList.FullName))
+            {
+                using var user = UserList.OpenRead();
+                Database.Load(user, false);
+            }
         }
         catch (Exception ex)
         {
@@ -247,11 +278,11 @@ public sealed class ObstacleMapManager : IDisposable
         LoadMaps(World.CurrentZone, World.CurrentCFCID);
     }
 
-    public void SaveDatabase()
+    public void SaveDatabase(bool local)
     {
-        if (!_config.MapLoadFromSource)
-            return;
-        Database.Save(_config.MapSourcePath);
+        if (local)
+            Database.Save(Path.Join(_config.MapSourcePath, "maplist.json"), true);
+        Database.Save(UserList.FullName, false);
         LoadMaps(World.CurrentZone, World.CurrentCFCID);
     }
 
@@ -265,13 +296,17 @@ public sealed class ObstacleMapManager : IDisposable
             {
                 try
                 {
-                    using var eStream = _config.MapLoadFromSource ? File.OpenRead(RootPath + e.Filename) : GetEmbeddedResource(e.Filename);
+                    using var eStream = e.Embedded
+                        ? (Service.IsDev && SourceRoot.Length > 0
+                            ? File.OpenRead(Path.Join(SourceRoot, e.Filename))
+                            : GetEmbeddedResource(e.Filename))
+                        : File.OpenRead(Path.Join(UserRoot.FullName, e.Filename));
                     var bitmap = new Bitmap(eStream);
                     _entries.Add((e, bitmap));
                 }
                 catch (Exception ex)
                 {
-                    Service.Log($"Failed to load map {e.Filename} from {(_config.MapLoadFromSource ? RootPath : "<embedded>")} for {zoneId}.{cfcId}: {ex}");
+                    Service.Log($"Failed to load map {e.Filename} from {(e.Embedded ? "manifest" : UserRoot)} for {zoneId}.{cfcId}: {ex}");
                 }
             }
         }
@@ -279,9 +314,16 @@ public sealed class ObstacleMapManager : IDisposable
 
     public bool GenerateMap(Vector3 centerWorld, float radius, bool writeToFile)
     {
-        if (_generationTask is { IsCompleted: false })
+        if (_resetLock.IsHeldByCurrentThread)
             return false;
-        if (writeToFile && !CanEditDatabase())
+
+        if (_generationTask is { IsFaulted: true })
+        {
+            var exc = _generationTask.Exception;
+            _generationTask = null;
+            throw exc;
+        }
+        if (_generationTask is { IsCompleted: false })
             return false;
 
         _generationTask = Service.Framework.RunOnTick(() =>
@@ -290,7 +332,7 @@ public sealed class ObstacleMapManager : IDisposable
             var maxBounds = new Vector3(centerWorld.X + radius, 1024, centerWorld.Z + radius);
             var pixelSize = 0.5f;
             var filename = writeToFile ? GeneratePersistentMapName() : Path.GetRandomFileName() + ".bmp";
-            var fullPath = writeToFile ? RootPath + filename : Path.Combine(Path.GetTempPath(), filename);
+            var fullPath = writeToFile ? Path.Join(UserRoot.FullName, filename) : Path.Combine(Path.GetTempPath(), filename);
 
             try
             {
@@ -298,15 +340,17 @@ public sealed class ObstacleMapManager : IDisposable
                 var (actualMin, actualMax) = build.InvokeFunc(centerWorld, fullPath, pixelSize, minBounds, maxBounds);
 
                 using var stream = File.OpenRead(fullPath);
-                // keep x/z bounds as-is, but make y bounds permissive
-                var min = new Vector3(actualMin.X, -1024, actualMin.Z);
-                var max = new Vector3(actualMax.X, 1024, actualMax.Z);
-                var entry = new ObstacleMapDatabase.Entry(min, max, new(actualMin.XZ()), 60, 60, filename);
+                // make y bounds permissive for jumping + bits of terrain that are slightly lower than the rasterized mesh
+                var min = new Vector3(actualMin.X, actualMin.Y - 1, actualMin.Z);
+                var max = new Vector3(actualMax.X, actualMax.Y + 6, actualMax.Z);
+                var vw = Math.Min(60, (int)(max.X - min.X));
+                var vh = Math.Min(60, (int)(max.Z - min.Z));
+                var entry = new ObstacleMapDatabase.Entry(min, max, new(actualMin.XZ()), vw, vh, filename);
                 var bitmap = new Bitmap(stream);
                 if (writeToFile)
                 {
                     Database.Entries.GetOrAdd(CurrentKey()).Add(entry);
-                    SaveDatabase();
+                    SaveDatabase(false);
                 }
                 else
                 {
@@ -353,8 +397,11 @@ public sealed class ObstacleMapManager : IDisposable
     {
         for (var i = 1; ; ++i)
         {
+            if (i > 100)
+                throw new InvalidOperationException($"More than 100 bitmaps have been generated for {World.CurrentZone}.{World.CurrentCFCID}, this means something is wrong!");
+
             var name = $"{World.CurrentZone}.{World.CurrentCFCID}.auto.{i}.bmp";
-            if (!new FileInfo(RootPath + name).Exists)
+            if (!File.Exists(GeneratedFilename(name)))
                 return name;
         }
     }

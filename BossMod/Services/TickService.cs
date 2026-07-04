@@ -8,6 +8,8 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Ipc;
+using Dalamud.Plugin.Ipc.Exceptions;
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -55,6 +57,9 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
     private readonly ConfigUI _configUI; // TODO: should be a proper window!
 
     private readonly EventSubscription? _onConfigSave;
+
+    private readonly ICallGateSubscriber<bool>? _vnavIsReady;
+    private readonly ICallGateSubscriber<Vector3, float, bool, bool>? _vnavIsOnMesh;
 
     public unsafe TickService(
         MediatorService mediator,
@@ -109,6 +114,12 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
             MultiboxUnlock.Exec();
         }
 
+        if (!Service.IsMock)
+        {
+            _vnavIsReady = Service.PluginInterface.GetIpcSubscriber<bool>("vnavmesh.Nav.IsReady");
+            _vnavIsOnMesh = Service.PluginInterface.GetIpcSubscriber<Vector3, float, bool, bool>("vnavmesh.Query.Mesh.IsPointOnMesh");
+        }
+
         _rotationDB = new(new(Path.Join(configDir, "autorot")), new(dalamud.AssemblyLocation.DirectoryName! + "/DefaultRotationPresets.json"));
 
         if (Service.IsMock)
@@ -119,7 +130,7 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
             _wsSync = new MockWorldStateGameSync();
             _hintExecutor = new MockHintExecutor();
 
-            Service.LuminaGameData!.Options.RsvResolver = Service.LuminaRSV.TryGetValue;
+            Service.LuminaGameData.Options.RsvResolver = Service.LuminaRSV.TryGetValue;
         }
         else
         {
@@ -168,10 +179,18 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        Version cutoff = new(7, 5, 1, 13);
+        if (ConfigChangelogWindow.GetPreviousPluginVersion() < cutoff && ConfigChangelogWindow.GetCurrentPluginVersion() >= cutoff)
+        {
+            Service.Log($"Removing potentially broken bitmaps from {_hintsBuilder.Obstacles.UserRoot.FullName}");
+            _hintsBuilder.Obstacles.ClearGenerated();
+        }
+
         // TODO: this should be in worldstate, but how?
         clientState.Logout += OnLogout;
+        clientState.ZoneInit += OnZoneInit;
 
-        uiBuilder.Draw += UiDraw;
+        uiBuilder.Draw += Update;
         uiBuilder.DisableAutomaticUiHide = true;
         uiBuilder.OpenConfigUi += OpenUi;
         uiBuilder.OpenMainUi += OpenUi;
@@ -182,23 +201,30 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
 
         if (Service.IsMock)
         {
-            _ws.Execute(new ActorState.OpCreate(0x12345678, 0, 0, 0, "xan", 0, ActorType.Player, Class.WAR, 100, new(1, 1, 1, 0), 0.5f, new(500, 600, 100, 10000, 10000), true, true, 0, 0));
+            _ws.Execute(new ActorState.OpCreate(0x12345678, 0, 0, 0, "xan", 0, ActorType.Player, Class.WAR, 100, new(90, 0, 90, 0), 0.5f, new(500, 600, 100, 10000, 10000), true, true, 0, 0));
             _ws.Execute(new PartyState.OpModify(0, new(0x87654321, 0x12345678, false, "xan")));
+            _ws.Execute(new ActorState.OpCreate(0x12345679, (uint)StrikingDummy.OID.Boss, 10, 0, "Striking Dummy", 541, ActorType.Enemy, Class.None, 1, new(100, 0, 100, 0), 1, new(500, 600, 100, 10000, 10000), true, false, 0, 0));
         }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         clientState.Logout -= OnLogout;
+        clientState.ZoneInit -= OnZoneInit;
 
-        uiBuilder.Draw -= UiDraw;
+        uiBuilder.Draw -= Update;
         uiBuilder.OpenConfigUi -= OpenUi;
         uiBuilder.OpenMainUi -= OpenUi;
 
         condition.ConditionChange -= OnConditionChanged;
     }
 
-    void UiDraw()
+    private void OnZoneInit(Dalamud.Game.ClientState.ZoneInitEventArgs obj)
+    {
+        _pauseBitmapGeneration = false;
+    }
+
+    void Update()
     {
         var tsStart = DateTime.Now;
         var moveImminent = _movementOverride.IsMoveRequested() && (!_amex.Config.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());
@@ -223,6 +249,9 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
 
         _hintExecutor.Execute();
 
+        if (_vnavIsReady != null && _vnavIsOnMesh != null)
+            CreateBitmapIfMissing(_vnavIsReady, _vnavIsOnMesh);
+
         Camera.Instance?.DrawWorldPrimitives();
         _prevUpdateTime = DateTime.Now - tsStart;
     }
@@ -234,6 +263,63 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
         return link == 0
             || Service.LuminaRow<Lumina.Excel.Sheets.TerritoryType>(gameMain->CurrentTerritoryTypeId)?.TerritoryIntendedUse.RowId == 31 // deep dungeons check is hardcoded in game
             || FFXIVClientStructs.FFXIV.Client.Game.UI.UIState.Instance()->IsUnlockLinkUnlockedOrQuestCompleted(link);
+    }
+
+    bool _pauseBitmapGeneration;
+
+    void CreateBitmapIfMissing(ICallGateSubscriber<bool> isReady, ICallGateSubscriber<Vector3, float, bool, bool> isPointOnMesh)
+    {
+        if (_pauseBitmapGeneration || _ws.Party.Player() is not { } player || !Service.Config.Get<DeveloperConfig>().AutoBitmaps)
+            return;
+
+        // already have an entry, everything is ok
+        var (entry, data) = _hintsBuilder.Obstacles.Find(player.PosRot.XYZ());
+        if (entry != null && data != null)
+            return;
+
+        // scorched earth approach: if player is moving at all, assume we can't trust their position
+        // this covers jumping and clientpaths, as well as some annoying edge cases that don't show up anywhere else: walking off the boat in ihuykatumu (during which IsJumping() returns false), walking off of any wall-less arena (which puts you into condition 47, not Jumping), etc
+        if (player.PosRot != player.PrevPosRot)
+            return;
+
+        // try to do nothing if player is in any state that isn't "standing on the ground"
+        if (Service.Condition.Any(ConditionFlag.BetweenAreas, ConditionFlag.BetweenAreas51, ConditionFlag.OccupiedInCutSceneEvent, ConditionFlag.OccupiedInQuestEvent, ConditionFlag.InFlight, ConditionFlag.Diving))
+            return;
+
+        try
+        {
+            if (!isReady.InvokeFunc())
+                return;
+        }
+        catch (IpcNotReadyError ex)
+        {
+            Service.Logger.Debug(ex, "vnav is not loaded, pausing");
+            _pauseBitmapGeneration = true;
+            return;
+        }
+
+        try
+        {
+            // if player is standing on a little rock or at the edge of accessible ground, we want to avoid generating a bitmap every frame which just overwrites an existing one
+            if (!isPointOnMesh.InvokeFunc(player.PosRot.XYZ(), 2, true))
+                return;
+        }
+        catch (IpcNotReadyError ex)
+        {
+            Service.Logger.Debug(ex, "vnav is too old, must be >=1.2.3.8 to support auto generation");
+            _pauseBitmapGeneration = true;
+            return;
+        }
+
+        try
+        {
+            _hintsBuilder.Obstacles.GenerateMap(player.PosRot.XYZ(), 2048, true);
+        }
+        catch (Exception ex)
+        {
+            Service.Logger.Warning(ex, "Unable to generate an obstacle map, pausing");
+            _pauseBitmapGeneration = true;
+        }
     }
 
     void OnConditionChanged(ConditionFlag flag, bool value)
@@ -275,6 +361,8 @@ internal class TickService : DisposableMediatorSubscriberBase, IHostedService
             GC.WaitForPendingFinalizers();
             GC.Collect();
         });
+
+        _slashCmd.AddSubcommand("clear-maps").SetSimpleHandler("clear all generated bitmaps (for pathfinding)", _hintsBuilder.Obstacles.ClearGenerated);
 
         _slashCmd.Register();
         _slashCmd.RegisterAlias("/vbmai", "ai"); // TODO: deprecated

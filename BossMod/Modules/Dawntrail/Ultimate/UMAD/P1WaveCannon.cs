@@ -73,6 +73,7 @@ class P1FlagrantFireIII(BossModule module) : Components.UniformStackSpread(modul
     Lying _lying;
 
     BitMask _stackTargets; // empty if boss is lying or if the displayed mechanic is spread
+    bool _blizzardHappened;
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
@@ -107,6 +108,10 @@ class P1FlagrantFireIII(BossModule module) : Components.UniformStackSpread(modul
                 break;
             case AID.FlagrantFireIIISpread:
                 Spreads.Clear();
+                break;
+            case AID.BlizzardIIIBlowout1:
+            case AID.BlizzardIIIBlowout2:
+                _blizzardHappened = true;
                 break;
         }
     }
@@ -170,15 +175,13 @@ class P1FlagrantFireIII(BossModule module) : Components.UniformStackSpread(modul
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         var myOrder = _config.P1WaveCannonConga[assignment];
-        var (isKB, kbAt) = Module.FindComponent<P1PulseWave>() is { } pw ? (pw.Targets[slot], pw.Activation) : (actor.PendingKnockbacks.Count > 0, default);
-        if (myOrder < 0 || EnableHints && !isKB)
+        if (myOrder < 0 || _blizzardHappened)
         {
             base.AddAIHints(slot, actor, assignment, hints);
             return;
         }
 
-        var pcSlot = slot;
-        var pc = actor;
+        var (isKB, kbAt) = Module.FindComponent<P1PulseWave>() is { } pw ? (pw.Targets[slot], pw.Activation) : (actor.PendingKnockbacks.Count > 0, default);
 
         WPos mySpot;
 
@@ -192,7 +195,7 @@ class P1FlagrantFireIII(BossModule module) : Components.UniformStackSpread(modul
 
         var safeDirZ = 1;
 
-        if (Module.FindComponent<P1BlizzardIIIBlowout>()?.ActiveAOEs(pcSlot, pc).Any(e => e.Check(mySpot + new WDir(0, safeDirZ))) == true)
+        if (Module.FindComponent<P1BlizzardIIIBlowout>()?.Check(slot, actor, mySpot + new WDir(0, safeDirZ)) == true)
             safeDirZ = -safeDirZ;
 
         if (isSpread)
@@ -204,7 +207,7 @@ class P1FlagrantFireIII(BossModule module) : Components.UniformStackSpread(modul
                 // MT/M1 can move in horizontally to relative n/s to give other melees space
                 case 3:
                 case 4:
-                    mySpot += new WDir(1.5f * bossDirX, 6 * safeDirZ);
+                    mySpot += new WDir(1.5f * bossDirX, 8 * safeDirZ);
                     break;
                 // OT/M2 can also move in horizontally, staying relative e/w
                 case 2:
@@ -228,8 +231,10 @@ class P1FlagrantFireIII(BossModule module) : Components.UniformStackSpread(modul
 
         if (isKB)
         {
-            var dirToSpot = P1PulseWave.Origin - mySpot;
-            mySpot += dirToSpot.Normalized() * P1PulseWave.Distance;
+            var dirToStatue = P1PulseWave.Origin - mySpot;
+            // if KB destination is south, we can preposition exactly; if it's north, it might actually be outside the arena (for m1/r1)
+            var factor = mySpot.Z > 100 ? 1 : 0.75f;
+            mySpot += dirToStatue.Normalized() * P1PulseWave.Distance * factor;
         }
 
         hints.AddForbiddenZone(ShapeContains.InvertedCircle(mySpot, isSpread ? 1 : 4), kbAt);
@@ -247,6 +252,8 @@ class P1FlagrantFireIII(BossModule module) : Components.UniformStackSpread(modul
 
 class P1WaveCannon : Components.UntelegraphedBait
 {
+    readonly UMADConfig _config = Service.Config.Get<UMADConfig>();
+
     public P1WaveCannon(BossModule module) : base(module, AID.WaveCannon)
     {
         CurrentBaits.Add(new(P1PulseWave.Origin, Raid.WithSlot().Mask(), new AOEShapeRect(100, 3), WorldState.FutureTime(4.3f), 8));
@@ -259,6 +266,24 @@ class P1WaveCannon : Components.UntelegraphedBait
             NumCasts++;
             CurrentBaits.Clear();
         }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (CurrentBaits.Count == 0)
+            return;
+
+        var activation = CurrentBaits[0].Activation;
+        var myOrder = _config.P1WaveCannonConga[assignment];
+
+        if (activation < WorldState.FutureTime(1) || myOrder < 0)
+        {
+            base.AddAIHints(slot, actor, assignment, hints);
+            return;
+        }
+
+        var dest = P1PulseWave.Origin + new WDir(0, 38).Rotate(((myOrder - 3.5f) * 8).Degrees());
+        hints.AddForbiddenZone(ShapeContains.InvertedCircle(dest, 1), activation);
     }
 }
 
