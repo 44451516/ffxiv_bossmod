@@ -38,14 +38,14 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("移动延迟（秒）", tooltip: "保持此值较低！如果设置得太高，某些机制下它将无法及时移动。")]
     public float MoveDelay = 0f;
 
-    [PropertyDisplay("跟随Slot")]
+    [PropertyDisplay("跟随槽位")]
     public Slot FollowSlot = 0;
 
-    [PropertyDisplay("Distance to master")]
+    [PropertyDisplay("与主控的距离")]
     [PropertySlider(3, 25, Speed = 0.1f)]
     public float DistanceToMaster = 25f;
 
-    [PropertyDisplay("Follow master even if a boss module is active")]
+    [PropertyDisplay("即使首领模块处于活动状态也跟随主控")]
     public bool FollowDuringBoss = false;
 
     [PropertyDisplay("覆盖跟随距离")]
@@ -83,4 +83,7 @@ sealed class AIConfig : ConfigNode
 
     [PropertyDisplay("将按键广播到其他窗口")]
     public bool BroadcastToSlaves = false;
+
+    [PropertyDisplay("朝当前目标移动", since: "7.5.1.21")]
+    public bool GoalZoneFallback = true;
 }

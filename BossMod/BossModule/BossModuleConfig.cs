@@ -88,6 +88,9 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("在雷达上显示场地标记")]
     public bool ShowWaymarks = false;
 
+    [PropertyDisplay("在雷达上显示场地标记图形", since: "7.5.1.15", depends: nameof(ShowWaymarks))]
+    public bool StrokeWaymarks = false;
+
     [PropertyDisplay("在雷达上显示指令标记（攻击、束缚、无视、图形标记）", since: "0.4.10.0")]
     public bool ShowSigns = false;
 
@@ -111,6 +114,12 @@ public class BossModuleConfig : ConfigNode
     [SectionStart]
     [PropertyDisplay("在独立窗口显示文字提示", tooltip: "将雷达窗口与提示窗口分离，可单独调整提示窗口位置")]
     public bool HintsInSeparateWindow = false;
+
+    [PropertyDisplay("提示窗口背景透明", since: "7.5.1.32", depends: nameof(HintsInSeparateWindow))]
+    public bool HintsFloating = false;
+
+    [PropertyDisplay("文字描边颜色", since: "7.5.1.32", depends: nameof(HintsInSeparateWindow))]
+    public Color HintShadowColor = new(0xFF000000);
 
     [PropertyDisplay("显示机制序列与计时提示")]
     public bool ShowMechanicTimers = true;

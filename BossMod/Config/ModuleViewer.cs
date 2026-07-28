@@ -51,11 +51,18 @@ public sealed class ModuleViewer : IDisposable
         Customize(BossModuleInfo.Expansion.Shadowbringers, 61878, exVersion.GetRow(3).Name);
         Customize(BossModuleInfo.Expansion.Endwalker, 61879, exVersion.GetRow(4).Name);
         Customize(BossModuleInfo.Expansion.Dawntrail, 61880, exVersion.GetRow(5).Name);
+        Customize(BossModuleInfo.Expansion.Global, 61875, "全局");
 
         var contentType = Service.LuminaSheet<ContentType>()!;
+        Customize(BossModuleInfo.Category.Uncategorized, contentType.GetRow(1), "未分类");
         Customize(BossModuleInfo.Category.Dungeon, contentType.GetRow(2));
-        Customize(BossModuleInfo.Category.Trial, contentType.GetRow(4));
-        Customize(BossModuleInfo.Category.Raid, contentType.GetRow(5));
+        Customize(BossModuleInfo.Category.Trial, contentType.GetRow(4), "普通讨伐歼灭战");
+        Customize(BossModuleInfo.Category.Extreme, contentType.GetRow(4), "极神");
+        Customize(BossModuleInfo.Category.Raid, contentType.GetRow(5), "普通大型任务");
+        Customize(BossModuleInfo.Category.Savage, contentType.GetRow(5), "零式大型任务");
+        Customize(BossModuleInfo.Category.Ultimate, contentType.GetRow(28), "绝境战");
+        Customize(BossModuleInfo.Category.Unreal, contentType.GetRow(4), "幻巧战");
+        Customize(BossModuleInfo.Category.Alliance, contentType.GetRow(5), "团队任务");
         Customize(BossModuleInfo.Category.Chaotic, contentType.GetRow(37));
         Customize(BossModuleInfo.Category.PVP, contentType.GetRow(6));
         Customize(BossModuleInfo.Category.Quest, contentType.GetRow(7));
@@ -64,9 +71,9 @@ public sealed class ModuleViewer : IDisposable
         Customize(BossModuleInfo.Category.GoldSaucer, contentType.GetRow(19));
         Customize(BossModuleInfo.Category.DeepDungeon, contentType.GetRow(21));
         Customize(BossModuleInfo.Category.Quantum, contentType.GetRow(21), "量子难度");
-        Customize(BossModuleInfo.Category.Ultimate, contentType.GetRow(28));
         Customize(BossModuleInfo.Category.Variant, contentType.GetRow(30), "多变迷宫");
         Customize(BossModuleInfo.Category.Criterion, contentType.GetRow(30), "异闻迷宫");
+        Customize(BossModuleInfo.Category.HallOfTheNovice, contentType.GetRow(20), "初心者之馆");
 
         var playStyle = Service.LuminaSheet<CharaCardPlayStyle>()!;
         Customize(BossModuleInfo.Category.Foray, playStyle.GetRow(6));

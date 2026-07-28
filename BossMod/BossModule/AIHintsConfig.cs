@@ -30,4 +30,10 @@ public sealed class AIHintsConfig : ConfigNode
 
     [PropertyDisplay("无范围指示器技能的处理逻辑", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     public OmenBehavior OmenSetting = OmenBehavior.Automatic;
+
+    [PropertyDisplay("Enable raycasting", tooltip: "Prevents VBM from trying to attack mobs that it can't see. Disable to improve performance, but AI mode will not behave optimally.")]
+    public bool EnableRaycasts = true;
+
+    [PropertyDisplay("Enable priority tracing", tooltip: "Only useful for debugging. Will slightly reduce performance.")]
+    public bool PriorityTracing = false;
 }
