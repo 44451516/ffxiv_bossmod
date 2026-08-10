@@ -11,7 +11,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
 
     public static RotationModuleDefinition Definition()
     {
-        RotationModuleDefinition res = new("自动选择目标", "根据不同条件自动选择目标和拉怪的工具集合。", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000, 1, RotationModuleOrder.HighLevel, CanUseWhileRoleplaying: true);
+        RotationModuleDefinition res = new("自动选择目标", "根据不同条件自动选择目标和拉怪的工具集合。", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000, 1, RotationModuleOrder.HighLevel, CanUseWhileRoleplaying: true, PvP: PvPCompatibility.Any);
 
         res.Define(Track.General).As<GeneralStrategy>("General", "通用")
             .AddOption(GeneralStrategy.Aggressive, "自动优先选择目标", supportedTargets: ActionTargets.Hostile)

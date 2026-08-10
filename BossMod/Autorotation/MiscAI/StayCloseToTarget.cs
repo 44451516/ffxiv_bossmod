@@ -16,7 +16,7 @@ public sealed class StayCloseToTarget(RotationModuleManager manager, Actor playe
 
     public static RotationModuleDefinition Definition()
     {
-        RotationModuleDefinition def = new("杂项 AI：保持在目标范围内", "供 AutoDuty 预设使用的模块。", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000);
+        RotationModuleDefinition def = new("杂项 AI：保持在目标范围内", "供 AutoDuty 预设使用的模块。", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000, CanUseWhileRoleplaying: true, PvP: PvPCompatibility.Any);
 
         var configRef = def.Define(Tracks.Range).As<RangeDefinition>("range", "到目标的距离", renderer: typeof(FakeFloatRenderer));
 

@@ -86,4 +86,7 @@ sealed class AIConfig : ConfigNode
 
     [PropertyDisplay("朝当前目标移动", since: "7.5.1.21")]
     public bool GoalZoneFallback = true;
+
+    [PropertyDisplay("Print AI status changes to chat", since: "7.5.1.36")]
+    public bool ChatConfirmation = false;
 }

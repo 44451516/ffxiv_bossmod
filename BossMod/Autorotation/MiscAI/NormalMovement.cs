@@ -24,7 +24,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
 
     public static RotationModuleDefinition Definition()
     {
-        var res = new RotationModuleDefinition("自动移动", "根据寻路或显式坐标自动移动角色。", "AI", "veyn", RotationModuleQuality.Good, new(~0ul), 1000, 1, RotationModuleOrder.Movement, CanUseWhileRoleplaying: true);
+        var res = new RotationModuleDefinition("自动移动", "根据寻路或显式坐标自动移动角色。", "AI", "veyn", RotationModuleQuality.Good, new(~0ul), 1000, 1, RotationModuleOrder.Movement, CanUseWhileRoleplaying: true, PvP: PvPCompatibility.Any);
         res.Define(Track.Destination).As<DestinationStrategy>("Destination", "目的地", 30)
             .AddOption(DestinationStrategy.None, "不自动移动")
             .AddOption(DestinationStrategy.Pathfind, "使用标准寻路寻找最佳位置")
