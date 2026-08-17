@@ -38,13 +38,13 @@ class Fetters(BossModule module) : Components.CastCounter(module, default)
 {
     public bool Finished;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if (status.ID == 3324)
             NumCasts++;
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if (status.ID == 3324)
             Finished = true;
@@ -60,12 +60,12 @@ class ShieldBash(BossModule module) : Components.KnockbackFromCastTarget(module,
 {
     private static readonly float _platformSafeRad = MathF.Atan2(5, 40);
 
-    public static Func<WPos, bool> SafetyShape(WPos origin) => p =>
+    public static Sdf SafetyShape(WPos origin) => Sdf.Discrete(p =>
     {
         var d = p - origin;
         var angle = d.ToAngle();
         return !angle.AlmostEqual(180.Degrees(), _platformSafeRad) && !angle.AlmostEqual(60.Degrees(), _platformSafeRad) && !angle.AlmostEqual(-60.Degrees(), _platformSafeRad) || d.LengthSq() >= 100;
-    };
+    });
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {

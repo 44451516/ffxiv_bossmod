@@ -92,11 +92,11 @@ class Necrobombs(BossModule module) : BossComponent(module)
     {
         if (_ba.ActiveBaits.Any())
             return;
-        var forbidden = new List<Func<WPos, bool>>();
+        var forbidden = new List<Func<WPos, float>>();
         foreach (var e in WorldState.Actors.Where(x => !x.IsAlly && x.Tether.ID == (uint)TetherID.CrawlingNecrobombs))
-            forbidden.Add(circle.CheckFn(e.Position, default));
+            forbidden.Add(circle.Distance(e.Position, default));
         if (forbidden.Count > 0)
-            hints.AddForbiddenZone(p => forbidden.Any(f => f(p)));
+            hints.AddForbiddenZone(p => forbidden.Min(f => f(p)));
     }
 }
 
@@ -127,13 +127,13 @@ class Doom(BossModule module) : BossComponent(module)
 
     public static bool CanActorCureDoom(Actor actor) => actor.Role == Role.Healer || actor.Class == Class.BRD;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Doom)
             _doomed.Add(actor);
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Doom)
             _doomed.Remove(actor);

@@ -49,12 +49,13 @@ class HydroPull(BossModule module) : Components.KnockbackFromCastTarget(module, 
             var orig = src.Origin;
             var ctr = Arena.Center;
             var puddles = Module.Enemies(OID.BloodyPuddle).Select(e => e.Position).ToList();
-            hints.AddForbiddenZone(p =>
+            // TODO(SDF)
+            hints.AddForbiddenZone(Sdf.Discrete(p =>
             {
                 var dir = orig - p;
                 var proj = p + dir.Normalized() * Math.Min(20, dir.Length());
                 return !proj.AlmostEqual(ctr, 15) || puddles.Any(p => proj.InCircle(p, 8));
-            }, src.Activation);
+            }), src.Activation);
         }
     }
 }
@@ -65,7 +66,7 @@ class HydroPush(BossModule module) : Components.KnockbackFromCastTarget(module, 
         foreach (var src in Sources(slot, actor).Where(s => !IsImmune(slot, s.Activation)))
         {
             var safeCenter = Arena.Center - src.Direction.ToDirection() * src.Distance;
-            hints.AddForbiddenZone(ShapeContains.InvertedRect(safeCenter, new WDir(0, 1), 15, 15, 15), src.Activation);
+            hints.AddForbiddenZone(ShapeDistance.InvertedRect(safeCenter, new WDir(0, 1), 15, 15, 15), src.Activation);
         }
     }
 }
@@ -76,7 +77,7 @@ class BloodyPuddleSpread(BossModule module) : Components.SpreadFromIcon(module, 
         base.AddAIHints(slot, actor, assignment, hints);
 
         if (IsSpreadTarget(actor))
-            hints.AddForbiddenZone(ShapeContains.Rect(Arena.Center, 0.Degrees(), 11, 11, 11), Spreads[0].Activation);
+            hints.AddForbiddenZone(ShapeDistance.Rect(Arena.Center, 0.Degrees(), 11, 11, 11), Spreads[0].Activation);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -103,7 +104,7 @@ class BubbleBurst(BossModule module) : Components.GenericAOEs(module, AID.Bubble
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.Water)
             _sources.Add((source, WorldState.Actors.Find(tether.Target)!, WorldState.FutureTime(11)));

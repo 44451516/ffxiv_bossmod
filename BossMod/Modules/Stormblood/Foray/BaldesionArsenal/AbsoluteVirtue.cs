@@ -120,7 +120,7 @@ class Balls(BossModule module) : BossComponent(module)
         var c => AllTowers.Where(t => t.Color != c).Select(t => t.Tower)
     };
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID is TetherID.DarkTether or TetherID.BrightTether)
         {
@@ -138,7 +138,7 @@ class Balls(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         Tethers.RemoveAll(t => t.Source == source);
         if (Raid.TryFindSlot(tether.Target, out var slot))
@@ -195,15 +195,15 @@ class Balls(BossModule module) : BossComponent(module)
     {
         if (TetherColors[slot] != Color.None)
         {
-            var safeTowers = SafeTowers(slot).Select(t => ShapeContains.Donut(t.Position, TowerRadius, 100)).ToList();
+            var safeTowers = SafeTowers(slot).Select(t => ShapeDistance.Donut(t.Position, TowerRadius, 100)).ToList();
             if (safeTowers.Count > 0)
-                hints.AddForbiddenZone(ShapeContains.Intersection(safeTowers), Deadline);
+                hints.AddForbiddenZone(ShapeDistance.Intersection(safeTowers), Deadline);
         }
 
         // don't go to the same tower as another baiter
-        var otherBaits = Tethers.Where(t => t.Target != actor).Select(t => ShapeContains.Circle(t.Target.Position, 6)).ToList();
+        var otherBaits = Tethers.Where(t => t.Target != actor).Select(t => ShapeDistance.Circle(t.Target.Position, 6)).ToList();
         if (otherBaits.Count > 0)
-            hints.AddForbiddenZone(ShapeContains.Union(otherBaits), DateTime.MaxValue);
+            hints.AddForbiddenZone(ShapeDistance.Union(otherBaits), DateTime.MaxValue);
     }
 }
 

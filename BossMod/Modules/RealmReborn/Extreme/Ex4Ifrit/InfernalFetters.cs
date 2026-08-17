@@ -11,7 +11,7 @@ class InfernalFetters(BossModule module) : BossComponent(module)
         {
             var partner = Raid.WithSlot().Exclude(slot).IncludedInMask(Fetters).FirstOrDefault().Item2;
             if (partner != null)
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(partner.Position, 10)); // TODO: tweak range...
+                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(partner.Position, 10)); // TODO: tweak range...
         }
     }
 
@@ -28,7 +28,7 @@ class InfernalFetters(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.InfernalFetters)
         {
@@ -37,7 +37,7 @@ class InfernalFetters(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.InfernalFetters)
         {

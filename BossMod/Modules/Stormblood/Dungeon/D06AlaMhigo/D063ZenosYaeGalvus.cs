@@ -50,13 +50,13 @@ public enum TetherID : uint
 
 class LightlessSparkTether(BossModule module) : Components.GenericBaitAway(module)
 {
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == 41 && WorldState.Actors.Find(tether.Target) is Actor tar)
             CurrentBaits.Add(new(source, tar, new AOEShapeCone(40.5f, 45.Degrees()), WorldState.FutureTime(8.1f)));
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == 41)
             CurrentBaits.Clear();
@@ -97,18 +97,18 @@ class ArtOfTheSwell1(BossModule module) : Components.KnockbackFromCastTarget(mod
         if (caster == null)
             return;
 
-        List<Func<WPos, bool>> funcs = [
-            ShapeContains.InvertedCircle(Module.Center, 20),
+        List<Func<WPos, float>> funcs = [
+            ShapeDistance.InvertedCircle(Module.Center, 20),
         ];
 
         if (storm?.ActiveCasters.FirstOrDefault() is Actor st)
-            funcs.Add(storm.Shape.CheckFn(st.Position, st.Rotation));
+            funcs.Add(storm.Shape.Distance(st.Position, st.Rotation));
 
-        bool inbounds(WPos pos)
+        float inbounds(WPos pos)
         {
             var dir = (pos - caster.Position).Normalized();
             var proj = pos + 15 * dir;
-            return funcs.Any(f => f(proj));
+            return funcs.Min(f => f(proj));
         }
 
         hints.AddForbiddenZone(inbounds, Module.CastFinishAt(caster.CastInfo));

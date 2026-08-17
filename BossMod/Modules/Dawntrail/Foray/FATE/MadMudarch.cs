@@ -43,7 +43,7 @@ class Rupture(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> aoes = [];
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if (status.ID == (uint)SID.Growth && status.Extra == 0x02)
         {
@@ -77,4 +77,4 @@ class MadMudarchStates : StateMachineBuilder
 }
 
 [ModuleInfo(Incomplete = true, Contributors = "Equilius", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1018, NameID = 13816)]
-public class MadMudarch(WorldState ws, Actor primary) : BossModule(ws, primary, new(-585.0f, 323.0f), new ArenaBoundsCircle(40));
+public class MadMudarch(WorldState ws, Actor primary) : BossModule(ws, primary, new(-585, 323), new ArenaBoundsCircle(40));

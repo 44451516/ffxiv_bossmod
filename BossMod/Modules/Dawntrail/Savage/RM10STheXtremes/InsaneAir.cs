@@ -76,7 +76,7 @@ class Air2Assignments : BossComponent
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.XtremeFiresnaking && Raid.TryFindSlot(actor.InstanceID, out var slot))
         {
@@ -92,7 +92,7 @@ class Air2Assignments : BossComponent
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID is SID.XtremeFiresnaking or SID.XtremeWatersnaking && Raid.TryFindSlot(actor, out var slot))
             PlayerOrder[slot] = default;
@@ -275,7 +275,7 @@ class Air2Baits : AirBaits
 
         if (CurrentBaits.FirstOrNull(b => !b.ForbiddenTargets[slot]) is { } b)
             // prevent dash shenanigans from ruining proximity baits
-            hints.AddForbiddenZone(ShapeContains.Donut(b.Origin, 10, 100), b.Activation);
+            hints.AddForbiddenZone(ShapeDistance.Donut(b.Origin, 10, 100), b.Activation);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)

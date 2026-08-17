@@ -9,13 +9,13 @@ class SearingChainCross(BossModule module) : Components.GenericBaitAway(module, 
         if (CurrentBaits.Count > 0)
         {
             foreach (var player in Raid.WithoutSlot().Exclude(actor))
-                hints.AddForbiddenZone(ShapeContains.Cross(player.Position, default, 50, 3), CurrentBaits[0].Activation);
+                hints.AddForbiddenZone(ShapeDistance.Cross(player.Position, default, 50, 3), CurrentBaits[0].Activation);
 
             hints.AddPredictedDamage(Raid.WithSlot().Mask(), CurrentBaits[0].Activation.AddSeconds(1.1f));
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.SearingChains)
             CurrentBaits.Add(new(Module.PrimaryActor, actor, new AOEShapeCross(50, 3), WorldState.FutureTime(5.6f), IgnoreRotation: true));

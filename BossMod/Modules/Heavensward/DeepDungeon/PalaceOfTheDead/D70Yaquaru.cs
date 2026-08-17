@@ -52,9 +52,9 @@ class DousePuddle(BossModule module) : BossComponent(module)
             // yaquaru tank distance seems to be around 2-2.5y, but from testing, 3y minimum is needed to move it out of the puddle, either because of rasterization shenanigans or netcode
             var effTankDist = Module.PrimaryActor.HitboxRadius + tankDist + 1;
 
-            var puddles = Puddles.Select(p => ShapeContains.Circle(p.Position, effPuddleSize + effTankDist)).ToList();
-            var closest = ShapeContains.Union(puddles);
-            hints.GoalZones.Add(p => !closest(p) ? 1000 : 0);
+            var puddles = Puddles.Select(p => ShapeDistance.Circle(p.Position, effPuddleSize + effTankDist)).ToList();
+            var closest = ShapeDistance.Union(puddles);
+            hints.GoalZones.Add(p => closest(p) > 0 ? 1000 : 0);
         }
     }
 }
@@ -77,7 +77,7 @@ class FangsEnd(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if (status.ID == (uint)SID.Heavy)
             _heavy.Clear(Raid.FindSlot(actor.InstanceID));

@@ -14,7 +14,7 @@ class Wavelength(BossModule module) : BossComponent(module)
 
     private readonly PlayerState[] PlayerStates = Utils.MakeArray(8, new PlayerState());
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if (!Raid.TryFindSlot(actor.InstanceID, out var slot))
             return;
@@ -56,7 +56,7 @@ class Wavelength(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID is SID.WavelengthA or SID.WavelengthB)
             PlayerStates[Raid.FindSlot(actor.InstanceID)] = default;
@@ -108,12 +108,12 @@ class Wavelength(BossModule module) : BossComponent(module)
             if (PlayerStates[i].Players[slot])
             {
                 if (slot == i) // current slot is us, avoid other players
-                    hints.AddForbiddenZone(ShapeContains.Union([.. PlayersNotInStack(PlayerStates[i]).Select(p => ShapeContains.Circle(p.Item2.Position, 2))]), PlayerStates[i].Activation);
+                    hints.AddForbiddenZone(ShapeDistance.Union([.. PlayersNotInStack(PlayerStates[i]).Select(p => ShapeDistance.Circle(p.Item2.Position, 2))]), PlayerStates[i].Activation);
                 else // current slot is partner, put donut AOE on them so we stack
-                    hints.AddForbiddenZone(ShapeContains.InvertedCircle(player.Position, 2), PlayerStates[i].Activation);
+                    hints.AddForbiddenZone(ShapeDistance.InvertedCircle(player.Position, 2), PlayerStates[i].Activation);
             }
             else // current slot is other player with imminent aoe
-                hints.AddForbiddenZone(ShapeContains.Circle(player.Position, 2), PlayerStates[i].Activation);
+                hints.AddForbiddenZone(ShapeDistance.Circle(player.Position, 2), PlayerStates[i].Activation);
         }
     }
 

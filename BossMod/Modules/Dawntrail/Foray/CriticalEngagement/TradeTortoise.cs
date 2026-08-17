@@ -74,7 +74,7 @@ class Earthquake(BossModule module) : Components.RaidwideCast(module, AID.Earthq
 
 class BuyersRemorseStayMove(BossModule module) : Components.StayMove(module)
 {
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -87,7 +87,7 @@ class BuyersRemorseStayMove(BossModule module) : Components.StayMove(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID is SID.BuyersRemorseRed or SID.BuyersRemorseBlue)
             ClearState(Raid.FindSlot(actor.InstanceID));
@@ -105,13 +105,13 @@ class BuyersRemorseTurtle(BossModule module) : Components.Knockback(module)
             yield return new(actor.Position, 35, t, Direction: actor.Rotation, Kind: Kind.DirForward);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.BuyersRemorseGreen && Raid.TryFindSlot(actor, out var slot) && slot < PartyState.MaxPartySize)
             _activations[slot] = status.ExpireAt;
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.BuyersRemorseGreen && Raid.TryFindSlot(actor, out var slot) && slot < PartyState.MaxPartySize)
             _activations[slot] = default;
@@ -122,7 +122,7 @@ class BuyersRemorseTurtle(BossModule module) : Components.Knockback(module)
         var t = _activations.BoundSafeAt(slot);
         if (t != default)
         {
-            hints.AddForbiddenZone(ShapeContains.Circle(Arena.Center, 10), t);
+            hints.AddForbiddenZone(ShapeDistance.Circle(Arena.Center, 10), t);
 
             var oo = Arena.Center - actor.Position;
             var center = Angle.FromDirection(oo);
@@ -152,7 +152,7 @@ class CoinGame(BossModule module) : BossComponent(module)
 
     private readonly State[] _playerStates = new State[PartyState.MaxPartySize];
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (!Raid.TryFindSlot(source, out var slot) || slot >= PartyState.MaxPartySize)
             return;
@@ -174,7 +174,7 @@ class CoinGame(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Transporting && Raid.TryFindSlot(actor, out var slot) && slot < PartyState.MaxPartySize)
             _playerStates[slot] = _playerStates[slot] with { CarryParam = status.Extra - 40 };
@@ -263,12 +263,12 @@ class CostOfLiving(BossModule module) : Components.KnockbackFromCastTarget(modul
     {
         foreach (var src in Sources(slot, actor))
         {
-            var center = Arena.Center;
+            var inv = ShapeDistance.InvertedCircle(Arena.Center, 25);
             if (!IsImmune(slot, src.Activation))
                 hints.AddForbiddenZone(p =>
                 {
                     var dir = (p - src.Origin).Normalized() * 30;
-                    return !(p + dir).InCircle(center, 25);
+                    return inv(p + dir);
                 }, src.Activation);
         }
     }

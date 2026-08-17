@@ -70,11 +70,11 @@ class ConvenientSelfDestruction(BossModule module) : Components.BaitAwayTethers(
 
         if (actor.Role == Role.Tank)
         {
-            var playerBaits = ImportantBaits(actor).Where(b => b.Target.Role != Role.Tank).Select(b => ShapeContains.Rect(b.Source.Position, b.Target.Position, 1)).ToList();
+            var playerBaits = ImportantBaits(actor).Where(b => b.Target.Role != Role.Tank).Select(b => ShapeDistance.Rect(b.Source.Position, b.Target.Position, 1)).ToList();
             if (playerBaits.Count > 0)
             {
-                var anyPlayerBait = ShapeContains.Union(playerBaits);
-                hints.AddForbiddenZone(p => !anyPlayerBait(p), Activation);
+                var anyPlayerBait = ShapeDistance.Union(playerBaits);
+                hints.AddForbiddenZone(p => -anyPlayerBait(p), Activation);
                 return;
             }
         }

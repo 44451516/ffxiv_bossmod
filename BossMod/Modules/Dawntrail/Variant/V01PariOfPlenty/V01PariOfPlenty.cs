@@ -164,7 +164,7 @@ class Fireflight(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.Rug && _rotation != default)
         {
@@ -274,7 +274,7 @@ class ChainStack(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.Chains)
         {
@@ -287,7 +287,7 @@ class ChainStack(BossModule module) : BossComponent(module)
     {
         if (_targets[slot])
             foreach (var (_, buddy) in Raid.WithSlot().Exclude(actor).IncludedInMask(_targets))
-                hints.AddForbiddenZone(ShapeContains.Donut(buddy.Position, 2, 60), _activation);
+                hints.AddForbiddenZone(ShapeDistance.Donut(buddy.Position, 2, 60), _activation);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -370,13 +370,13 @@ class FellSpark(BossModule module) : BossComponent(module)
             _next = Module.CastFinishAt(spell, 2.2f);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.DarkResistanceDown && Raid.TryFindSlot(actor, out var slot))
             _debuffLeft[slot] = status.ExpireAt;
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.DarkResistanceDown && Raid.TryFindSlot(actor, out var slot))
             _debuffLeft[slot] = default;
@@ -408,22 +408,22 @@ class FellSpark(BossModule module) : BossComponent(module)
         {
             // if we need to pass the tether, just wait, it's usually more annoying for other party members to try to chase us around
             if (_target != slot && Raid[_target] is { } otherTarget)
-                hints.AddForbiddenZone(ShapeContains.Rect(Module.PrimaryActor.Position, otherTarget.Position, 1), _next);
+                hints.AddForbiddenZone(ShapeDistance.Rect(Module.PrimaryActor.Position, otherTarget.Position, 1), _next);
         }
         else if (_target >= 0 && _debuffLeft[_target] > _next)
         {
             if (Raid[_target] is { } badTarget)
-                hints.AddForbiddenZone(ShapeContains.InvertedRect(Module.PrimaryActor.Position, badTarget.Position, 1), _next.AddSeconds(-1));
+                hints.AddForbiddenZone(ShapeDistance.InvertedRect(Module.PrimaryActor.Position, badTarget.Position, 1), _next.AddSeconds(-1));
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.Generic)
             _target = Raid.FindSlot(tether.Target);
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.Generic)
             _target = -1;
@@ -438,7 +438,7 @@ class FellSpark(BossModule module) : BossComponent(module)
 
 class FirePowder(BossModule module) : Components.UniformStackSpread(module, 15, 15, alwaysShowSpreads: true)
 {
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         switch ((SID)status.ID)
         {

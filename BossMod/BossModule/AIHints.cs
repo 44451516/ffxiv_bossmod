@@ -137,7 +137,7 @@ public sealed class AIHints
 
     // positioning: list of shapes that are either forbidden to stand in now or will be in near future
     // AI will try to move in such a way to avoid standing in any forbidden zone after its activation or outside of some restricted zone after its activation, even at the cost of uptime
-    public List<(Func<WPos, bool> containsFn, DateTime activation, ulong Source)> ForbiddenZones = [];
+    public List<(Sdf shape, DateTime activation, ulong Source)> ForbiddenZones = [];
 
     // positioning: list of goal functions
     // AI will try to move to reach non-forbidden point with highest goal value (sum of values returned by all functions)
@@ -145,8 +145,13 @@ public sealed class AIHints
     // other parts of the code can return small (e.g. 0.01) values to slightly (de)prioritize some positions, or large (e.g. 1000) values to effectively soft-override target position (but still utilize pathfinding)
     public List<Func<WPos, float>> GoalZones = [];
 
+    public class TempObstaclesList : List<Sdf>
+    {
+        public void Add(Func<WPos, float> c) => Add(Sdf.Continuous(c));
+    }
+
     // AI will treat the pixels inside these shapes as unreachable and not try to pathfind through them (unlike imminent forbidden zones)
-    public List<Func<WPos, bool>> TemporaryObstacles = [];
+    public TempObstaclesList TemporaryObstacles = [];
     // teleporters for pathfind
     public List<(WPos from, float fromRadius, WPos to)> Portals = [];
 
@@ -250,8 +255,9 @@ public sealed class AIHints
     public void InteractWithOID(WorldState ws, uint oid) => InteractWithTarget = ws.Actors.FirstOrDefault(a => a.OID == oid && a.IsTargetable);
     public void InteractWithOID<OID>(WorldState ws, OID oid) where OID : Enum => InteractWithOID(ws, (uint)(object)oid);
 
-    public void AddForbiddenZone(Func<WPos, bool> containsFn, DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((containsFn, activation, source));
-    public void AddForbiddenZone(AOEShape shape, WPos origin, Angle rot = new(), DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((shape.CheckFn(origin, rot), activation, source));
+    public void AddForbiddenZone(Func<WPos, float> containsFn, DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((Sdf.Continuous(containsFn), activation, source));
+    public void AddForbiddenZone(Sdf sdf, DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((sdf, activation, source));
+    public void AddForbiddenZone(AOEShape shape, WPos origin, Angle rot = new(), DateTime activation = new(), ulong source = 0) => ForbiddenZones.Add((shape.GetSdf(origin, rot), activation, source));
 
     public void AddPredictedDamage(BitMask players, DateTime activation, PredictedDamageType type = PredictedDamageType.Raidwide) => PredictedDamage.Add(new(players, activation, type));
 
@@ -261,13 +267,13 @@ public sealed class AIHints
             ImminentSpecialMode = (mode, activation);
     }
 
-    public void AddForbiddenDirections(ArcList list, DateTime activation)
+    public void AddForbiddenDirections(ArcList list, DateTime activation, Angle offset = default)
     {
         foreach (var (from, to) in list.Forbidden.Segments)
         {
-            var center = (to + from) * 0.5f;
+            var center = (to + from) * 0.5f + offset.Rad;
             var width = (to - from) * 0.5f;
-            ForbiddenDirections.Add((center.Radians(), width.Radians(), activation));
+            ForbiddenDirections.Add((center.Radians().Normalized(), width.Radians(), activation));
         }
     }
 
@@ -330,12 +336,13 @@ public sealed class AIHints
     public Func<WPos, float> GoalSingleTarget(Actor target, float range, float weight = 1) => GoalSingleTarget(target.Position, range + target.HitboxRadius + 0.5f, weight);
 
     // simple goal zone that returns 1 if target is in range (usually melee), 2 if it's also in correct positional
-    public Func<WPos, float> GoalSingleTarget(WPos target, Angle rotation, Positional positional, float radius)
+    public Func<WPos, float> GoalSingleTarget(WPos target, Angle rotation, Positional positional, float radius, float cushion = 0)
     {
         if (positional == Positional.Any)
             return GoalSingleTarget(target, radius); // more efficient implementation
         var effRsq = radius * radius;
         var targetDir = rotation.ToDirection();
+        var cushionThreshold = cushion * MathF.Sqrt(2);
         return p =>
         {
             var offset = p - target;
@@ -347,15 +354,15 @@ public sealed class AIHints
             var side = Math.Abs(targetDir.Dot(offset.OrthoL()));
             var inPositional = positional switch
             {
-                Positional.Flank => side > Math.Abs(front),
-                Positional.Rear => -front > side,
-                Positional.Front => front > side, // TODO: reconsider this, it's not a real positional?..
+                Positional.Flank => side - Math.Abs(front) > cushionThreshold,
+                Positional.Rear => -front - side > cushionThreshold,
+                Positional.Front => front - side > cushionThreshold, // TODO: reconsider this, it's not a real positional?..
                 _ => false
             };
             return inPositional ? 2 : 1;
         };
     }
-    public Func<WPos, float> GoalSingleTarget(Actor target, Positional positional, float range = 3) => GoalSingleTarget(target.Position, target.Rotation, positional, range + target.HitboxRadius + 0.5f);
+    public Func<WPos, float> GoalSingleTarget(Actor target, Positional positional, float range = 3, float cushion = 0) => GoalSingleTarget(target.Position, target.Rotation, positional, range + target.HitboxRadius + 0.5f, cushion);
 
     // simple goal zone that returns number of targets in aoes; note that performance is a concern for these functions, and perfection isn't required, so eg they ignore forbidden targets, etc
     public Func<WPos, float> GoalAOECircle(float radius)

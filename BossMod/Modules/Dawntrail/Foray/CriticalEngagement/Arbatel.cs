@@ -57,7 +57,7 @@ public enum AID : uint
     KnowledgeLevel5Death120Cast1 = 50557, // Helper->self, 11.0s cast, range 25 120-degree cone
     KnowledgeLevel5Death120Cast2 = 47311, // Helper->self, 11.0s cast, range 25 120-degree cone
     KnowledgeLevel5Death180Cast1 = 50554, // Helper->self, 11.0s cast, range 25 180-degree cone
-    KnowledgeLevel5Death180Cast2 = 47315 // Helper->self, 11.0s cast, range 25 180-degree cone
+    KnowledgeLevel5Death180Cast2 = 47308 // Helper->self, 11.0s cast, range 25 180-degree cone
 }
 
 public enum SID : uint
@@ -120,7 +120,7 @@ class KnowledgeLevel(BossModule module) : Components.GenericAOEs(module)
                 yield return new(new AOEShapeCone(25, width.Degrees()), caster.CastInfo!.LocXZ, caster.CastInfo!.Rotation, Module.CastFinishAt(caster.CastInfo));
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         var adj = (SID)status.ID switch
         {
@@ -133,13 +133,23 @@ class KnowledgeLevel(BossModule module) : Components.GenericAOEs(module)
         };
 
         if (adj > 0 && Raid.TryFindSlot(actor, out var slot))
-            _adjusted[slot] = adj;
+            _adjusted[slot] += adj;
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
-        if ((SID)status.ID is SID.Correction1 or SID.Correction2 or SID.Correction3 or SID.Correction4 or SID.Correction5 && Raid.TryFindSlot(actor, out var slot))
-            _adjusted[slot] = 0;
+        var adj = (SID)status.ID switch
+        {
+            SID.Correction1 => 1,
+            SID.Correction2 => 2,
+            SID.Correction3 => 3,
+            SID.Correction4 => 4,
+            SID.Correction5 => 5,
+            _ => 0
+        };
+
+        if (adj > 0 && Raid.TryFindSlot(actor, out var slot))
+            _adjusted[slot] -= adj;
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -185,7 +195,7 @@ class CoverToCover(BossModule module) : Components.GenericAOEs(module)
         if (seq == 1 && _predicted.Count > 0)
         {
             var p = _predicted[0];
-            hints.AddForbiddenZone(ShapeContains.InvertedRect(p.Origin, p.Rotation, 2, 2, 40), p.Activation.AddSeconds(4.3f));
+            hints.AddForbiddenZone(ShapeDistance.InvertedRect(p.Origin, p.Rotation, 2, 2, 40), p.Activation.AddSeconds(4.3f));
         }
     }
 
@@ -234,7 +244,7 @@ class ArcaneRule(BossModule module) : Components.GenericAOEs(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var i in _imminent)
-            hints.AddForbiddenZone(i.Shape.CheckFn(i.Origin, i.Rotation), i.Activation);
+            hints.AddForbiddenZone(i.Shape.Distance(i.Origin, i.Rotation), i.Activation);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)

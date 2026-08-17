@@ -41,7 +41,7 @@ class HeartOfNatureConcentric(BossModule module) : Components.ConcentricAOEs(mod
 
             // for multi-quake, standing inside both donuts will get us killed
             if (Sequences.Count == 2)
-                hints.AddForbiddenZone(p => origins.All(o => p.InCircle(o, 20)), Sequences[0].NextActivation);
+                hints.AddForbiddenZone(Sdf.Discrete(p => origins.All(o => p.InCircle(o, 20))), Sequences[0].NextActivation);
         }
     }
 }
@@ -61,7 +61,7 @@ class WindsPeakKB(BossModule module) : Components.KnockbackFromCastTarget(module
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var src in Sources(slot, actor))
-            hints.AddForbiddenZone(ShapeContains.Donut(src.Origin, 5, 50), src.Activation);
+            hints.AddForbiddenZone(ShapeDistance.Donut(src.Origin, 5, 50), src.Activation);
     }
 }
 
@@ -150,10 +150,11 @@ class DynasticFlame : Components.BaitAwayTethers
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var center = Arena.Center;
-        var pos = actor.Position;
-        if (CurrentBaits.Count > 0)
-            hints.AddForbiddenZone(p => !p.InDonutCone(center, 17, 20, Angle.FromDirection(pos - center) + 18.Degrees(), 20.Degrees()), orbcount > 0 ? default : DateTime.MaxValue);
+        // TODO this doesn't even work because of latency, this all needs a rework
+        //var center = Arena.Center;
+        //var pos = actor.Position;
+        //if (CurrentBaits.Count > 0)
+        //    hints.AddForbiddenZone(p => !p.InDonutCone(center, 17, 20, Angle.FromDirection(pos - center) + 18.Degrees(), 20.Degrees()), orbcount > 0 ? default : DateTime.MaxValue);
     }
 
     public override void OnActorCreated(Actor actor)

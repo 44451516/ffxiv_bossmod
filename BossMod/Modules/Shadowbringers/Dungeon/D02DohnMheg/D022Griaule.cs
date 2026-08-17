@@ -40,7 +40,7 @@ class FeedingTime(BossModule module) : BossComponent(module)
 
     DateTime _deadline;
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.FeedingTime && WorldState.Actors.Find(tether.Target) is { } target)
         {
@@ -52,7 +52,7 @@ class FeedingTime(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.FeedingTime)
             _tethers.RemoveAll(t => t.Source == source);
@@ -81,7 +81,7 @@ class FeedingTime(BossModule module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        List<Func<WPos, bool>> zones = [];
+        List<Func<WPos, float>> zones = [];
 
         foreach (var (src, target) in _tethers)
         {
@@ -89,21 +89,21 @@ class FeedingTime(BossModule module) : BossComponent(module)
             {
                 zones.Clear();
                 // don't move away
-                zones.Add(ShapeContains.InvertedRect(src.Position, Module.PrimaryActor.Position, 2));
+                zones.Add(ShapeDistance.InvertedRect(src.Position, Module.PrimaryActor.Position, 2));
                 break;
             }
             else if (!target.IsAlly)
-                zones.Add(ShapeContains.InvertedRect(src.Position, target.Position, 1));
+                zones.Add(ShapeDistance.InvertedRect(src.Position, target.Position, 1));
         }
 
         if (zones.Count > 0)
         {
-            hints.AddForbiddenZone(ShapeContains.Intersection(zones), _deadline);
+            hints.AddForbiddenZone(ShapeDistance.Intersection(zones), _deadline);
 
             // the boss gets the tether if you stand in its hitbox
-            hints.AddForbiddenZone(ShapeContains.Circle(Module.PrimaryActor.Position, Module.PrimaryActor.HitboxRadius), _deadline);
+            hints.AddForbiddenZone(ShapeDistance.Circle(Module.PrimaryActor.Position, Module.PrimaryActor.HitboxRadius), _deadline);
             // stay at least 2y away from saplings or something i guess
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(Arena.Center, 18), _deadline);
+            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Arena.Center, 18), _deadline);
         }
     }
 }

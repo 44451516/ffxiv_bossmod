@@ -56,7 +56,7 @@ class P1TelePortent(BossModule module) : BossComponent(module)
 
     public int NumArrows { get; private set; }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         var newDir = (SID)status.ID switch
         {
@@ -86,12 +86,14 @@ class P1TelePortent(BossModule module) : BossComponent(module)
         switch (_config.P1Arrows)
         {
             case UMADConfig.P1ArrowShape.BigBox:
+            case UMADConfig.P1ArrowShape.BigBoxUptime:
                 var wd = ToWDir(dir.All);
+                var uptime = _config.P1Arrows == UMADConfig.P1ArrowShape.BigBoxUptime;
 
                 List<(Direction, WPos)> spots;
 
                 // stack spots are 1/3 markers, so we can cut the corner on 2/4 intercards for melee uptime/less movement
-                if (wd == new WDir(-1, -1))
+                if (uptime && wd == new WDir(-1, -1))
                 {
                     spots = [(Direction.Up, Arena.Center + new WDir(-6, 12)), (Direction.Left, Arena.Center + new WDir(-6, 6))];
                     if (dir.D1.Dir == Direction.Left)
@@ -99,7 +101,7 @@ class P1TelePortent(BossModule module) : BossComponent(module)
 
                     _hintSpots[slot].AddRange(spots);
                 }
-                else if (wd == new WDir(1, 1))
+                else if (uptime && wd == new WDir(1, 1))
                 {
                     spots = [(Direction.Down, Arena.Center + new WDir(6, -12)), (Direction.Right, Arena.Center + new WDir(6, -6))];
                     if (dir.D1.Dir == Direction.Right)
@@ -125,7 +127,7 @@ class P1TelePortent(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         var missingDir = (SID)status.ID switch
         {
@@ -167,7 +169,7 @@ class P1TelePortent(BossModule module) : BossComponent(module)
         var nextSpots = _hintSpots[slot].Where(h => h.Item1 == nextDir.Dir);
 
         foreach (var (_, spot) in nextSpots.Take(1))
-            hints.AddForbiddenZone(ShapeContains.PrecisePosition(spot, new(0, 1), 0.5f, actor.Position, 0.1f), nextDir.Time);
+            hints.AddForbiddenZone(ShapeDistance.PrecisePosition(spot, new(0, 1), 0.5f, actor.Position, 0.1f), nextDir.Time);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
@@ -212,8 +214,9 @@ class P1Arrow(BossModule module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var positions = _arrows.Select(r => r.Position).ToList();
-        hints.AddForbiddenZone(p => positions.Any(p2 => p2.InCircle(p, 2)));
+        var positions = _arrows.Select(r => ShapeDistance.Circle(r.Position, 2)).ToList();
+        if (positions.Count > 0)
+            hints.AddForbiddenZone(ShapeDistance.Union(positions));
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
@@ -240,7 +243,7 @@ class P1IndulgentWill(BossModule module) : BossComponent(module)
     BitMask _targets;
     public bool Draw;
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.GravenImage && source.Position.AlmostEqual(new(95, 25), 5) && Raid.TryFindSlot(tether.Target, out var target))
             _targets.Set(target);
@@ -269,7 +272,7 @@ class P1IdyllicWill(BossModule module) : Components.UniformStackSpread(module, 0
     readonly UMADConfig _config = Service.Config.Get<UMADConfig>();
     readonly List<Spread> _stored = [];
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.GravenImage && source.Position.AlmostEqual(new(107, 43), 5) && WorldState.Actors.Find(tether.Target) is { } target)
             _stored.Add(new(target, 5, WorldState.FutureTime(9)));
@@ -329,7 +332,7 @@ class P1ArrowsPositioning : BossComponent
                 var offset = cardinal.Value.ToDirection() * 3;
                 var spot = myArrow.Position + (inside ? -offset : offset);
 
-                hints.AddForbiddenZone(ShapeContains.PrecisePosition(spot, new(0, 1), 0.5f, actor.Position, 0.1f), _deadline);
+                hints.AddForbiddenZone(ShapeDistance.PrecisePosition(spot, new(0, 1), 0.5f, actor.Position, 0.1f), _deadline);
             }
         }
     }

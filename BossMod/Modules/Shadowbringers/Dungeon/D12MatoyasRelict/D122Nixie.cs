@@ -155,7 +155,7 @@ class GeyserSafe(BossModule module) : BossComponent(module)
             Geysers.RemoveAll(g => g.Position.AlmostEqual(caster.Position, 1));
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.HeadInTheClouds)
         {
@@ -190,7 +190,7 @@ class GeyserSafe(BossModule module) : BossComponent(module)
         if (floaters[slot])
             hints.AddForbiddenZone(new AOEShapeRect(19.5f, 19.5f, 19.5f), Nixie.GroundCenter);
         else if (BestGeyser is Actor g)
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(g.Position, 6), SplooshTime);
+            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(g.Position, 6), SplooshTime);
     }
 }
 

@@ -72,7 +72,7 @@ class FulminousFence(BossModule module) : BossComponent(module)
     {
         foreach (var (a, b) in ActiveLines())
         {
-            var raw = ShapeContains.Rect(a, b, 1);
+            var raw = ShapeDistance.Rect(a, b, 1);
             hints.AddForbiddenZone(raw);
         }
     }
@@ -153,13 +153,13 @@ class RapidThunder(BossModule module) : Components.SingleTargetCast(module, AID.
 
 class MotionSensor(BossModule module) : Components.StayMove(module, 3)
 {
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID is SID.AccelerationBomb1 or SID.AccelerationBomb2)
             SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Stay, status.ExpireAt));
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID is SID.AccelerationBomb1 or SID.AccelerationBomb2)
             ClearState(Raid.FindSlot(actor.InstanceID));

@@ -148,7 +148,7 @@ public abstract class BossModule : IDisposable
 
     public void Update()
     {
-        if (StateMachine.ActivePhaseIndex < 0 && CheckPull())
+        if (StateMachine.ActivePhaseIndex < 0 && AllowedToActivate() && CheckPull())
             StateMachine.Start(WorldState.CurrentTime);
 
         if (StateMachine.ActiveState != null)
@@ -299,6 +299,12 @@ public abstract class BossModule : IDisposable
     // default implementation activates if primary target is both targetable and in combat
     protected virtual bool CheckPull() { return PrimaryActor.IsTargetable && PrimaryActor.InCombat; }
 
+    // determines whether this module should be allowed to activate if CheckPull returns true. this is only relevant for open-world content like FATEs or foray bosses
+    // if the player isn't participating in the encounter, continuing to run the module will
+    // - interfere with generic solver (best case scenario)
+    // - crash the module (e.g. if a caster disappears because the player moves too far from them) (worst case scenario)
+    protected virtual bool AllowedToActivate() { return true; }
+
     // called during update if module is active; should return true if module is to be reset (i.e. deleted and new instance recreated for same actor)
     // default implementation never resets, but it's useful for outdoor bosses that can be leashed
     public virtual bool CheckReset() => false;
@@ -322,7 +328,7 @@ public abstract class BossModule : IDisposable
 
     private void DrawDebug()
     {
-        List<Actor> highlighted = [];
+        List<string> tooltip = [];
         var cursor = ImGui.GetMousePos();
 
         foreach (var actor in WorldState.Actors.Where(a => !a.IsAlly || !a.IsTargetable).Exclude(PrimaryActor))
@@ -330,11 +336,18 @@ public abstract class BossModule : IDisposable
             Arena.ActorInsideBounds(actor.Position, actor.Rotation, ArenaColor.Object);
             var s = Arena.WorldPositionToScreenPosition(actor.Position);
             if ((s - cursor).LengthSquared() < 100)
-                highlighted.Add(actor);
+            {
+                tooltip.Add(actor.ToString());
+                if (actor.CastInfo is { } ci)
+                {
+                    tooltip.Add($"> {ci}");
+                    Arena.AddLine(actor.Position, ci.LocXZ, Color.FromComponents(0, 255, 255).ABGR);
+                }
+            }
         }
 
-        if (highlighted.Count > 0)
-            ImGui.SetTooltip(string.Join("\n", highlighted));
+        if (tooltip.Count > 0)
+            ImGui.SetTooltip(string.Join("\n", tooltip));
     }
 
     private void DrawGlobalHints(BossComponent.GlobalHints hints)

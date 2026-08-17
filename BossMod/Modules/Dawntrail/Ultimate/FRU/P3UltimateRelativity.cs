@@ -52,7 +52,7 @@ class P3UltimateRelativity(BossModule module) : Components.CastCounter(module, d
                     if (WorldState.CurrentTime < _nextImminent)
                     {
                         // there's still time, around maxmelee at assigned direction
-                        hints.AddForbiddenZone(ShapeContains.InvertedCircle(SafeSpot(slot, 9), 1), _nextImminent);
+                        hints.AddForbiddenZone(ShapeDistance.InvertedCircle(SafeSpot(slot, 9), 1), _nextImminent);
                     }
                     else
                     {
@@ -61,24 +61,24 @@ class P3UltimateRelativity(BossModule module) : Components.CastCounter(module, d
                         foreach (var (i, p) in Raid.WithSlot().Exclude(slot))
                         {
                             var avoidRadius = avoidBlizzard && States[i].HaveDarkBlizzard ? 12 : 8;
-                            hints.AddForbiddenZone(ShapeContains.Circle(p.Position, avoidRadius));
+                            hints.AddForbiddenZone(ShapeDistance.Circle(p.Position, avoidRadius));
                         }
                         var lasers = Module.FindComponent<P3UltimateRelativitySinboundMeltdownAOE>();
                         if (lasers != null)
                             foreach (var laser in lasers.ActiveAOEs(slot, actor))
-                                hints.AddForbiddenZone(laser.Shape.CheckFn(laser.Origin, laser.Rotation), laser.Activation);
+                                hints.AddForbiddenZone(laser.Shape.Distance(laser.Origin, laser.Rotation), laser.Activation);
                     }
                     break;
                 case RangeHintLaser:
                 case RangeHintDarkEruption:
                 case RangeHintEye:
                     // go to exact safespot
-                    hints.AddForbiddenZone(ShapeContains.PrecisePosition(SafeSpot(slot, range), new(0, 1), Module.Bounds.MapResolution, actor.Position, 0.1f), _nextImminent);
+                    hints.AddForbiddenZone(ShapeDistance.PrecisePosition(SafeSpot(slot, range), new(0, 1), Module.Bounds.MapResolution, actor.Position, 0.1f), _nextImminent);
                     break;
                 default:
                     // go to mid, staying as tightly as possible to allow for better uptime; after all mechanics, go opposite to dodge eyes more naturally
                     var dest = NumCasts >= 6 ? SafeSpot(slot, range) : Module.Center;
-                    hints.AddForbiddenZone(ShapeContains.PrecisePosition(dest, new(0, 1), Module.Bounds.MapResolution, actor.Position, 0.1f), _nextImminent);
+                    hints.AddForbiddenZone(ShapeDistance.PrecisePosition(dest, new(0, 1), Module.Bounds.MapResolution, actor.Position, 0.1f), _nextImminent);
                     break;
             }
         }
@@ -94,7 +94,7 @@ class P3UltimateRelativity(BossModule module) : Components.CastCounter(module, d
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -157,7 +157,7 @@ class P3UltimateRelativity(BossModule module) : Components.CastCounter(module, d
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -167,7 +167,7 @@ class P3UltimateRelativity(BossModule module) : Components.CastCounter(module, d
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((OID)source.OID == OID.DelightsHourglass && tether.ID == (uint)TetherID.UltimateRelativityQuicken)
         {
@@ -281,7 +281,7 @@ class P3UltimateRelativityDarkFireUnholyDarkness(BossModule module) : Components
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) { } // handled by main component
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -417,7 +417,7 @@ class P3UltimateRelativityDarkBlizzard(BossModule module) : Components.GenericAO
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) { } // handled by main component
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.SpellInWaitingDarkBlizzard)
         {
@@ -468,7 +468,7 @@ class P3UltimateRelativityShadoweye(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         switch ((SID)status.ID)
         {

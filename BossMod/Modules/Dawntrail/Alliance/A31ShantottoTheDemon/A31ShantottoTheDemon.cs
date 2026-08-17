@@ -108,7 +108,7 @@ class DiagrammaticDoorway(BossModule module) : Components.GenericAOEs(module)
 
     public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _predicted.Take(1);
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         switch ((TetherID)tether.ID)
         {
@@ -179,7 +179,7 @@ class Winds : Components.Knockback
             {
                 var d = _directions[slot].Direction;
                 var walls = _safeWalls.ToList();
-                hints.AddForbiddenZone(p => !HitsWall(walls, d, p), src.Activation);
+                hints.AddForbiddenZone(Sdf.Discrete(p => !HitsWall(walls, d, p)), src.Activation);
             }
     }
 
@@ -188,7 +188,7 @@ class Winds : Components.Knockback
         return walls.Any(w => w.WindDir == windDir && pos.InRect(w.Center, w.WindDir * -50, w.HalfWidth));
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         WDir d;
         if ((SID)status.ID == SID.EasterlyWinds)

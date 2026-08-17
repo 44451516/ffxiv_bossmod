@@ -1,5 +1,4 @@
 ﻿using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -141,6 +140,7 @@ class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Info? modu
             ActorState.OpCastInfo op => FilterInterestingActor(op.InstanceID, op.Timestamp, false) && !_filteredActions.Contains(FindCast(replay.FindParticipant(op.InstanceID, op.Timestamp), op.Timestamp, op.Value != null)?.ID ?? new()),
             ActorState.OpCastEvent op => FilterInterestingActor(op.InstanceID, op.Timestamp, false) && !_filteredActions.Contains(op.Value.Action),
             ActorState.OpStatus op => FilterInterestingStatuses(op.InstanceID, op.Index, op.Timestamp),
+            ActorState.OpVisibility => false,
             ActorState.OpEffectResult => false,
             PartyState.OpLimitBreakChange => false,
             ClientState.OpActionRequest => false,
@@ -204,7 +204,7 @@ class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Info? modu
             ClientState.OpActiveFateChange op => $"FATE: {op.Value.ID} '{Service.LuminaRow<Lumina.Excel.Sheets.Fate>(op.Value.ID)?.Name}' {op.Value.Progress}%",
             ClientState.OpActivePetChange op => $"Player pet: {ActorString(op.Value.InstanceID, op.Timestamp)}",
             ClientState.OpInventoryChange op => ItemString(op),
-            PartyState.OpModify op => $"Party slot {op.Slot}: {op.Member.InstanceId:X8} {op.Member.Name}",
+            PartyState.OpModify op => $"Party slot {op.Slot}: {ActorString(op.Member.InstanceId, op.Timestamp)}",
             WorldState.OpMapEffect op => $"MapEffect: {op.Index:X2} {op.State:X8}",
             WorldState.OpLegacyMapEffect op => $"MapEffect (legacy): seq={op.Sequence} param={op.Param} data={string.Join(" ", op.Data.Select(d => d.ToString("X2")))}",
             WorldState.OpSystemLogMessage op => $"LogMessage {op.MessageId}: '{Service.LuminaRow<Lumina.Excel.Sheets.LogMessage>(op.MessageId)?.Text}' [{string.Join(", ", op.Args)}]",

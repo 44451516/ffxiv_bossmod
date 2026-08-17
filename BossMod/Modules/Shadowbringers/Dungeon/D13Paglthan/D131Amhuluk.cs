@@ -105,7 +105,7 @@ class LightningRod(BossModule module) : Components.GenericAOEs(module)
             LightningBoltAt = null;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.LightningRod)
         {
@@ -116,7 +116,7 @@ class LightningRod(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.LightningRod)
         {
@@ -159,10 +159,10 @@ class LightningRod(BossModule module) : Components.GenericAOEs(module)
         if (!PlayerStates[slot] || LightningBoltAt == null)
             return;
 
-        var inactiveRods = InactiveRods.Select(r => ShapeContains.InvertedCircle(r.Position, 3)).ToList();
+        var inactiveRods = InactiveRods.Select(r => ShapeDistance.InvertedCircle(r.Position, 3)).ToList();
         if (inactiveRods.Count > 0)
         {
-            var zone = ShapeContains.Intersection(inactiveRods);
+            var zone = ShapeDistance.Intersection(inactiveRods);
             hints.AddForbiddenZone(zone, LightningBoltAt.Value);
         }
     }

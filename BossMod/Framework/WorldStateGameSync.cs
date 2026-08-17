@@ -579,7 +579,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             if (ui->PlayerState.IsLoaded)
             {
                 var inCutscene = Service.Condition[ConditionFlag.OccupiedInCutSceneEvent] || Service.Condition[ConditionFlag.WatchingCutscene78] || Service.Condition[ConditionFlag.Occupied33] || Service.Condition[ConditionFlag.BetweenAreas] || Service.Condition[ConditionFlag.OccupiedInQuestEvent];
-                player = new(ui->PlayerState.ContentId, ui->PlayerState.EntityId, inCutscene, ui->PlayerState.CharacterNameString);
+                player = new(ui->PlayerState.ContentId, ui->PlayerState.EntityId, inCutscene);
                 if (pc != null && (pc->ContentId != player.ContentId || pc->EntityId != player.InstanceId))
                     Service.Log($"[WSG] Object #0 is valid ({pc->AccountId:X}.{pc->ContentId:X}, {pc->EntityId:X8} '{pc->NameString}') but different from playerstate ({player})");
             }
@@ -597,7 +597,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             // in playback mode, the primary data source is object #0
             if (pc != null)
             {
-                player = new(pc->ContentId, pc->EntityId, false, pc->NameString);
+                player = new(pc->ContentId, pc->EntityId, false);
             }
             // else: just assume there's no player for now...
         }
@@ -648,7 +648,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             if (instanceID != InvalidEntityId && _ws.Party.FindSlot(instanceID) < 0)
             {
                 var obj = GameObjectManager.Instance()->Objects.GetObjectByEntityId(instanceID);
-                AddPartyMember(new(0, instanceID, false, obj != null ? obj->NameString : ""));
+                AddPartyMember(new(0, instanceID, false));
             }
             // else: buddy is non-existent or already updated, skip
         }
@@ -691,7 +691,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             {
                 var slot = FindFreePartySlot(PartyState.MaxAllianceSize, PartyState.MaxAllies);
                 if (slot > 0)
-                    UpdatePartySlot(slot, new PartyState.Member(0, actor.InstanceID, false, actor.Name));
+                    UpdatePartySlot(slot, new PartyState.Member(0, actor.InstanceID, false));
                 else
                     Service.Log($"[WorldState] Failed to find empty slot for allied NPC {actor.InstanceID:X}");
             }
@@ -715,7 +715,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         return -1;
     }
 
-    private unsafe PartyState.Member BuildPartyMember(PartyMember* m) => m != null ? new(m->ContentId, m->EntityId, (m->Flags & 0x10) != 0, m->NameString) : PartyState.EmptySlot;
+    private unsafe PartyState.Member BuildPartyMember(PartyMember* m) => m != null ? new(m->ContentId, m->EntityId, (m->Flags & 0x10) != 0) : PartyState.EmptySlot;
 
     private void AddPartyMember(PartyState.Member m)
     {
@@ -771,6 +771,11 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             if (_ws.Client.MoveSpeed != speed)
                 _ws.Execute(new ClientState.OpMoveSpeedChange(speed));
         }
+
+        // TODO: use CS?
+        var isFlying = Service.Condition.Any(ConditionFlag.InFlight, ConditionFlag.Diving);
+        if (isFlying != _ws.Client.Flying)
+            _ws.Execute(new ClientState.OpFlyingChange(isFlying));
 
         Span<Cooldown> cooldowns = stackalloc Cooldown[_ws.Client.Cooldowns.Length];
         _amex.GetCooldowns(cooldowns);

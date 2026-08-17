@@ -57,7 +57,7 @@ class IdyllicDreamArena : Components.GenericAOEs
     {
         // TODO: complex polygons should cache their own rasterization
         if (_activation != default)
-            hints.AddForbiddenZone(z => !z.InCircle(new(114, 100), 10) && !z.InCircle(new(86, 100), 10), _activation);
+            hints.AddForbiddenZone(Sdf.Discrete(z => !z.InCircle(new(114, 100), 10) && !z.InCircle(new(86, 100), 10)), _activation);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -136,7 +136,7 @@ class IdyllicDreamElementalMeteor(BossModule module) : Components.GenericTowers(
 
     BitMask _lightVuln;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.LightResistanceDownII)
             _lightVuln.Set(Raid.FindSlot(actor.InstanceID));
@@ -235,13 +235,13 @@ class IdyllicDreamDoom(BossModule module) : BossComponent(module)
 {
     readonly List<Actor> _victims = [];
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Doom)
             _victims.Add(actor);
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Doom)
             _victims.Remove(actor);
@@ -289,7 +289,7 @@ class IdyllicDreamHotBlooded : Components.StayMove
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.HotBlooded)
         {
@@ -299,7 +299,7 @@ class IdyllicDreamHotBlooded : Components.StayMove
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.HotBlooded && Raid.TryFindSlot(actor, out var slot))
             PlayerStates[slot] = default;
@@ -317,7 +317,7 @@ class LindwurmsPortent : Components.GenericBaitAway
         EnableHints = false;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         switch ((SID)status.ID)
         {

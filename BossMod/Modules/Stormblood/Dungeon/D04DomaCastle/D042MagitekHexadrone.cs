@@ -33,7 +33,7 @@ class TwoTonzeMagitekMissile(BossModule module) : Components.IconStackSpread(mod
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var s in ActiveStackTargets)
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(s.Position, 6));
+            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(s.Position, 6));
     }
 }
 class ChainMines(BossModule module) : Components.GenericAOEs(module)
@@ -47,12 +47,12 @@ class ChainMines(BossModule module) : Components.GenericAOEs(module)
             yield return new AOEInstance(rect, source.Position + 2 * source.Rotation.ToDirection(), source.Rotation);
         }
     }
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.ChainMine)
             _tethers.Add(source);
     }
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.ChainMine)
             _tethers.Remove(source);
@@ -80,7 +80,7 @@ class MagitekMissile2(BossModule module) : Components.CastTowers(module, AID.Mag
         {
             foreach (var t in Towers)
             {
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(t.Position, Radius - 1));
+                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(t.Position, Radius - 1));
             }
         }
     }

@@ -96,7 +96,8 @@ class BlackFlame(BossModule module) : BossComponent(module)
         if (targets[slot])
             foreach (var ally in Furniture)
 #pragma warning disable VBM006 // Reference type captured in closure
-                hints.AddForbiddenZone(p => IntersectFurniture(ally, p), activation);
+                // TODO(SDF)
+                hints.AddForbiddenZone(Sdf.Discrete(p => IntersectFurniture(ally, p)), activation);
 #pragma warning restore VBM006 // Reference type captured in closure
     }
 
@@ -139,13 +140,13 @@ class MortalFlame(BossModule module) : BossComponent(module)
         Timers[slot] = timer;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.MortalFlame && actor.Type != ActorType.Enemy)
             SetTimer(Raid.FindSlot(actor.InstanceID), (float)(status.ExpireAt - WorldState.CurrentTime).TotalSeconds);
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.MortalFlame)
             SetTimer(Raid.FindSlot(actor.InstanceID), 0);
@@ -166,9 +167,9 @@ class MortalFlame(BossModule module) : BossComponent(module)
     {
         if (Timers[slot] > 0)
         {
-            var furnitures = Furniture.Select(f => ShapeContains.InvertedCircle(f.Position, 1)).ToList();
+            var furnitures = Furniture.Select(f => ShapeDistance.InvertedCircle(f.Position, 1)).ToList();
             if (furnitures.Count > 0)
-                hints.AddForbiddenZone(ShapeContains.Intersection(furnitures), WorldState.FutureTime(Timers[slot]));
+                hints.AddForbiddenZone(ShapeDistance.Intersection(furnitures), WorldState.FutureTime(Timers[slot]));
         }
     }
 
@@ -230,18 +231,18 @@ class FiresDomain(BossModule module) : BossComponent(module)
         if (Baits.Count == 0)
             return;
 
-        var baitAOE = ShapeContains.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2);
+        var baitAOE = ShapeDistance.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2);
 
         var order = Baits.IndexOf(actor);
         if (order == 0)
         {
             hints.Add("Stretch tether!", (actor.Position - Module.PrimaryActor.Position).Length() < TetherLength);
-            if (Raid.WithoutSlot().Exclude(actor).Any(a => baitAOE(a.Position)))
+            if (Raid.WithoutSlot().Exclude(actor).Any(a => baitAOE(a.Position) < 0))
                 hints.Add("GTFO from raid!");
         }
         else
         {
-            if (baitAOE(actor.Position))
+            if (baitAOE(actor.Position) < 0)
                 hints.Add("GTFO from charge!");
         }
     }
@@ -256,17 +257,17 @@ class FiresDomain(BossModule module) : BossComponent(module)
         {
             var source = Module.PrimaryActor;
             // stretch tether
-            hints.AddForbiddenZone(ShapeContains.Circle(source.Position, TetherLength), NextCharge);
+            hints.AddForbiddenZone(ShapeDistance.Circle(source.Position, TetherLength), NextCharge);
             // don't clip any other party member with charge
             foreach (var p in Raid.WithoutSlot(excludeNPCs: true).Exclude(actor))
-                hints.AddForbiddenZone(ShapeContains.Cone(source.Position, 100, source.AngleTo(p), Angle.Asin(2f / (p.Position - source.Position).Length())), NextCharge);
+                hints.AddForbiddenZone(ShapeDistance.Cone(source.Position, 100, source.AngleTo(p), Angle.Asin(2f / (p.Position - source.Position).Length())), NextCharge);
         }
         else
         {
             // try to preposition away from previous party member in line
-            hints.AddForbiddenZone(ShapeContains.Circle(Baits[baitOrder - 1].Position, TetherLength), NextCharge.AddSeconds(4.4f * baitOrder));
+            hints.AddForbiddenZone(ShapeDistance.Circle(Baits[baitOrder - 1].Position, TetherLength), NextCharge.AddSeconds(4.4f * baitOrder));
             // stay out of boss's charge aoe
-            hints.AddForbiddenZone(ShapeContains.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2), NextCharge);
+            hints.AddForbiddenZone(ShapeDistance.Rect(Module.PrimaryActor.Position, Baits[0].Position, 2), NextCharge);
         }
     }
 }

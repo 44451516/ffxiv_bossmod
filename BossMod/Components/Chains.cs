@@ -26,7 +26,7 @@ public class Chains(BossModule module, uint tetherID, Enum? aid = default, float
         var partner = Partners[slot];
         if (partner.Partner != null)
         {
-            var forbiddenZone = spreadChains ? ShapeContains.Circle(partner.Partner.Position, partner.InitialDistance + chainLength) : ShapeContains.InvertedCircle(partner.Partner.Position, chainLength);
+            var forbiddenZone = spreadChains ? ShapeDistance.Circle(partner.Partner.Position, partner.InitialDistance + chainLength) : ShapeDistance.InvertedCircle(partner.Partner.Position, chainLength);
             hints.AddForbiddenZone(forbiddenZone, _activation);
         }
     }
@@ -38,7 +38,7 @@ public class Chains(BossModule module, uint tetherID, Enum? aid = default, float
             Arena.AddLine(pc.Position, partner.Partner.Position, spreadChains ? ArenaColor.Danger : ArenaColor.Safe);
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == TID)
         {
@@ -54,7 +54,7 @@ public class Chains(BossModule module, uint tetherID, Enum? aid = default, float
         }
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == TID)
         {

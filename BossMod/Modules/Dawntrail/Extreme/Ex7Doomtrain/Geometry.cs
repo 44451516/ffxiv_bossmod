@@ -5,7 +5,8 @@ static class Shapes
     public static IEnumerable<WDir> Fence(float x, float z) => CurveApprox.TruncatedRect(new(x, z), new WDir(2.5f, 0), new(0, 2.5f), 0.5f, CurveApprox.Corners.All);
     public static IEnumerable<WDir> Crate(float x, float z, CurveApprox.Corners c = CurveApprox.Corners.All) => CurveApprox.TruncatedRect(new(x, z), new WDir(2.9f, 0), new(0, 2.9f), 0.5f, c);
 
-    public static Func<WPos, bool> RectOutline(WPos center, float lenFront, float lenBack, float halfWidth) => p => p.InRect(center, default(Angle), lenFront + 0.25f, lenBack + 0.25f, halfWidth + 0.25f) && !p.InRect(center, default(Angle), lenFront - 0.25f, lenBack - 0.25f, halfWidth - 0.25f);
+    // TODO(SDF)
+    public static Sdf RectOutline(WPos center, float lenFront, float lenBack, float halfWidth) => Sdf.Discrete(p => p.InRect(center, default(Angle), lenFront + 0.25f, lenBack + 0.25f, halfWidth + 0.25f) && !p.InRect(center, default(Angle), lenFront - 0.25f, lenBack - 0.25f, halfWidth - 0.25f));
 }
 
 class CarGeometry : BossComponent
@@ -55,13 +56,13 @@ class CarGeometry : BossComponent
         KeepOnPhaseChange = true;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.UpHigh && Raid.TryFindSlot(actor, out var slot))
             _highPlayers.Set(slot);
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.UpHigh && Raid.TryFindSlot(actor, out var slot))
             _highPlayers.Clear(slot);

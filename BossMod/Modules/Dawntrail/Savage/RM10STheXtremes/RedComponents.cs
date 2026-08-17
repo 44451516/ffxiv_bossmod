@@ -49,7 +49,7 @@ class FlameFloater(BossModule module) : Components.GenericAOEs(module)
         if (BaitOn(slot) is { } bait)
         {
             var origin = BaitOrigin(bait);
-            hints.AddForbiddenZone(ShapeContains.Circle(origin, 16), bait.Activation);
+            hints.AddForbiddenZone(ShapeDistance.Circle(origin, 16), bait.Activation);
         }
     }
 
@@ -64,7 +64,7 @@ class FlameFloater(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         var order = (SID)status.ID switch
         {
@@ -122,7 +122,7 @@ class CutbackBlazeBait(BossModule module) : Components.CastCounter(module, AID.C
             Arena.ZoneCone(Source.Position, 0, 60, pc.AngleTo(Source), 15.Degrees(), ArenaColor.SafeFromAOE);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Firesnaking)
             _filter = true;

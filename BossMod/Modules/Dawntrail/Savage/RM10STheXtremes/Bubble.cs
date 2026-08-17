@@ -56,7 +56,7 @@ class BubbleTether(BossModule module) : Components.GenericAOEs(module)
 
     private Actor? BaitSource(Actor? target) => (target == TargetRed || target == TargetBlue) && Raid.TryFindSlot(target?.InstanceID ?? 0, out var slot) ? _tetheredTo[slot] : null;
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (source.OID == (uint)OID.TetherHelper && Raid.TryFindSlot(tether.Target, out var slot))
             _tetheredTo[slot] = source;
@@ -88,7 +88,7 @@ class BubbleTether(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.WateryGrave)
             _bubble.Set(Raid.FindSlot(actor.InstanceID));
@@ -123,16 +123,16 @@ class BubbleTether(BossModule module) : Components.GenericAOEs(module)
 
         if (BaitSource(actor) is { } source)
         {
-            hints.AddForbiddenZone(ShapeContains.Circle(source.Position, StretchDistance), _next);
+            hints.AddForbiddenZone(ShapeDistance.Circle(source.Position, StretchDistance), _next);
             // we need to bait to arena edge, otherwise allies won't have room to stretch tether
-            hints.AddForbiddenZone(ShapeContains.Circle(Arena.Center, 18), _next);
+            hints.AddForbiddenZone(ShapeDistance.Circle(Arena.Center, 18), _next);
 
             // hit or avoid bubble depending on color
             if (Module.Enemies(OID.WateryGrave).FirstOrDefault() is { } bubble)
             {
-                var clipCone = ShapeContains.Cone(source.Position, 100, source.AngleTo(bubble), Angle.Asin(8 / (bubble.Position - source.Position).Length()));
+                var clipCone = ShapeDistance.Cone(source.Position, 100, source.AngleTo(bubble), Angle.Asin(8 / (bubble.Position - source.Position).Length()));
                 if (actor == TargetRed)
-                    hints.AddForbiddenZone(p => !clipCone(p), _next);
+                    hints.AddForbiddenZone(p => -clipCone(p), _next);
                 else
                     hints.AddForbiddenZone(clipCone, _next);
             }

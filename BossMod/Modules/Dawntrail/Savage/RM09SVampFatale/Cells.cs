@@ -54,7 +54,7 @@ class CharnelCell(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         var ix = (int)status.ID - (int)SID.HellInACell1;
         if (ix < 0)
@@ -84,12 +84,12 @@ class CharnelCell(BossModule module) : BossComponent(module)
                 if (playerOrder == i)
                 {
                     c.Priority = 1;
-                    hints.TemporaryObstacles.Add(ShapeContains.Donut(c.Actor.Position, 4, 100));
+                    hints.TemporaryObstacles.Add(ShapeDistance.Donut(c.Actor.Position, 4, 100));
                 }
                 else
                 {
                     c.Priority = AIHints.Enemy.PriorityInvincible;
-                    hints.TemporaryObstacles.Add(ShapeContains.Circle(c.Actor.Position, 4));
+                    hints.TemporaryObstacles.Add(ShapeDistance.Circle(c.Actor.Position, 4));
                 }
             }
         }

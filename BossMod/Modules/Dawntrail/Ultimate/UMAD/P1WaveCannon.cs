@@ -10,7 +10,7 @@ class P1PulseWave(BossModule module) : Components.Knockback(module, AID.PulseWav
 
     bool _blizzardStarted;
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID == TetherID.GravenImage)
         {
@@ -46,7 +46,7 @@ class P1PulseWave(BossModule module) : Components.Knockback(module, AID.PulseWav
 
         // TODO tweak zone size. we want the player to move north if they get tethered, since blizzard zones are only visible for ~2.5s before kb activates
         // max melee is 9.5y circle around arena center
-        hints.AddForbiddenZone(ShapeContains.InvertedRect(new(100, 80), new(100, 93), 40), Activation);
+        hints.AddForbiddenZone(ShapeDistance.InvertedRect(new(100, 80), new(100, 93), 40), Activation);
     }
 }
 
@@ -95,7 +95,7 @@ class P1WaveCannon : Components.UntelegraphedBait
         }
 
         var dest = P1PulseWave.Origin + new WDir(0, 38).Rotate(((myOrder - 3.5f) * 8).Degrees());
-        hints.AddForbiddenZone(ShapeContains.InvertedCircle(dest, 1), activation);
+        hints.AddForbiddenZone(ShapeDistance.InvertedCircle(dest, 1), activation);
     }
 }
 
@@ -103,7 +103,7 @@ class P1Explosion(BossModule module) : Components.CastTowers(module, AID.Explosi
 {
     readonly DateTime[] _vuln = new DateTime[8];
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.MagicVulnerabilityUp && Raid.TryFindSlot(actor.InstanceID, out var slot))
             _vuln[slot] = status.ExpireAt;

@@ -16,7 +16,7 @@ class WingmarkKB(BossModule module) : Components.Knockback(module)
     public bool StunHappened => KnockbackFinishAt != DateTime.MaxValue;
     public bool KnockbackFinished => WorldState.CurrentTime >= KnockbackFinishAt;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Wingmark)
             Players.Set(Raid.FindSlot(actor.InstanceID));
@@ -39,7 +39,7 @@ class WingmarkKB(BossModule module) : Components.Knockback(module)
     {
         if (_adds?.SafeCorner() is { } p && actor.FindStatus(SID.Wingmark) is { } st)
         {
-            hints.AddForbiddenZone(ShapeContains.Circle(p, 34), st.ExpireAt);
+            hints.AddForbiddenZone(ShapeDistance.Circle(p, 34), st.ExpireAt);
             var angleToCorner = Angle.FromDirection(p - actor.Position);
             hints.ForbiddenDirections.Add((angleToCorner + 180.Degrees(), 178.Degrees(), st.ExpireAt));
         }
@@ -55,7 +55,7 @@ class WingmarkAdds(BossModule module) : Components.GenericAOEs(module)
     private BitMask DangerCorners;
     private static readonly WPos[] Corners = [new(80, 80), new(120, 80), new(120, 120), new(80, 120)];
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID is TetherID.PinkTether or TetherID.BlueTether && !source.IsAlly)
         {

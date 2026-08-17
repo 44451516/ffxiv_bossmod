@@ -335,21 +335,46 @@ public sealed class MiniArena(BossModuleConfig config, WPos center, ArenaBounds 
         TextScreen(ScreenCenter - offE, "W", ArenaColor.Border, Config.CardinalsFontSize);
     }
 
-    // draw actor representation
-    public void ActorInsideBounds(WPos position, Angle rotation, uint color)
+    const float ActorLenFront = 0.7f;
+    const float ActorLenBack = 0.35f;
+    const float ActorLenSide = 0.433f;
+
+    (WPos, WPos, WPos) ActorTri(WPos position, Angle rotation)
     {
         var dir = rotation.ToDirection();
         var normal = dir.OrthoR();
+
+        var lenFront = ActorLenFront;
+        var lenBack = ActorLenBack;
+        var lenSide = ActorLenSide;
+
+        var scale = Config.ActorScale;
+
+        if (!Config.ActorDynamicScale)
+            // draw actor as if we're in an arena of radius 20 (feels like the most common arena size)
+            scale *= Bounds.Radius / 20f;
+
+        lenFront *= scale;
+        lenBack *= scale;
+        lenSide *= scale;
+
+        return (position + lenFront * dir, position - lenBack * dir + lenSide * normal, position - lenBack * dir - lenSide * normal);
+    }
+
+    // draw actor representation
+    public void ActorInsideBounds(WPos position, Angle rotation, uint color)
+    {
+        var (x, y, z) = ActorTri(position, rotation);
+
         if (Config.ShowOutlinesAndShadows)
-            AddTriangle(position + 0.7f * dir, position - 0.35f * dir + 0.433f * normal, position - 0.35f * dir - 0.433f * normal, 0xFF000000, 2);
-        AddTriangleFilled(position + 0.7f * dir, position - 0.35f * dir + 0.433f * normal, position - 0.35f * dir - 0.433f * normal, color);
+            AddTriangle(x, y, z, 0xFF000000, 2);
+        AddTriangleFilled(x, y, z, color);
     }
 
     public void ActorOutsideBounds(WPos position, Angle rotation, uint color)
     {
-        var dir = rotation.ToDirection();
-        var normal = dir.OrthoR();
-        AddTriangle(position + 0.7f * dir, position - 0.35f * dir + 0.433f * normal, position - 0.35f * dir - 0.433f * normal, color);
+        var (x, y, z) = ActorTri(position, rotation);
+        AddTriangle(x, y, z, color);
     }
 
     public void ActorProjected(WPos from, WPos to, Angle rotation, uint color)

@@ -107,13 +107,13 @@ class VacuumWave(BossModule module) : Components.KnockbackFromCastTarget(module,
     {
         foreach (var src in Sources(slot, actor))
         {
-            List<Func<WPos, bool>> safeCones = [];
+            List<Func<WPos, float>> safeCones = [];
             foreach (var bit in _activeWalls.SetBits())
                 // we need to aim for the center of a wall, since they're flat and aiming at the edge will cause you to slide off and land in the voidzone
-                safeCones.Add(ShapeContains.InvertedCone(Arena.Center, 30, AngleToWall(bit), (WallHalfAngle * 0.5f).Radians()));
+                safeCones.Add(ShapeDistance.InvertedCone(Arena.Center, 30, AngleToWall(bit), (WallHalfAngle * 0.5f).Radians()));
 
             if (safeCones.Count > 0)
-                hints.AddForbiddenZone(ShapeContains.Intersection(safeCones), src.Activation);
+                hints.AddForbiddenZone(ShapeDistance.Intersection(safeCones), src.Activation);
         }
     }
 }

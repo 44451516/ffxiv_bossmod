@@ -96,7 +96,7 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
         ImGui.SameLine();
 
         ImGui.SetNextItemWidth(200);
-        using (var combo = ImRaii.Combo("预设", _selectedPreset == null ? "" : _selectedPresetIndex < 0 ? "<新建>" : (_selectedPresetDefault ? PresetDB.DefaultPresets : PresetDB.UserPresets)[_selectedPresetIndex].Name))
+        using (var combo = ImRaii.Combo("预设", _selectedPreset == null ? "" : (_selectedPresetDefault ? PresetDB.DefaultPresets : PresetDB.UserPresets).BoundSafeAt(_selectedPresetIndex)?.Name ?? "<新建>"))
         {
             if (combo)
             {

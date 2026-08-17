@@ -123,7 +123,7 @@ class LightningCrossingRush(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.LightningCrossing)
         {
@@ -206,7 +206,7 @@ class BirdserkRush(BossModule module) : Components.GenericAOEs(module)
 
         // preposition near charge location since we don't know which side he's going to face
         if (_target is { } t && _activation != default)
-            hints.AddForbiddenZone(ShapeContains.Donut(t.Position, 15, 60), _activation.AddSeconds(4));
+            hints.AddForbiddenZone(ShapeDistance.Donut(t.Position, 15, 60), _activation.AddSeconds(4));
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -242,7 +242,7 @@ class BirdserkPredict(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (_active && (TetherID)tether.ID == TetherID.Purple && (OID)source.OID == OID.Boss && WorldState.Actors.Find(tether.Target) is { } bird)
             _bird = bird;

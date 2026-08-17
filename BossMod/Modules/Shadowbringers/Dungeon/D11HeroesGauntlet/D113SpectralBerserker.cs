@@ -93,7 +93,7 @@ class WildRageKnockback(BossModule module) : Components.KnockbackFromCastTarget(
             if (!IsImmune(slot, src.Activation))
             {
                 var safeX = src.Origin.X < 750 ? 746 : 754;
-                hints.AddForbiddenZone(p => !p.InCircle(new(safeX, 479), 1) && !p.InCircle(new(safeX, 485), 1), src.Activation);
+                hints.AddForbiddenZone(Sdf.Discrete(p => !p.InCircle(new(safeX, 479), 1) && !p.InCircle(new(safeX, 485), 1)), src.Activation);
             }
     }
 }
@@ -156,11 +156,11 @@ class WildAnguish2(BossModule module) : BossComponent(module)
     {
         var myStack = Stacks.FindIndex(s => s.Target == actor);
         if (myStack >= 0 && Stacks[myStack].Rubble is { } rock)
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(rock.Position, 6), _activation);
+            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(rock.Position, 6), _activation);
 
         if (Stacks.Count > 0)
             foreach (var other in Raid.WithoutSlot(excludeNPCs: true).Exclude(actor))
-                hints.AddForbiddenZone(ShapeContains.Circle(other.Position, 6), _activation);
+                hints.AddForbiddenZone(ShapeDistance.Circle(other.Position, 6), _activation);
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
@@ -233,12 +233,12 @@ class WildHole(BossModule module) : Components.CastCounter(module, AID.WildRampa
         if (_zones.Count > 0)
         {
             var safe = UnsafeAt > WorldState.CurrentTime;
-            var zones = _zones.ToList();
             var hs = HoleSize;
+            var zones = _zones.Select(z => ShapeDistance.Circle(z, hs));
             hints.AddForbiddenZone(p =>
             {
-                var inHole = zones.Any(z => p.InCircle(z, hs));
-                return safe ? !inHole : inHole;
+                var inHole = zones.Min(z => z(p));
+                return safe ? -inHole : inHole;
             }, UnsafeAt);
         }
     }

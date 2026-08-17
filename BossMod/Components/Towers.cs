@@ -69,8 +69,8 @@ public class GenericTowers(BossModule module, Enum? aid = default, AIHints.Predi
         // first see if we have one or more towers we need to soak - if so, add hints to take one of them
         // if there are no towers to soak, add hints to avoid forbidden ones
         // note that if we're currently inside a tower that has min number of soakers, we can't leave it
-        List<Func<WPos, bool>> zones = [];
-        List<Func<WPos, bool>> forbiddenZones = [];
+        List<Func<WPos, float>> zones = [];
+        List<Func<WPos, float>> forbiddenZones = [];
         bool haveTowersToSoak = false;
         foreach (var t in Towers.Where(t => t.Activation <= deadline))
         {
@@ -85,24 +85,24 @@ public class GenericTowers(BossModule module, Enum? aid = default, AIHints.Predi
                     zones.Clear();
                     haveTowersToSoak = true;
                 }
-                zones.Add(ShapeContains.Circle(t.Position, t.Radius));
+                zones.Add(ShapeDistance.Circle(t.Position, t.Radius));
             }
             else if (effNumSoakers > t.MaxSoakers && !haveTowersToSoak)
             {
                 // this tower needs to be avoided; if we already have towers to soak, do nothing - presumably soaking other tower will automatically avoid this one
-                zones.Add(ShapeContains.Circle(t.Position, t.Radius));
+                zones.Add(ShapeDistance.Circle(t.Position, t.Radius));
             }
             else if (t.ForbiddenSoakers[slot])
-                forbiddenZones.Add(ShapeContains.Circle(t.Position, t.Radius));
+                forbiddenZones.Add(ShapeDistance.Circle(t.Position, t.Radius));
         }
         if (zones.Count > 0)
         {
-            var zoneUnion = ShapeContains.Union(zones);
-            hints.AddForbiddenZone(haveTowersToSoak ? p => !zoneUnion(p) : zoneUnion, firstActivation);
+            var zoneUnion = ShapeDistance.Union(zones);
+            hints.AddForbiddenZone(haveTowersToSoak ? p => -zoneUnion(p) : zoneUnion, firstActivation);
         }
         if (forbiddenZones.Count > 0)
         {
-            var fzu = ShapeContains.Union(forbiddenZones);
+            var fzu = ShapeDistance.Union(forbiddenZones);
             hints.AddForbiddenZone(fzu, firstActivation);
         }
         if (soakingPlayers.Any() && DamageType != AIHints.PredictedDamageType.None)

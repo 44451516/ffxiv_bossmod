@@ -75,7 +75,7 @@ class MortalRay(BossModule module) : BossComponent(module)
             var target = ActivePlatform;
             if (target != null)
             {
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(target.Position, _platformShape.Radius), actor.FindStatus(SID.Doom)!.Value.ExpireAt);
+                hints.AddForbiddenZone(ShapeDistance.InvertedCircle(target.Position, _platformShape.Radius), actor.FindStatus(SID.Doom)!.Value.ExpireAt);
             }
         }
     }
@@ -86,13 +86,13 @@ class MortalRay(BossModule module) : BossComponent(module)
             _platformShape.Draw(Arena, ActivePlatform, ArenaColor.SafeFromAOE);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Doom)
             _dooms.Set(Raid.FindSlot(actor.InstanceID));
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.Doom)
             _dooms.Clear(Raid.FindSlot(actor.InstanceID));

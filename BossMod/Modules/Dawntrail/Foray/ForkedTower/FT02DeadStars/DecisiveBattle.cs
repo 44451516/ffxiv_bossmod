@@ -70,7 +70,7 @@ class DecisiveBattleAOE(BossModule module) : Components.GenericAOEs(module)
         if (_config.PlayerAlliance == ForkedTowerConfig.Alliance.None && _casters.Any(c => c != null))
         {
             var active = _casters.Where(c => c != null).Select(c => c!).ToList();
-            hints.AddForbiddenZone(p => active.Count(a => p.InCircle(a.Position, 35)) != 1, Module.CastFinishAt(active[0].CastInfo));
+            hints.AddForbiddenZone(Sdf.Discrete(p => active.Count(a => p.InCircle(a.Position, 35)) != 1), Module.CastFinishAt(active[0].CastInfo));
         }
         else
             base.AddAIHints(slot, actor, assignment, hints);
@@ -122,7 +122,7 @@ class DecisiveBattle : Components.GenericInvincible
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         var ix = (SID)status.ID switch
         {
@@ -135,7 +135,7 @@ class DecisiveBattle : Components.GenericInvincible
             _playerAssignments[slot] = ix;
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID is SID.TritonicGravity or SID.NereidicGravity or SID.PhobosicGravity && Raid.TryFindSlot(actor, out var slot))
             _playerAssignments[slot] = -1;

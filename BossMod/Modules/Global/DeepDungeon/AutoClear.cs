@@ -345,13 +345,13 @@ public abstract partial class AutoClear : ZoneModule
             return;
 
         foreach (var (w, rot) in Walls)
-            hints.TemporaryObstacles.Add(ShapeContains.Rect(w.Position, (rot ? 90f : 0f).Degrees(), w.Depth, w.Depth, 20));
+            hints.TemporaryObstacles.Add(ShapeDistance.Rect(w.Position, (rot ? 90f : 0f).Degrees(), w.Depth, w.Depth, 20));
 
         if (_config.TrapHints && _trapsHidden)
         {
-            var tshape = _trapsCurrentFloor.Select(t => new WPos(t.X, t.Z)).Where(f => f.InCircle(player.Position, 30)).Select(f => ShapeContains.Circle(f, 2)).ToList();
+            var tshape = _trapsCurrentFloor.Select(t => new WPos(t.X, t.Z)).Where(f => f.InCircle(player.Position, 30)).Select(f => ShapeDistance.Circle(f, 2)).ToList();
             if (tshape.Count > 0)
-                hints.AddForbiddenZone(ShapeContains.Union(tshape));
+                hints.AddForbiddenZone(ShapeDistance.Union(tshape));
         }
 
         DrawAOEs(playerSlot, player, hints);
@@ -381,7 +381,7 @@ public abstract partial class AutoClear : ZoneModule
         Actor? coffer = null;
         Actor? hoardLight = null;
         Actor? passage = null;
-        List<Func<WPos, bool>> revealedTraps = [];
+        List<Func<WPos, float>> revealedTraps = [];
 
         PomanderID? pomanderToUseHere = null;
 
@@ -420,7 +420,7 @@ public abstract partial class AutoClear : ZoneModule
                 passage = a;
 
             if (RevealedTrapOIDs.Contains(a.OID))
-                revealedTraps.Add(ShapeContains.Circle(a.Position, 2));
+                revealedTraps.Add(ShapeDistance.Circle(a.Position, 2));
         }
 
         var fullClear = false;
@@ -452,7 +452,7 @@ public abstract partial class AutoClear : ZoneModule
             }
         }
 
-        var playerInAOE = hints.ForbiddenZones.Any(p => p.containsFn(player.Position));
+        var playerInAOE = hints.ForbiddenZones.Any(p => p.shape.Check(player.Position));
 
         if (!isStunned && pomanderToUseHere is PomanderID p2 && player.FindStatus(SID.ItemPenalty) == null && !playerInAOE)
             hints.ActionsToExecute.Push(new ActionID(ActionType.Pomander, (uint)p2), null, ActionQueue.Priority.VeryHigh);
@@ -485,7 +485,7 @@ public abstract partial class AutoClear : ZoneModule
         }
 
         if (revealedTraps.Count > 0)
-            hints.AddForbiddenZone(ShapeContains.Union(revealedTraps));
+            hints.AddForbiddenZone(ShapeDistance.Union(revealedTraps));
 
         if (!IsPlayerTransformed(player) && canNavigate && _config.AutoMoveTreasure && hoardLight is Actor h && Palace.GetPomanderState(PomanderID.Intuition).Active)
             hints.GoalZones.Add(hints.GoalSingleTarget(h.Position, 2, 10));
@@ -576,11 +576,11 @@ public abstract partial class AutoClear : ZoneModule
             var origin = dangermap.Item1;
             var map = dangermap.Item2;
 
-            hints.AddForbiddenZone(p =>
+            hints.AddForbiddenZone(Sdf.Discrete(p =>
             {
                 var offset = (p - origin) / map.PixelSize;
                 return map[(int)offset.X, (int)offset.Z];
-            }, CastFinishAt(caster));
+            }), CastFinishAt(caster));
         }, d => _losCache.Remove(d.InstanceID));
 
         IterAndExpire(Voidzones, d => d.Source.IsDeadOrDestroyed, d =>

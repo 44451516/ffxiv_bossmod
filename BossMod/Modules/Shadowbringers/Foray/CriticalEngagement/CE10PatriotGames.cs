@@ -42,7 +42,7 @@ class ElectrochemicalReaction(BossModule module) : Components.GenericAOEs(module
     private readonly Dictionary<WPos, int> Charges = [];
     private readonly List<AOEInstance> AOEs = [];
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if ((TetherID)tether.ID is TetherID.TetherOne or TetherID.TetherTwo)
             Charge(source, 1);
@@ -121,8 +121,8 @@ class LightningRod(BossModule module) : BossComponent(module)
     {
         if (Mines.Count > 0 && actor.Role == Role.Tank)
         {
-            var mineShape = ShapeContains.Union([.. Mines.Select(m => ShapeContains.Circle(m, Radius))]);
-            hints.GoalZones.Add(p => mineShape(p) ? 0.5f : 0);
+            var mineShape = ShapeDistance.Union([.. Mines.Select(m => ShapeDistance.Circle(m, Radius))]);
+            hints.GoalZones.Add(p => mineShape(p) < 0 ? 0.5f : 0);
         }
     }
 }

@@ -14,7 +14,7 @@ class P1DoubleTroubleTrap : Components.UniformStackSpread
         PermitOverlap = true;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.DoubleTroubleTrap)
             AddStack(actor, status.ExpireAt);
@@ -43,7 +43,7 @@ class P1DoubleTroubleTrap : Components.UniformStackSpread
             if (myOrder >= 0)
             {
                 var side = myOrder < 4 ? -1 : 1;
-                hints.AddForbiddenZone(ShapeContains.PrecisePosition(Arena.Center + new WDir((isStack ? 9 : 5.75f) * side, 0), new(0, 1), 0.5f, actor.Position, 0.1f), activation);
+                hints.AddForbiddenZone(ShapeDistance.PrecisePosition(Arena.Center + new WDir((isStack ? 9 : 5.75f) * side, 0), new(0, 1), 0.5f, actor.Position, 0.1f), activation);
                 return;
             }
         }
@@ -56,13 +56,13 @@ class P1DoubleTroubleTrap : Components.UniformStackSpread
                 if (isStack)
                 {
                     var puddleEdgeZ = closestPuddle.Position.Z - 6 * ourSide;
-                    hints.AddForbiddenZone(ShapeContains.PrecisePosition(new(100, puddleEdgeZ), new(0, 1), 0.5f, actor.Position, 0.1f), activation);
+                    hints.AddForbiddenZone(ShapeDistance.PrecisePosition(new(100, puddleEdgeZ), new(0, 1), 0.5f, actor.Position, 0.1f), activation);
                     return;
                 }
 
                 if (Stacks.FirstOrNull(s => s.Target.Class.IsSupport() == actor.Class.IsSupport()) is { } stackWith)
                 {
-                    hints.AddForbiddenZone(ShapeContains.PrecisePosition(new(stackWith.Target.Position.X, stackWith.Target.Position.Z - 1 * ourSide), new(0, 1), 0.5f, actor.Position, 0.1f), activation);
+                    hints.AddForbiddenZone(ShapeDistance.PrecisePosition(new(stackWith.Target.Position.X, stackWith.Target.Position.Z - 1 * ourSide), new(0, 1), 0.5f, actor.Position, 0.1f), activation);
                     return;
                 }
             }
@@ -78,7 +78,7 @@ class P1DoubleTroubleTrap : Components.UniformStackSpread
                 (false, false) => new(104, 104)
             };
 
-            hints.AddForbiddenZone(ShapeContains.PrecisePosition(dest, new(0, 1), 0.5f, actor.Position, 0.1f), activation);
+            hints.AddForbiddenZone(ShapeDistance.PrecisePosition(dest, new(0, 1), 0.5f, actor.Position, 0.1f), activation);
             return;
         }
 
@@ -97,7 +97,7 @@ class P1DoubleTroubleTrapKB(BossModule module) : Components.Knockback(module, AI
                 yield return new(src.Source.Position, 14, src.Activation);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.DoubleTroubleTrap && NumCasts == 0)
             _sources.Add((actor, status.ExpireAt));

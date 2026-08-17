@@ -121,9 +121,10 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
 
         OGCD(strategy, primaryTarget);
 
-        var approach = IsDancing || ReadyIn(AID.StandardStep) <= GCD || ReadyIn(AID.TechnicalStep) <= GCD;
+        var approach = IsDancing || GCDReady(AID.StandardStep) || GCDReady(AID.TechnicalStep);
 
-        GoalZoneCombined(strategy, approach ? 15 : 25, Hints.GoalAOECircle(IsDancing ? 15 : 5), AID.StandardFinish, 2);
+        // dance: subtract 0.5 for player hitbox since pbaoes don't include that
+        GoalZoneCombined(strategy, approach ? 14.5f : 25, Hints.GoalAOECircle(IsDancing ? 15 : 5), AID.StandardFinish, 2);
 
         if (IsDancing)
         {
@@ -147,7 +148,7 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
             return;
         }
 
-        if (ShouldTechStep(strategy) && ReadyIn(AID.TechnicalStep) <= GCD)
+        if (ShouldTechStep(strategy) && GCDReady(AID.TechnicalStep))
             PushGCD(AID.TechnicalStep, Player);
 
         var shouldStdStep = ShouldStdStep(strategy);

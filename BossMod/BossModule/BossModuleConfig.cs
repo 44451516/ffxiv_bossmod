@@ -63,6 +63,13 @@ public class BossModuleConfig : ConfigNode
     [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
     public float ThicknessScale = 1;
 
+    [PropertyDisplay("角色指示器大小随战斗区域缩放", tooltip: "禁用后，角色三角指示器（玩家和敌人）会始终按相同大小绘制，不受战斗区域大小影响。\r\n指示器大小始终会受到全局战斗区域缩放比例影响。", since: "7.5.5.4")]
+    public bool ActorDynamicScale = true;
+
+    [PropertyDisplay("角色指示器缩放比例", since: "7.5.5.4")]
+    [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
+    public float ActorScale = 1;
+
     [PropertyDisplay("雷达随镜头朝向旋转")]
     public bool RotateArena = true;
 

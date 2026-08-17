@@ -72,7 +72,7 @@ class TankbusterTether(BossModule module) : BossComponent(module)
 
     private bool Danger => DwarfTether?.Target.OID == 0x2917;
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == 84 && WorldState.Actors.Find(tether.Target) is Actor target)
             DwarfTether = new(source, target, DwarfTether?.Activation ?? WorldState.FutureTime(10));
@@ -81,7 +81,7 @@ class TankbusterTether(BossModule module) : BossComponent(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (DwarfTether?.Target.OID == 0x2917)
-            hints.AddForbiddenZone(ShapeContains.InvertedRect(DwarfTether.Source.Position, DwarfTether.Target.Position, 1), DwarfTether.Activation);
+            hints.AddForbiddenZone(ShapeDistance.InvertedRect(DwarfTether.Source.Position, DwarfTether.Target.Position, 1), DwarfTether.Activation);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)

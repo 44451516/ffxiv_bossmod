@@ -160,7 +160,7 @@ class P2Shapes : Components.CastCounterMulti
         {
             hints.ForbiddenZones.Clear();
 
-            hints.AddForbiddenZone(ShapeContains.PrecisePosition(spot, new(0, 1), 0.5f, actor.Position, 0.1f), _nextDeadline);
+            hints.AddForbiddenZone(ShapeDistance.PrecisePosition(spot, new(0, 1), 0.5f, actor.Position, 0.1f), _nextDeadline);
         }
     }
 
@@ -211,7 +211,7 @@ class P2Shapes : Components.CastCounterMulti
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.SpellsTrouble && Raid.TryFindSlot(actor, out var slot))
         {
@@ -559,7 +559,7 @@ class P2Spellwave(BossModule module) : Components.GenericBaitAway(module, AID.Sp
             // forbid target/source from dashing while bait is active
             // (this zone will be removed by the other component if role-specific forsaken hints are configured properly)
             if (b.Target == actor || b.Source == actor)
-                hints.AddForbiddenZone(_ => true, DateTime.MaxValue);
+                hints.AddForbiddenZone(_ => float.MinValue, DateTime.MaxValue);
         }
     }
 
@@ -717,7 +717,7 @@ class P2AllThingsEndingBait(BossModule module) : BossComponent(module)
     {
         if (Draw)
             foreach (var p in GetSafeSpot())
-                hints.AddForbiddenZone(ShapeContains.PrecisePosition(p, new(0, 1), 0.5f, actor.Position, 0.1f), _activation);
+                hints.AddForbiddenZone(ShapeDistance.PrecisePosition(p, new(0, 1), 0.5f, actor.Position, 0.1f), _activation);
     }
 
     public override void AddGlobalHints(GlobalHints hints)

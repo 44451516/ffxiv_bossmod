@@ -49,7 +49,7 @@ class PlantingBait(BossModule module) : Components.GenericBaitAway(module, cente
         base.AddAIHints(slot, actor, assignment, hints);
 
         if (ActiveBaitsOn(actor).FirstOrNull() is { } b)
-            hints.AddForbiddenZone(ShapeContains.Circle(Arena.Center, 12), b.Activation);
+            hints.AddForbiddenZone(ShapeDistance.Circle(Arena.Center, 12), b.Activation);
     }
 }
 
@@ -92,7 +92,7 @@ class WoodsEmbrace(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if ((SID)status.ID == SID.AreaOfInfluenceUp)
             _range = status.Extra;
@@ -108,7 +108,7 @@ class Burst(BossModule module) : Components.GenericAOEs(module)
 
     public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _predicted.Take(3).Select(p => p with { Risky = _risky });
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
         if (status.ID == 2056)
         {
@@ -181,9 +181,9 @@ class Touchdown(BossModule module) : Components.KnockbackFromCastTarget(module, 
         {
             if (!IsImmune(slot, src.Activation))
             {
-                hints.AddForbiddenZone(ShapeContains.Donut(Arena.Center, 4.5f, 30), src.Activation);
+                hints.AddForbiddenZone(ShapeDistance.Donut(Arena.Center, 4.5f, 30), src.Activation);
                 if (Burst.SafeDir != default)
-                    hints.AddForbiddenZone(ShapeContains.InvertedCone(Arena.Center, 30, Burst.SafeDir, 30.Degrees()), src.Activation);
+                    hints.AddForbiddenZone(ShapeDistance.InvertedCone(Arena.Center, 30, Burst.SafeDir, 30.Degrees()), src.Activation);
             }
         }
     }
