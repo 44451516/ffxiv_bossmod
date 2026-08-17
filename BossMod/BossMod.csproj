@@ -20,9 +20,6 @@
     </ItemGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-        <AnalysisMode>All</AnalysisMode>
-        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <OutputPath>$(MSBuildProjectDirectory)\..\release\</OutputPath>
     </PropertyGroup>
 

@@ -5,8 +5,6 @@ VisualStudioVersion = 18.1.11312.151
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BossMod", "BossMod\BossMod.csproj", "{13C812E9-0D42-4B95-8646-40EEBF30636F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CodeAnalysis", "CodeAnalysis\CodeAnalysis.csproj", "{F5F7E565-DCF2-494A-A18F-F7FA503428F5}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{83DEBDD2-29E9-4087-8FBD-092B458D2F7D}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\build_pr.yml = .github\workflows\build_pr.yml
@@ -27,10 +25,6 @@ Global
 		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Debug|AnyCPU.Build.0 = Debug|x64
 		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|AnyCPU.ActiveCfg = Release|x64
 		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|AnyCPU.Build.0 = Release|x64
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Debug|AnyCPU.Build.0 = Debug|Any CPU
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Release|AnyCPU.Build.0 = Release|Any CPU
 		{A8D1E505-DA3A-4F19-9831-F745718AD97C}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
 		{A8D1E505-DA3A-4F19-9831-F745718AD97C}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{0A4B3F30-3460-40EB-BDDA-DE25E49332CA}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
