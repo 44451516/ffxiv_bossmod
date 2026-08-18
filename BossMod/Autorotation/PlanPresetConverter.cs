@@ -7,6 +7,14 @@ public static class PlanPresetConverter
     public static readonly VersionedJSONSchema PlanSchema = BuildSchema(true);
     public static readonly VersionedJSONSchema PresetSchema = BuildSchema(false);
 
+    internal static readonly Dictionary<string, string> FTBRenames = new()
+    {
+        ["BossMod.Dawntrail.Foray.ForkedTower.FT01DemonTablet.FT01DemonTablet"] = "BossMod.Dawntrail.Foray.ForkedTower.FTB1DemonTablet.FTB1DemonTablet",
+        ["BossMod.Dawntrail.Foray.ForkedTower.FT02DeadStars.FT02DeadStars"] = "BossMod.Dawntrail.Foray.ForkedTower.FTB2DeadStars.FTB2DeadStars",
+        ["BossMod.Dawntrail.Foray.ForkedTower.FT03MarbleDragon.FT03MarbleDragon"] = "BossMod.Dawntrail.Foray.ForkedTower.FTB3MarbleDragon.FTB3MarbleDragon",
+        ["BossMod.Dawntrail.Foray.ForkedTower.FT04Magitaur.FT04Magitaur"] = "BossMod.Dawntrail.Foray.ForkedTower.FTB4Magitaur.FTB4Magitaur",
+    };
+
     private static VersionedJSONSchema BuildSchema(bool plan)
     {
         var res = new VersionedJSONSchema();
@@ -177,6 +185,18 @@ public static class PlanPresetConverter
                         }
                     }
                 }
+            }
+
+            return j;
+        });
+
+        res.Converters.Add((j, _, _) =>
+        {
+            if (plan)
+            {
+                var enc = (string)j["Encounter"]!.AsValue()!;
+                if (FTBRenames.TryGetValue(enc, out var rename))
+                    j["Encounter"] = rename;
             }
 
             return j;

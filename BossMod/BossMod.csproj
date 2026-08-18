@@ -3,8 +3,8 @@
     <!--<Project Sdk="Dalamud.NET.Sdk/15.0.0">-->
 
     <PropertyGroup>
-        <Version>7.5.5.7</Version>
-        <AssemblyVersion>7.5.5.7</AssemblyVersion>
+        <Version>7.5.5.8</Version>
+        <AssemblyVersion>7.5.5.8</AssemblyVersion>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <LocalCS>false</LocalCS>
     </PropertyGroup>
