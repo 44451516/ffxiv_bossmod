@@ -1,6 +1,6 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "录像设置", Order = 0)]
+[ConfigDisplay(Name = "录像设置", Order = 0, Group = "通用")]
 public class ReplayManagementConfig : ConfigNode
 {
     [PropertyDisplay("显示录像管理界面")]
@@ -33,4 +33,7 @@ public class ReplayManagementConfig : ConfigNode
 
     [PropertyDisplay("格式化录像日志")]
     public ReplayLogFormat WorldLogFormat = ReplayLogFormat.BinaryCompressed;
+
+    [PropertyDisplay("按区域或副本将回放整理到单独文件夹", tooltip: "启用此选项后，“删除前保留的最大回放数量”将分别应用于每个文件夹，而非回放总数。")]
+    public bool ZoneSubfolders = false;
 }

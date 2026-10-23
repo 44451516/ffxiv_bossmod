@@ -3,6 +3,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -15,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BossMod\BossMod.csproj" />
+    <ProjectReference Include="..\BossMod.Modules\BossMod.Modules.csproj" />
   </ItemGroup>
 
 </Project>

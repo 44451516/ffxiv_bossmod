@@ -33,11 +33,13 @@ public sealed class AIHints
         }
         //public float TimeToKill;
         public float AttackStrength = 0.05f; // target's predicted HP percent is decreased by this amount (0.05 by default)
-        public WPos DesiredPosition; // tank AI will try to move enemy to this position
-        public Angle DesiredRotation; // tank AI will try to rotate enemy to this angle
+        public bool CanMove = true;
+        public WPos? DesiredPosition; // tank AI will try to move enemy to this position
+        public Angle? DesiredRotation; // tank AI will try to rotate enemy to this angle
         public float TankDistance = 2; // enemy will start moving if distance between hitboxes is bigger than this
         public bool ShouldBeTanked; // tank AI will try to tank this enemy
         public bool PreferProvoking; // tank AI will provoke enemy if not targeted
+        public bool PreferShirking; // TODO: better name
         public bool ForbidDOTs; // if true, dots on target are forbidden
         public bool ShouldBeInterrupted; // if set and enemy is casting interruptible spell, some ranged/tank will try to interrupt
         public bool ShouldBeStunned; // if set, AI will stun if possible
@@ -52,21 +54,10 @@ public sealed class AIHints
             PrioHistory = [];
             if (Service.Config.Get<AIHintsConfig>().PriorityTracing)
                 PrioHistory.Add((priority, $"{prioReason} at {new StackFrame(1, true)}"));
-            DesiredPosition = actor.Position;
-            DesiredRotation = actor.Rotation;
             ShouldBeTanked = shouldBeTanked;
         }
 
-        public bool ShouldBeTargeted
-        {
-            set
-            {
-                field = value;
-                if (value)
-                    Priority = Math.Max(0, Priority);
-            }
-            get;
-        }
+        public bool ShouldBeTargeted;
 
         // easier to read
         public bool AllowDOTs { get => !ForbidDOTs; set => ForbidDOTs = !value; }
@@ -112,6 +103,8 @@ public sealed class AIHints
     public WPos PathfindMapCenter;
     public ArenaBounds PathfindMapBounds = DefaultBounds;
     public Bitmap.Region PathfindMapObstacles;
+    private readonly List<float> _scratchG = [];
+    private readonly BitArray _scratchD = new(0);
 
     // list of potential targets
     public readonly Enemy?[] Enemies = new Enemy?[100];
@@ -137,13 +130,16 @@ public sealed class AIHints
 
     // positioning: list of shapes that are either forbidden to stand in now or will be in near future
     // AI will try to move in such a way to avoid standing in any forbidden zone after its activation or outside of some restricted zone after its activation, even at the cost of uptime
-    public List<(Sdf shape, DateTime activation, ulong Source)> ForbiddenZones = [];
+    // zone might be tagged with an arbitrary non-unique id for convenience. for generic solver zones, tag = caster's instanceid
+    public List<(Sdf shape, DateTime activation, ulong tag)> ForbiddenZones = [];
 
     // positioning: list of goal functions
     // AI will try to move to reach non-forbidden point with highest goal value (sum of values returned by all functions)
     // guideline: rotation modules should return 1 if it would use single-target action from that spot, 2 if it is also a positional, 3 if it would use aoe that would hit minimal viable number of targets, +1 for each extra target
     // other parts of the code can return small (e.g. 0.01) values to slightly (de)prioritize some positions, or large (e.g. 1000) values to effectively soft-override target position (but still utilize pathfinding)
     public List<Func<WPos, float>> GoalZones = [];
+
+    public bool GoalZonesEnabled = true;
 
     public class TempObstaclesList : List<Sdf>
     {
@@ -154,6 +150,9 @@ public sealed class AIHints
     public TempObstaclesList TemporaryObstacles = [];
     // teleporters for pathfind
     public List<(WPos from, float fromRadius, WPos to)> Portals = [];
+
+    // only used for "dash safety" functionality, not read by pathfinder
+    public List<(WPos Center, float Radius)> Voidzones = [];
 
     // positioning: next positional hint (TODO: reconsider, maybe it should be a list prioritized by in-gcds, and imminent should be in-gcds instead? or maybe it should be property of an enemy? do we need correct?)
     public (Actor? Target, Positional Pos, bool Imminent, bool Correct) RecommendedPositional;
@@ -186,9 +185,13 @@ public sealed class AIHints
     // buffs to be canceled asap
     public List<(uint statusId, ulong sourceId)> StatusesToCancel = [];
 
+    // scripted party wipes in some encounters; in these cases we shouldn't run the disable-on-death logic
+    public bool ScriptedDeath;
+
     // misc stuff to execute
     public bool WantJump;
     public bool WantDismount;
+    public bool AllowDash;
     public FateSync WantFateSync;
     public bool ShouldLeaveDuty;
 
@@ -207,6 +210,8 @@ public sealed class AIHints
         InteractWithTarget = null;
         ForbiddenZones.Clear();
         GoalZones.Clear();
+        GoalZonesEnabled = true;
+        Voidzones.Clear();
         TemporaryObstacles.Clear();
         Portals.Clear();
         RecommendedPositional = default;
@@ -219,8 +224,10 @@ public sealed class AIHints
         ForceCancelCast = false;
         ActionsToExecute.Clear();
         StatusesToCancel.Clear();
+        ScriptedDeath = false;
         WantJump = false;
         WantDismount = false;
+        AllowDash = true;
         WantFateSync = FateSync.None;
         ShouldLeaveDuty = false;
     }
@@ -291,20 +298,54 @@ public sealed class AIHints
     public void InitPathfindMap(Pathfinding.Map map)
     {
         PathfindMapBounds.PathfindMap(map, PathfindMapCenter);
+        var dim = (map.Height + 1) * (map.Width + 1);
+        if (_scratchG.Count != dim)
+        {
+            _scratchG.Clear();
+            _scratchG.AddRange(Enumerable.Repeat(0f, dim));
+        }
+        _scratchD.Length = dim;
+
         foreach (var o in TemporaryObstacles)
-            map.BlockPixelsInside(o, -1000);
+            Pathfinding.NavigationDecision.RasterizeForbiddenZone(map, o, -1000, _scratchG.AsSpan(), _scratchD, 0);
+
         foreach (var (from, radius, to) in Portals)
             map.AddPortal(from, radius, to);
+
         if (PathfindMapObstacles.Bitmap != null)
         {
             var offX = -PathfindMapObstacles.Rect.Left;
             var offY = -PathfindMapObstacles.Rect.Top;
             var r = PathfindMapObstacles.Rect.Clamped(PathfindMapObstacles.Bitmap.FullRect).Clamped(new(0, 0, map.Width, map.Height), offX, offY);
-            for (int y = r.Top; y < r.Bottom; ++y)
-                for (int x = r.Left; x < r.Right; ++x)
+            for (var y = r.Top; y < r.Bottom; ++y)
+                for (var x = r.Left; x < r.Right; ++x)
                     if (PathfindMapObstacles.Bitmap[x, y])
                         map.PixelMaxG[(y + offY) * map.Width + x + offX] = -900;
         }
+    }
+
+    public T[] GenerateFromMap<T>(Func<WPos, int, T> init)
+    {
+        var map = new Pathfinding.Map();
+        PathfindMapBounds.PathfindMap(map, PathfindMapCenter);
+        var arr = new T[(map.Width + 1) * (map.Height + 1)];
+
+        foreach (var (cell, _, _, p) in map.EnumerateGrid())
+            arr[cell] = init(p, cell);
+
+        return arr;
+    }
+
+    public BitArray BitsFromMap(Func<WPos, int, bool> init)
+    {
+        var map = new Pathfinding.Map();
+        PathfindMapBounds.PathfindMap(map, PathfindMapCenter);
+        var arr = new BitArray((map.Width + 1) * (map.Height + 1));
+
+        foreach (var (cell, _, _, p) in map.EnumerateGrid())
+            arr[cell] = init(p, cell);
+
+        return arr;
     }
 
     // query utilities
@@ -317,8 +358,8 @@ public sealed class AIHints
     public int NumPriorityTargetsInAOECircle(WPos origin, float radius) => NumPriorityTargetsInAOE(a => TargetInAOECircle(a.Actor, origin, radius));
     public int NumPriorityTargetsInAOECone(WPos origin, float radius, WDir direction, Angle halfAngle) => NumPriorityTargetsInAOE(a => TargetInAOECone(a.Actor, origin, radius, direction, halfAngle));
     public int NumPriorityTargetsInAOERect(WPos origin, WDir direction, float lenFront, float halfWidth, float lenBack = 0) => NumPriorityTargetsInAOE(a => TargetInAOERect(a.Actor, origin, direction, lenFront, halfWidth, lenBack));
-    public bool TargetInAOECircle(Actor target, WPos origin, float radius) => target.Position.InCircle(origin, radius + target.HitboxRadius);
-    public bool TargetInAOECone(Actor target, WPos origin, float radius, WDir direction, Angle halfAngle) => Intersect.CircleCone(target.Position, target.HitboxRadius, origin, radius, direction, halfAngle);
+    public static bool TargetInAOECircle(Actor target, WPos origin, float radius) => target.Position.InCircle(origin, radius + target.HitboxRadius);
+    public static bool TargetInAOECone(Actor target, WPos origin, float radius, WDir direction, Angle halfAngle) => Intersect.CircleCone(target.Position, target.HitboxRadius, origin, radius, direction, halfAngle);
     public static bool TargetInAOERect(Actor target, WPos origin, WDir direction, float lenFront, float halfWidth, float lenBack = 0)
     {
         var rectCenterOffset = (lenFront - lenBack) / 2;
@@ -328,15 +369,21 @@ public sealed class AIHints
 
     // goal zones
     // simple goal zone that returns 1 if target is in range, useful for single-target actions
-    public Func<WPos, float> GoalSingleTarget(WPos target, float radius, float weight = 1)
+    public static Func<WPos, float> GoalSingleTarget(WPos target, float radius, float weight = 1)
     {
         var effRsq = radius * radius;
         return p => (p - target).LengthSq() <= effRsq ? weight : 0;
     }
-    public Func<WPos, float> GoalSingleTarget(Actor target, float range, float weight = 1) => GoalSingleTarget(target.Position, range + target.HitboxRadius + 0.5f, weight);
+    public Func<WPos, float> GoalSingleTarget(Actor target, Actor player, ActorState actorState, float range, float weight = 1)
+    {
+        var f = GoalSingleTarget(target.Position, range + target.HitboxRadius + 0.5f, weight);
+        var g = FollowTarget(target, player, actorState, range);
+
+        return p => f(p) + g(p);
+    }
 
     // simple goal zone that returns 1 if target is in range (usually melee), 2 if it's also in correct positional
-    public Func<WPos, float> GoalSingleTarget(WPos target, Angle rotation, Positional positional, float radius, float cushion = 0)
+    public static Func<WPos, float> GoalSingleTarget(WPos target, Angle rotation, Positional positional, float radius, float cushion = 0)
     {
         if (positional == Positional.Any)
             return GoalSingleTarget(target, radius); // more efficient implementation
@@ -362,7 +409,30 @@ public sealed class AIHints
             return inPositional ? 2 : 1;
         };
     }
-    public Func<WPos, float> GoalSingleTarget(Actor target, Positional positional, float range = 3, float cushion = 0) => GoalSingleTarget(target.Position, target.Rotation, positional, range + target.HitboxRadius + 0.5f, cushion);
+    public Func<WPos, float> GoalSingleTarget(Actor target, Positional positional, Actor player, ActorState actorState, float range = 3, float cushion = 0)
+    {
+        var f = GoalSingleTarget(target.Position, target.Rotation, positional, range + target.HitboxRadius + 0.5f, cushion);
+        var g = FollowTarget(target, player, actorState, range);
+
+        return p => f(p) + g(p);
+    }
+
+    Func<WPos, float> FollowTarget(Actor target, Actor player, ActorState actorState, float maxRange)
+    {
+        if (target.CastInfo == null && target.TargetID != player.InstanceID && FindEnemy(target) is { } e && actorState.Find(target.TargetID) is { } tt)
+        {
+            var tankDistance = e.Actor.HitboxRadius + e.TankDistance;
+            var targetToTT = tt.Position - target.Position;
+            if (targetToTT.LengthSq() > tankDistance * tankDistance)
+            {
+                var effRange = target.HitboxRadius + maxRange + 0.5f;
+                var expectedPosition = target.Position + targetToTT.Normalized() * MathF.Min(effRange - 1, targetToTT.Length() - tankDistance);
+                return GoalSingleTarget(expectedPosition, effRange, 0.1f);
+            }
+        }
+
+        return _ => 0;
+    }
 
     // simple goal zone that returns number of targets in aoes; note that performance is a concern for these functions, and perfection isn't required, so eg they ignore forbidden targets, etc
     public Func<WPos, float> GoalAOECircle(float radius)
@@ -406,7 +476,7 @@ public sealed class AIHints
     }
 
     // combined goal zone: returns 'aoe' priority if targets hit are at or above minimum, otherwise returns 'single-target' priority
-    public Func<WPos, float> GoalCombined(Func<WPos, float> singleTarget, Func<WPos, float> aoe, int minAOETargets)
+    public static Func<WPos, float> GoalCombined(Func<WPos, float> singleTarget, Func<WPos, float> aoe, int minAOETargets)
     {
         if (minAOETargets >= 50)
             return singleTarget; // assume aoe is never efficient, so don't bother
@@ -418,7 +488,7 @@ public sealed class AIHints
     }
 
     // goal zone that returns a value between 0 and weight depending on distance to point; useful for downtime movement targets
-    public Func<WPos, float> GoalProximity(WPos destination, float maxDistance, float maxWeight)
+    public static Func<WPos, float> GoalProximity(WPos destination, float maxDistance, float maxWeight)
     {
         var invDist = 1.0f / maxDistance;
         return p =>
@@ -429,20 +499,29 @@ public sealed class AIHints
         };
     }
 
-    public Func<WPos, float> PullTargetToLocation(Actor target, WPos destination, float destRadius = 2)
+    public Func<WPos, float> PullTargetToLocation(Actor target, WPos destination, Actor player, float gcd, float destRadius = 2, bool greed = true)
     {
         var enemy = FindEnemy(target);
         if (enemy == null)
             return _ => 0;
 
-        var adjRange = enemy.TankDistance + target.HitboxRadius + 0.5f;
-        var desiredToTarget = target.Position - destination;
+        var adjRange = enemy.TankDistance + target.HitboxRadius + player.HitboxRadius;
+        var dirToGoal = destination - target.Position;
+        var distToGoal = dirToGoal.Length() + adjRange;
         var leewaySq = destRadius * destRadius;
-        if (desiredToTarget.LengthSq() > leewaySq)
+
+        // try to stay within pull range
+        if (dirToGoal.LengthSq() <= leewaySq)
+            return GoalSingleTarget(target.Position, adjRange, 0.1f);
+
+        var distance = distToGoal;
+        if (greed && gcd < 0.5f && player.TargetID == target.InstanceID)
         {
-            var dest = destination - adjRange * desiredToTarget.Normalized();
-            return GoalSingleTarget(dest, PathfindMapBounds.MapResolution, 10);
+            var playerEffRange = player.Role is Role.Tank or Role.Melee ? 3 : 25;
+            distToGoal = MathF.Min(distToGoal, target.HitboxRadius + player.HitboxRadius + playerEffRange) - 0.1f;
         }
-        return _ => 0;
+
+        var sh = ShapeDistance.PrecisePosition(target.Position + dirToGoal.Normalized() * distToGoal, new(0, 1), PathfindMapBounds.MapResolution, player.Position, 0.1f);
+        return p => sh(p) >= 0 ? 15 : 0;
     }
 }

@@ -45,6 +45,7 @@ public enum Class : byte
     SGE = 40,
     VPR = 41,
     PCT = 42,
+    BST = 43,
 }
 
 public enum ClassCategory
@@ -92,6 +93,7 @@ public static class ClassRole
         Class.ARC or Class.BRD or Class.MCH or Class.DNC => ClassCategory.PhysRanged,
         Class.THM or Class.BLM or Class.ACN or Class.SMN or Class.RDM or Class.PCT => ClassCategory.Caster,
         Class.BLU => allowLimited ? ClassCategory.Limited : ClassCategory.Caster,
+        Class.BST => allowLimited ? ClassCategory.Limited : ClassCategory.Melee,
         _ => ClassCategory.Undefined
     };
 
@@ -100,7 +102,9 @@ public static class ClassRole
         ClassCategory.Tank => Role.Tank,
         ClassCategory.Healer => Role.Healer,
         ClassCategory.Melee => Role.Melee,
-        ClassCategory.PhysRanged or ClassCategory.Caster or ClassCategory.Limited => Role.Ranged,
+        ClassCategory.PhysRanged or ClassCategory.Caster => Role.Ranged,
+        _ when cls == Class.BLU => Role.Ranged,
+        _ when cls == Class.BST => Role.Melee,
         _ => Role.None
     };
     public static Role2 GetRole2(this Class cls) => cls.GetClassCategory() switch

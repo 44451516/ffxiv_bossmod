@@ -11,6 +11,7 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
     private readonly UITree _tree = new();
     private Lists _listsRaw;
     private readonly Dictionary<Replay.Encounter, Lists> _listsFiltered = [];
+    private DateTime _relativeTS;
 
     public void Draw()
     {
@@ -59,7 +60,8 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
         var tidType = moduleInfo?.TetherIDType;
         var iidType = moduleInfo?.IconIDType;
         var reference = filter?.Time.Start ?? r.Ops[0].Timestamp;
-        var tp = TimePrinter(reference);
+        var ts1 = ImGui.GetIO().KeyShift && _relativeTS != default ? _relativeTS : reference;
+        var tp = TimePrinter(ts1);
         var actions = filter != null ? r.EncounterActions(filter) : r.Actions;
         var statuses = filter != null ? r.EncounterStatuses(filter) : r.Statuses;
         var tethers = filter != null ? r.EncounterTethers(filter) : r.Tethers;
@@ -91,7 +93,7 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
             }
         }
 
-        bool haveActions = actions.Any();
+        var haveActions = actions.Any();
         bool actionIsCrap(Replay.Action a) => a.Source.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo || a.Source.AllyAt(a.Timestamp) || Service.LuminaRow<Lumina.Excel.Sheets.Action>(a.ID.ID)?.ActionCategory.RowId == 1;
         foreach (var n in _tree.Node("Interesting actions", !haveActions))
         {
@@ -102,7 +104,7 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
             DrawActions(actions.Where(actionIsCrap), tp, aidType);
         }
 
-        bool haveStatuses = statuses.Any();
+        var haveStatuses = statuses.Any();
         bool statusIsCrap(Replay.Status s) => s.Source?.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo || s.Target.Type is ActorType.Pet or ActorType.Chocobo;
         foreach (var n in _tree.Node("Interesting statuses", !haveStatuses))
         {
@@ -187,6 +189,10 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
             {
                 _tree.LeafNodes(p.EventState, r => $"{tp(r.Key)} = {r.Value}");
             }
+            foreach (var an in _tree.Node("模型状态", p.ModelState.Count == 0))
+            {
+                _tree.LeafNodes(p.ModelState, r => $"{tp(r.Key)} = {r.Value}");
+            }
             foreach (var an in _tree.Node("Action timeline events", p.ActionTimeline.Count == 0))
             {
                 _tree.LeafNodes(p.ActionTimeline, r => $"{tp(r.Key)} = {r.Value:X4}");
@@ -215,7 +221,7 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
 
     private void DrawActions(IEnumerable<Replay.Action> list, Func<DateTime, string> tp, Type? aidType)
     {
-        foreach (var a in _tree.Nodes(list, a => new(ActionString(a, tp, aidType), a.Targets.Count == 0)))
+        foreach (var a in _tree.Nodes(list, a => new(ActionString(a, tp, aidType), a.Targets.Count == 0), select: (a) => _relativeTS = a.Timestamp))
         {
             foreach (var t in _tree.Nodes(a.Targets, t => new(ReplayUtils.ActionTargetString(t, a.Timestamp))))
             {
@@ -272,7 +278,7 @@ class EventList(Replay r, Action<DateTime> scrollTo, PlanDatabase planDB, Replay
         if (ImGui.Button("Show timeline"))
             OpenTimeline(enc, new());
         ImGui.SameLine();
-        for (int i = 0; i < enc.PartyMembers.Count; i++)
+        for (var i = 0; i < enc.PartyMembers.Count; i++)
         {
             var (p, c, l) = enc.PartyMembers[i];
             if (ImGui.Button($"{c}{l} {p.NameHistory.FirstOrDefault().Value.name}"))

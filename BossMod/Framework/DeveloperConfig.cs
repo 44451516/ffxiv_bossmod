@@ -1,6 +1,6 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "开发者设置", Order = 9)]
+[ConfigDisplay(Name = "开发者设置", Order = 99, Group = "通用")]
 public sealed class DeveloperConfig : ConfigNode
 {
     [PropertyDisplay("模块包：源目录")]

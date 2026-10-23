@@ -1,0 +1,23 @@
+﻿namespace BossMod.Endwalker.Criterion.C03AAI.C031Ketuduke;
+
+class TidalRoar(BossModule module, AID aid) : Components.CastCounter(module, aid);
+class NTidalRoar(BossModule module) : TidalRoar(module, AID.NTidalRoarAOE);
+class STidalRoar(BossModule module) : TidalRoar(module, AID.STidalRoarAOE);
+
+class BubbleNet(BossModule module, AID aid) : Components.CastCounter(module, aid);
+class NBubbleNet1(BossModule module) : BubbleNet(module, AID.NBubbleNet1AOE);
+class SBubbleNet1(BossModule module) : BubbleNet(module, AID.SBubbleNet1AOE);
+class NBubbleNet2(BossModule module) : BubbleNet(module, AID.NBubbleNet2AOE);
+class SBubbleNet2(BossModule module) : BubbleNet(module, AID.SBubbleNet2AOE);
+
+class Hydrobomb(BossModule module, AID aid) : Components.StandardAOEs(module, aid, 5);
+class NHydrobomb(BossModule module) : Hydrobomb(module, AID.NHydrobombAOE);
+class SHydrobomb(BossModule module) : Hydrobomb(module, AID.SHydrobombAOE);
+
+public abstract class C031Ketuduke(ModuleInit init) : BossModule(init, new(0, 0), new ArenaBoundsSquare(20));
+
+[ModuleInfo(PrimaryActorOID = (uint)OID.NBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 979, NameID = 12605, SortOrder = 5, PlanLevel = 90)]
+public class C031NKetuduke(ModuleInit init) : C031Ketuduke(init);
+
+[ModuleInfo(PrimaryActorOID = (uint)OID.SBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 980, NameID = 12605, SortOrder = 5, PlanLevel = 90)]
+public class C031SKetuduke(ModuleInit init) : C031Ketuduke(init);

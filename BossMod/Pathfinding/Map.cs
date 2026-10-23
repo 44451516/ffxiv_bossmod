@@ -114,8 +114,8 @@ public class Map
     public WPos GridToWorld(int gx, int gy, float fx, float fy)
     {
         var rsq = Resolution * Resolution; // since we then multiply by _localZDivRes, end result is same as * res * rotation.ToDir()
-        float ax = (gx - Width / 2 + fx) * rsq;
-        float az = (gy - Height / 2 + fy) * rsq;
+        var ax = (gx - Width / 2 + fx) * rsq;
+        var az = (gy - Height / 2 + fy) * rsq;
         return Center + ax * LocalZDivRes.OrthoL() + az * LocalZDivRes;
     }
 
@@ -135,13 +135,13 @@ public class Map
 
 #pragma warning disable IDE0060 // TODO: mark all pixels in radius as portal source
     public void AddPortal(WPos from, float radius, WPos to)
-#pragma warning restore IDE0060
     {
         var a = GridToIndex(WorldToGrid(from));
         var b = GridToIndex(WorldToGrid(to));
         Portals.TryAdd(a, []);
         Portals[a].Add(b);
     }
+#pragma warning restore IDE0060
 
     public IEnumerable<(int x, int y, WPos center)> EnumeratePixels()
     {
@@ -149,10 +149,10 @@ public class Map
         var dx = LocalZDivRes.OrthoL() * rsq;
         var dy = LocalZDivRes * rsq;
         var cy = Center + (-Width / 2 + 0.5f) * dx + (-Height / 2 + 0.5f) * dy;
-        for (int y = 0; y < Height; y++)
+        for (var y = 0; y < Height; y++)
         {
             var cx = cy;
-            for (int x = 0; x < Width; ++x)
+            for (var x = 0; x < Width; ++x)
             {
                 yield return (x, y, cx);
                 cx += dx;
@@ -161,18 +161,29 @@ public class Map
         }
     }
 
+    public IEnumerable<(int iCell, int x, int y, WPos point)> EnumerateGrid()
+    {
+        var dy = LocalZDivRes * Resolution * Resolution;
+        var dx = dy.OrthoL();
+        var cy = Center - Width / 2 * dx - Height / 2 * dy;
+
+        for (var y = 0; y <= Height; y++)
+            for (var x = 0; x <= Width; x++)
+                yield return (y * (Width + 1) + x, x, y, cy + x * dx + y * dy);
+    }
+
     // enumerate pixels along line starting from (x1, y1) to (x2, y2); first is not returned, last is returned
     public IEnumerable<(int x, int y)> EnumeratePixelsInLine(int x1, int y1, int x2, int y2)
     {
-        int dx = x2 - x1;
-        int dy = y2 - y1;
-        int sx = dx > 0 ? 1 : -1;
-        int sy = dy > 0 ? 1 : -1;
+        var dx = x2 - x1;
+        var dy = y2 - y1;
+        var sx = dx > 0 ? 1 : -1;
+        var sy = dy > 0 ? 1 : -1;
         dx = Math.Abs(dx);
         dy = Math.Abs(dy);
         if (dx >= dy)
         {
-            int err = 2 * dy - dx;
+            var err = 2 * dy - dx;
             do
             {
                 x1 += sx;
@@ -189,7 +200,7 @@ public class Map
         }
         else
         {
-            int err = 2 * dx - dy;
+            var err = 2 * dx - dy;
             do
             {
                 y1 += sy;

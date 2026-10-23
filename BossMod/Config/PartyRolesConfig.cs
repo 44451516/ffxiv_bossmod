@@ -1,9 +1,10 @@
-﻿using Dalamud.Bindings.ImGui;
+﻿using BossMod.Autorotation;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 
 namespace BossMod;
 
-[ConfigDisplay(Name = "队伍位置分配(打高难最好设置一下)M1/D1,M2/D2,R1/D3,R2/D4", Order = 2)]
+[ConfigDisplay(Name = "队伍位置分配(打高难最好设置一下)M1/D1,M2/D2,R1/D3,R2/D4", Order = 2, Group = "通用")]
 public class PartyRolesConfig : ConfigNode
 {
     public enum Assignment { MT, OT, H1, H2, M1, M2, R1, R2, Unassigned }
@@ -15,9 +16,9 @@ public class PartyRolesConfig : ConfigNode
     // return either array of assigned roles per party slot (if each role is assigned exactly once) or empty array (if assignments are invalid)
     public Assignment[] AssignmentsPerSlot(PartyState party)
     {
-        int[] counts = new int[(int)Assignment.Unassigned];
-        Assignment[] res = Utils.MakeArray(PartyState.MaxPartySize, Assignment.Unassigned);
-        for (int i = 0; i < PartyState.MaxPartySize; ++i)
+        var counts = new int[(int)Assignment.Unassigned];
+        var res = Utils.MakeArray(PartyState.MaxPartySize, Assignment.Unassigned);
+        for (var i = 0; i < PartyState.MaxPartySize; ++i)
         {
             var r = this[party.Members[i].ContentId];
             if (r == Assignment.Unassigned)
@@ -32,8 +33,8 @@ public class PartyRolesConfig : ConfigNode
     // return either array of party slots per assigned role (if each role is assigned exactly once) or empty array (if assignments are invalid)
     public int[] SlotsPerAssignment(PartyState party)
     {
-        int[] res = Utils.MakeArray((int)Assignment.Unassigned, PartyState.MaxPartySize);
-        for (int i = 0; i < PartyState.MaxPartySize; ++i)
+        var res = Utils.MakeArray((int)Assignment.Unassigned, PartyState.MaxPartySize);
+        for (var i = 0; i < PartyState.MaxPartySize; ++i)
         {
             var r = this[party.Members[i].ContentId];
             if (r == Assignment.Unassigned)
@@ -49,7 +50,7 @@ public class PartyRolesConfig : ConfigNode
     public Role[] EffectiveRolePerSlot(PartyState party)
     {
         var res = new Role[PartyState.MaxPartySize];
-        for (int i = 0; i < PartyState.MaxPartySize; ++i)
+        for (var i = 0; i < PartyState.MaxPartySize; ++i)
         {
             res[i] = this[party.Members[i].ContentId] switch
             {
@@ -65,7 +66,7 @@ public class PartyRolesConfig : ConfigNode
 
     record struct PartyMember(ulong CID, string Name, Class Class, Assignment Assignment);
 
-    public override void DrawCustom(UITree tree, WorldState ws)
+    public override void DrawCustom(UITree tree, WorldState ws, RotationDatabase? db)
     {
         List<PartyMember> party = [];
         using (var table = ImRaii.Table("tab2", 10, ImGuiTableFlags.SizingFixedFit))
@@ -77,7 +78,7 @@ public class PartyRolesConfig : ConfigNode
                 ImGui.TableSetupColumn("名称");
                 ImGui.TableHeadersRow();
 
-                for (int i = 0; i < PartyState.MaxPartySize; ++i)
+                for (var i = 0; i < PartyState.MaxPartySize; ++i)
                 {
                     ref var m = ref ws.Party.Members[i];
                     if (m.IsValid())
@@ -118,7 +119,7 @@ public class PartyRolesConfig : ConfigNode
         }
 
         using var _ = ImRaii.Disabled(party.Count != 8);
-        if (ImGui.Button("Auto-assign slots"))
+        if (ImGui.Button("自动分配位置"))
             TryAutoAssign(party);
     }
 

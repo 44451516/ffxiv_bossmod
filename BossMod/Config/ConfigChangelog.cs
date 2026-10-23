@@ -19,7 +19,7 @@ abstract class ChangelogNotice
     {
         ImGui.Bullet();
         ImGui.SameLine();
-        ImGui.TextWrapped(txt);
+        ImGui.TextUnformatted(txt);
     }
 }
 
@@ -77,10 +77,10 @@ class AIMigrationNotice2 : ChangelogNotice
     public override void Draw()
     {
         var link = "https://github.com/awgil/ffxiv_bossmod/wiki/AI-Migration-guide";
-        ImGui.TextWrapped("Legacy AI has been replaced by VBM AI.");
-        Bullet("If you're a legacy AI user, you don't need to do anything! The existing AI interface has been retained for compatibility.");
-        Bullet($"For more information, see {link}.");
-        if (ImGui.Button("Open wiki"))
+        ImGui.TextUnformatted("旧版 AI 已被 VBM AI 取代。");
+        Bullet("如果你是旧版 AI 用户，无需进行任何操作！为兼容起见，现有的 AI 界面已保留。");
+        Bullet($"更多信息请参阅 {link}。");
+        if (ImGui.Button("打开 wiki"))
         {
             try
             {
@@ -100,7 +100,9 @@ class SmartRotationNotice : ChangelogNotice
 
     public override void Draw()
     {
-        ImGui.TextWrapped("'Smart character orientation' has been changed to be enabled by default. You can disable it in Settings -> Action Tweaks.");
+        ImGui.TextUnformatted("智能角色朝向");
+        ImGui.SameLine();
+        ImGui.TextUnformatted("现已默认启用。你可以在“设置 -> 技能调整”中禁用它。");
     }
 }
 
@@ -114,20 +116,20 @@ class ArenaScaleNotice : ChangelogNotice
     public override void Draw()
     {
         var scale = ImGuiHelpers.GlobalScale;
-        ImGui.TextWrapped("The VBM radar now respects your global Dalamud UI scale.");
+        ImGui.TextUnformatted("VBM 雷达现在会遵循你的 Dalamud 全局界面缩放。");
         if (scale == 1)
         {
-            ImGui.TextWrapped("You're using a global scale of 100%, so this won't change anything.");
+            ImGui.TextUnformatted("你当前的全局缩放为 100%，因此不会有任何变化。");
         }
         else if (_adjusted)
         {
-            ImGui.Text("Settings have been saved.");
+            ImGui.Text("设置已保存。");
         }
         else
         {
-            ImGui.TextWrapped($"Your saved radar scale was {_bmc.ArenaScale:f2}, which is now {_bmc.ArenaScale * scale:f2} when global scaling is applied.");
-            ImGui.TextWrapped($"For the radar to be the same size as it was before this update, you should set it to {_bmc.ArenaScale / scale:f2}.");
-            if (ImGui.Button("Set it for me"))
+            ImGui.TextUnformatted($"你保存的雷达缩放为 {_bmc.ArenaScale:f2}，应用全局缩放后现在为 {_bmc.ArenaScale * scale:f2}。");
+            ImGui.TextUnformatted($"若要让雷达大小与本次更新前保持一致，应将其设置为 {_bmc.ArenaScale / scale:f2}。");
+            if (ImGui.Button("自动设置"))
             {
                 _bmc.ArenaScale /= scale;
                 _bmc.Modified.Fire();
@@ -143,47 +145,88 @@ class MacroNotice : ChangelogNotice
 
     public override void Draw()
     {
-        ImGui.Text("You can now use");
+        ImGui.Text("现在可以在宏中使用");
         ImGui.SameLine();
-        using (ImRaii.PushFont(Service.MonoFont))
+        using (ImRaii.PushFont(Service.UiBuilder.FontMono))
             ImGui.Text("/vbm macro");
         ImGui.SameLine();
-        ImGui.Text("in your macros to enable custom queueing for the duration of the macro.");
+        ImGui.Text("，以便在宏执行期间启用自定义排队。");
+    }
+}
+
+class DtrNotice : ChangelogNotice
+{
+    public override Version Since => new(7, 5, 6, 22);
+
+    public override void Draw()
+    {
+        ImGui.TextUnformatted("服务器信息栏设置已移动，现在在“设置”标签页中拥有独立的分组。");
+        ImGui.TextUnformatted("现在可以单独配置要显示在信息栏中的预设。配置完成后，单击预设名称即可开启或关闭，右键单击则会打开包含更多选项的上下文菜单。");
     }
 }
 
 public class ConfigChangelogWindow : UIWindow
 {
-    private readonly Version PreviousVersion;
+    public Version PreviousVersion
+    {
+        get;
+        private set
+        {
+            field = value;
+            _versionText = value.ToString();
+            CalculateStuff();
+        }
+    }
     private readonly List<VersionedField> Fields = [];
     private readonly List<ChangelogNotice> Notices = [];
 
     private int StuffCount => Fields.Count + Notices.Count;
 
-    public ConfigChangelogWindow() : base("VBM 更新日志", true, new(400, 300))
-    {
-        PreviousVersion = GetPreviousPluginVersion();
-        Service.Config.AssemblyVersion = GetCurrentPluginVersion();
-        if (Service.Config.AssemblyVersion != PreviousVersion)
-        {
-            Service.Config.Modified.Fire();
-            Fields = [.. GetAllFields().Where(f => f.AddedVersion > PreviousVersion)];
-            Notices = [.. GetNotices().Where(f => f.Since > PreviousVersion)];
-        }
+    string _versionText = "";
+    string _versionErr = "";
 
-        if (StuffCount == 0)
-        {
-            // nothing interesting to show...
-            IsOpen = false;
-            Dispose();
-        }
+    public ConfigChangelogWindow() : base("VBM 更新日志", false, new(400, 300))
+    {
+        PreviousVersion = Service.Config.PreviousAssemblyVersion;
+        IsOpen = StuffCount > 0;
+    }
+
+    void CalculateStuff()
+    {
+        Fields.Clear();
+        Notices.Clear();
+        Fields.AddRange(GetAllFields().Where(f => f.AddedVersion > PreviousVersion));
+        Notices.AddRange(GetNotices().Where(f => f.Since > PreviousVersion));
     }
 
     public override void Draw()
     {
+        ImGui.AlignTextToFramePadding();
+        ImGui.Text("显示以下版本之后的变更：");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
+        if (ImGui.InputText("###changes", ref _versionText))
+        {
+            if (Version.TryParse(_versionText, out var res))
+            {
+                PreviousVersion = res;
+                _versionErr = "";
+            }
+            else
+                _versionErr = "请输入版本号（由点分隔的 2 到 4 位数字）。";
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("显示全部"))
+            PreviousVersion = new(0, 0, 0, 0);
+
+        if (_versionErr.Length > 0)
+            ImGui.Text(_versionErr);
+
         ImGui.TextUnformatted($"自版本 {PreviousVersion} 以来新增了以下配置选项：");
 
         ImGui.Separator();
+
+        using var _ = ImRaii.TextWrapPos(0);
 
         Action? postIteration = null;
 
@@ -206,9 +249,10 @@ public class ConfigChangelogWindow : UIWindow
 
                 var disp = f.FieldInfo.GetCustomAttribute<PropertyDisplayAttribute>();
 
+                ImGui.AlignTextToFramePadding();
                 ImGui.Bullet();
                 if (!string.IsNullOrEmpty(disp?.Tooltip))
-                    UIMisc.HelpMarker(disp!.Tooltip);
+                    UIMisc.HelpMarker(disp.Tooltip);
                 ImGui.SameLine();
                 ImGui.TextUnformatted(disp?.Label ?? "未知");
                 ImGui.SameLine();
@@ -219,6 +263,10 @@ public class ConfigChangelogWindow : UIWindow
                     postIteration += () => SetOption(f, false);
             }
         }
+
+        if (StuffCount == 0)
+            ImGui.TextUnformatted($"自版本 {PreviousVersion} 以来没有变更。");
+
         postIteration?.Invoke();
     }
 
@@ -232,8 +280,6 @@ public class ConfigChangelogWindow : UIWindow
     private void SetOption(VersionedField field, bool value)
     {
         field.FieldInfo.SetValue(field.Node, value);
-        Service.Config.Modified.Fire();
-
         Fields.Remove(field);
         if (StuffCount == 0)
             IsOpen = false;
@@ -243,18 +289,18 @@ public class ConfigChangelogWindow : UIWindow
     {
         foreach (var n in Service.Config.Nodes)
         {
-            var sinceNode = n.GetType().GetCustomAttribute<ConfigDisplayAttribute>()?.Since;
+            var sinceNode = n.GetCustomAttribute<ConfigDisplayAttribute>()?.Since;
 
-            foreach (var f in n.GetType().GetFields())
+            foreach (var f in n.GetFields())
             {
                 // i don't feel like supporting non bool fields
                 if (f.FieldType != typeof(bool))
                     continue;
 
                 if (sinceNode != null)
-                    yield return new(n, f, Version.Parse(sinceNode));
+                    yield return new(Service.Config.Get<ConfigNode>(n), f, Version.Parse(sinceNode));
                 else if (f.GetCustomAttribute<PropertyDisplayAttribute>()?.Since is string sinceVersion)
-                    yield return new(n, f, Version.Parse(sinceVersion));
+                    yield return new(Service.Config.Get<ConfigNode>(n), f, Version.Parse(sinceVersion));
             }
         }
     }
@@ -267,19 +313,5 @@ public class ConfigChangelogWindow : UIWindow
             if (inst != null)
                 yield return (ChangelogNotice)inst;
         }
-    }
-
-    public static Version GetCurrentPluginVersion()
-    {
-        return Assembly.GetExecutingAssembly().GetName().Version!;
-    }
-
-#pragma warning disable CA1024 // Use properties where appropriate
-    public static Version GetPreviousPluginVersion()
-    {
-        // uncomment to test changelog
-        //return new(7, 5, 1, 0);
-
-        return Service.Config.AssemblyVersion;
     }
 }

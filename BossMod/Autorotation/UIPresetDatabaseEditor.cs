@@ -1,4 +1,5 @@
-﻿using Dalamud.Bindings.ImGui;
+﻿using BossMod.Config;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using System.IO;
 using System.Text.Json;
@@ -132,10 +133,22 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
             ImportNewPresetFromClipboard();
     }
 
+    public void SelectPresetByName(string name)
+    {
+        var defaultPresets = !_cfg.HideDefaultPreset;
+        var presets = defaultPresets ? PresetDB.DefaultPresets : PresetDB.UserPresets;
+        var ix = presets.FindIndex(p => p.Name == name);
+        if (ix >= 0)
+        {
+            _pendingSelectPresetIndex = ix;
+            _pendingSelectPresetDefault = defaultPresets;
+        }
+    }
+
     private void DrawPresetListElements(bool defaultPresets)
     {
         var presets = defaultPresets ? PresetDB.DefaultPresets : PresetDB.UserPresets;
-        for (int i = 0; i < presets.Count; ++i)
+        for (var i = 0; i < presets.Count; ++i)
         {
             var preset = presets[i];
             if (ImGui.Selectable(preset.Name, _selectedPresetDefault == defaultPresets && _selectedPresetIndex == i))
@@ -252,22 +265,24 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
             if (json?.AsObject()?.TryGetPropertyValue("payload", out var obj) == true)
                 json = obj;
 
+            if (json?.AsObject()?.TryGetPropertyValue("multi", out var exportMulti) == true && exportMulti?.AsValue().GetValue<bool>() == true)
+            {
+                var plansJson = json!.AsObject()!["plans"]!.AsArray()!;
+                var plans = plansJson.Select(p => DecodePlan(p!, finfo)).ToList();
+
+                _ = new MultiImport(rotationDB, plans);
+
+                return;
+            }
+
             // let users import encounter-specific plans from here for convenience
             if (json?.AsObject()?.ContainsKey("Encounter") == true)
             {
-                foreach (var conv in PlanPresetConverter.PlanSchema.Converters)
-                    json = conv(json, 0, finfo);
-
-                var plan = JsonSerializer.Deserialize<Plan>(json, Serialization.BuildSerializationOptions())!;
-                plan.Guid = Guid.NewGuid().ToString();
+                var plan = DecodePlan(json, finfo);
 
                 rotationDB.Plans.ModifyPlan(null, plan);
 
-                Service.Notifications.AddNotification(new()
-                {
-                    Content = $"已导入 L{plan.Level} {plan.Class} 的计划 '{plan.Name}'"
-                });
-
+                Service.ShowNotification($"已导入 L{plan.Level} {plan.Class} 的计划 '{plan.Name}'");
                 return;
             }
 
@@ -283,13 +298,19 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
         }
         catch (Exception ex)
         {
-            Service.Logger.Warning(ex, $"Failed to parse preset");
-            Service.Notifications.AddNotification(new()
-            {
-                Title = "导入预设时出错",
-                Content = ex.Message,
-                Type = Dalamud.Interface.ImGuiNotification.NotificationType.Warning
-            });
+            Service.PluginLog.Warning(ex, $"Failed to parse preset");
+            Service.ShowNotification(ex.Message, "导入预设时出错", Dalamud.Interface.ImGuiNotification.NotificationType.Warning);
         }
+    }
+
+    private Plan DecodePlan(JsonNode json, FileInfo finfo)
+    {
+        foreach (var conv in PlanPresetConverter.PlanSchema.Converters)
+            json = conv(json, 0, finfo);
+
+        var plan = JsonSerializer.Deserialize<Plan>(json, Serialization.BuildSerializationOptions())!;
+        plan.Guid = Guid.NewGuid().ToString();
+
+        return plan;
     }
 }

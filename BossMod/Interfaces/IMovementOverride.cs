@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Services;
 
-public interface IMovementOverride : IDisposable
+public interface IMovementOverride
 {
     bool IsMoving();
     bool IsMoveRequested();
@@ -9,6 +9,9 @@ public interface IMovementOverride : IDisposable
     Vector3? DesiredDirection { get; set; }
     Angle MisdirectionThreshold { get; set; }
     Angle? DesiredSpinDirection { get; set; }
+
+    WDir UserMove { get; }
+    WDir ActualMove { get; }
 }
 
 internal sealed class MockMovementOverride : IMovementOverride
@@ -21,5 +24,6 @@ internal sealed class MockMovementOverride : IMovementOverride
     public Angle MisdirectionThreshold { get; set; }
     public Angle? DesiredSpinDirection { get; set; }
 
-    public void Dispose() { }
+    public WDir UserMove => default;
+    public WDir ActualMove => default;
 }

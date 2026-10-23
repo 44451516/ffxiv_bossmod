@@ -1,14 +1,8 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Parent = typeof(ActionTweaksConfig))]
+[ConfigDisplay(Parent = typeof(ActionTweaksConfig), Group = "职业专属")]
 class PLDConfig : ConfigNode
 {
-    [PropertyDisplay("防止在开战前过早使用'圣灵'")]
-    public bool ForbidEarlyHolySpirit = true;
-
-    [PropertyDisplay("防止在开战前过早使用'投盾'（如果未解锁圣灵）")]
-    public bool ForbidEarlyShieldLob = true;
-
     public enum WingsBehavior : uint
     {
         [PropertyDisplay("游戏默认（角色相对，向后）")]

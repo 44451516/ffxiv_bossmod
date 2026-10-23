@@ -1,8 +1,9 @@
 namespace BossMod;
 
-[ConfigDisplay(Name = "配色方案", Order = -1)]
+[ConfigDisplay(Name = "配色方案", Order = -1, Group = "通用")]
 public sealed class ColorConfig : ConfigNode
 {
+    [PageStart("竞技场")]
     [PropertyDisplay("竞技场：背景")]
     public Color ArenaBackground = new(0xc00f0f0f);
 
@@ -64,10 +65,11 @@ public sealed class ColorConfig : ConfigNode
     [PropertyDisplay("竞技场：通用/无关焦点目标")]
     public Color ArenaPlayerGenericFocus = Color.FromComponents(0, 255, 255);
 
-    [PropertyDisplay("规划器：背景")]
+    [PropertyDisplay("竞技场：近战范围指示")]
     public Color ArenaMeleeRing = Color.FromComponents(255, 255, 255, 128);
 
-    [PropertyDisplay("Planner: background")]
+    [PageStart("规划器")]
+    [PropertyDisplay("规划器：背景")]
     public Color PlannerBackground = new(0x80362b00); // solarized base03; old: 0x40404040
 
     [PropertyDisplay("规划器：背景高亮")]

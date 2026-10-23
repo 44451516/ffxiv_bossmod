@@ -9,39 +9,12 @@ using Lumina.Data.Files;
 
 namespace BossMod.ReplayVisualization;
 
-internal class GaugeVisualizer
+public sealed class GaugeVisualizer(IFontAtlas fontAtlas) : IDisposable
 {
-    private static GaugeVisualizer? _instance;
 
-    public static GaugeVisualizer Instance()
-    {
-        _instance ??= new();
-        return _instance;
-    }
-
-    public static void Dispose()
-    {
-        _instance?.DisposeInstance();
-        _instance = null;
-    }
-
-    void DisposeInstance()
-    {
-        foreach (var t in _tex.Values)
-            t.Dispose();
-
-        _tex.Clear();
-        GaugeFont.Dispose();
-    }
-
-    readonly IFontHandle GaugeFont;
+    readonly IFontHandle GaugeFont = fontAtlas.NewGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.MiedingerMid18));
 
     readonly Dictionary<string, IDalamudTextureWrap> _tex = [];
-
-    private GaugeVisualizer()
-    {
-        GaugeFont = Service.FontAtlas.NewGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.MiedingerMid18));
-    }
 
     public void Draw(Actor player, ClientState clientState)
     {
@@ -52,6 +25,9 @@ internal class GaugeVisualizer
                 break;
             case Class.DRK:
                 DrawDRK(player, clientState);
+                break;
+            case Class.SCH:
+                DrawSCH(player, clientState);
                 break;
             case Class.MNK:
                 DrawMNK(player, clientState);
@@ -193,6 +169,16 @@ internal class GaugeVisualizer
         }
     }
 
+    private void DrawSCH(Actor player, ClientState clientState)
+    {
+        var gauge = clientState.GetGauge<ScholarGauge>();
+        var origin = ImGui.GetCursorPos();
+
+        DrawDiamond(origin, "sch_aetherflow", gauge.Aetherflow > 0, [-50, 100, 0]);
+        DrawDiamond(origin + Scale(19, 0), "sch_aetherflow", gauge.Aetherflow > 1, [-50, 100, 0]);
+        DrawDiamond(origin + Scale(38, 0), "sch_aetherflow", gauge.Aetherflow > 2, [-50, 100, 0]);
+    }
+
     private void DrawMNK(Actor player, ClientState clientState)
     {
         var gauge = clientState.GetGauge<MonkGauge>();
@@ -204,9 +190,9 @@ internal class GaugeVisualizer
         // beast chakra
         ImGui.Image(wrap.Handle, Scale(114, 48), new Vector2(0, 0.4602f), new Vector2(0.2767f, 0.6726f));
 
-        void drawChakra(int num)
+        void drawChakra(int num, BeastChakraType bt)
         {
-            switch (gauge.BeastChakra[num])
+            switch (bt)
             {
                 case BeastChakraType.OpoOpo:
                     ImGui.SetCursorPos(origin + Scale(8 + 30 * num, 8));
@@ -223,9 +209,9 @@ internal class GaugeVisualizer
             }
         }
 
-        drawChakra(0);
-        drawChakra(1);
-        drawChakra(2);
+        drawChakra(0, gauge.BeastChakra1);
+        drawChakra(1, gauge.BeastChakra2);
+        drawChakra(2, gauge.BeastChakra3);
 
         // nadis
         ImGui.SetCursorPos(origin + Scale(100, 11));
@@ -264,16 +250,16 @@ internal class GaugeVisualizer
         for (var i = 0; i < 5; i++)
         {
             ImGui.SetCursorPos(origin + Scale(i * 18, 75));
-            ImGui.Image(chevron.Handle, new Vector2(32, 32), new Vector2(0, 0), new Vector2(0.5f, 0.5f));
+            ImGui.Image(chevron.Handle, Scale(32, 32), new Vector2(0, 0), new Vector2(0.5f, 0.5f));
             if (gauge.Chakra > i)
             {
                 ImGui.SetCursorPos(origin + Scale(i * 18, 75));
-                ImGui.Image(chevronLit.Handle, new Vector2(32, 32), new Vector2(0.5f, 0), new Vector2(1, 0.5f));
+                ImGui.Image(chevronLit.Handle, Scale(32, 32), new Vector2(0.5f, 0), new Vector2(1, 0.5f));
             }
             if (gauge.Chakra > i + 5)
             {
                 ImGui.SetCursorPos(origin + Scale(i * 18, 75));
-                ImGui.Image(chevronOvercap.Handle, new Vector2(32, 32), new Vector2(0.5f, 0), new Vector2(1, 0.5f));
+                ImGui.Image(chevronOvercap.Handle, Scale(32, 32), new Vector2(0.5f, 0), new Vector2(1, 0.5f));
             }
         }
     }
@@ -350,5 +336,14 @@ internal class GaugeVisualizer
                 ImGui.Image(chevronLit.Handle, new Vector2(32, 32), new Vector2(0.5f, 0), new Vector2(1, 0.5f));
             }
         }
+    }
+
+    void IDisposable.Dispose()
+    {
+        foreach (var t in _tex.Values)
+            t.Dispose();
+
+        _tex.Clear();
+        GaugeFont.Dispose();
     }
 }

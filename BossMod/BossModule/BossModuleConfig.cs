@@ -2,7 +2,7 @@
 
 namespace BossMod;
 
-[ConfigDisplay(Name = "BOSS模块与雷达", Order = 1)]
+[ConfigDisplay(Name = "BOSS模块与雷达", Order = 1, Group = "雷达与模块")]
 public class BossModuleConfig : ConfigNode
 {
     public enum RadarCloseBehavior
@@ -34,7 +34,7 @@ public class BossModuleConfig : ConfigNode
     public bool EnableDummyModule = false;
 
     // radar window settings
-    [SectionStart]
+    [PageStart("雷达窗口")]
     [PropertyDisplay("启用雷达")]
     public bool Enable = true;
 
@@ -54,20 +54,20 @@ public class BossModuleConfig : ConfigNode
     public bool ShowOutlinesAndShadows = false;
 
     [PropertyDisplay("雷达战斗区域缩放比例", tooltip: "雷达窗口内战斗区域的缩放大小")]
-    [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
+    [PropertySlider(0.1f, 10, Logarithmic = true)]
     public float ArenaScale = 1;
 
     public float EffectiveArenaScale => ImGuiHelpers.GlobalScale * ArenaScale;
 
     [PropertyDisplay("雷达元素线条粗细缩放比例", tooltip: "全局调整雷达元素的轮廓线条粗细")]
-    [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
+    [PropertySlider(0.1f, 10, Logarithmic = true)]
     public float ThicknessScale = 1;
 
     [PropertyDisplay("角色指示器大小随战斗区域缩放", tooltip: "禁用后，角色三角指示器（玩家和敌人）会始终按相同大小绘制，不受战斗区域大小影响。\r\n指示器大小始终会受到全局战斗区域缩放比例影响。", since: "7.5.5.4")]
     public bool ActorDynamicScale = true;
 
     [PropertyDisplay("角色指示器缩放比例", since: "7.5.5.4")]
-    [PropertySlider(0.1f, 10, Speed = 0.1f, Logarithmic = true)]
+    [PropertySlider(0.1f, 10, Logarithmic = true)]
     public float ActorScale = 1;
 
     [PropertyDisplay("雷达随镜头朝向旋转")]
@@ -76,6 +76,7 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("为旋转预留额外空间", tooltip: "启用上述设置后，为雷达侧边增加空间，避免战斗中旋转镜头时边缘被裁剪")]
     public bool AddSlackForRotations = true;
 
+    [PageStart("雷达内容")]
     [PropertyDisplay("显示雷达战斗区域边框")]
     public bool ShowBorder = true;
 
@@ -89,7 +90,7 @@ public class BossModuleConfig : ConfigNode
     public bool HighlightN = false;
 
     [PropertyDisplay("方位名称字体大小")]
-    [PropertySlider(0.1f, 100, Speed = 1)]
+    [PropertySlider(0.1f, 100)]
     public float CardinalsFontSize = 17;
 
     [PropertyDisplay("在雷达上显示场地标记")]
@@ -110,15 +111,20 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("允许在雷达上绘制非队友玩家", tooltip: "该选项仅对部分内容生效，如探索任务", depends: nameof(ShowIrrelevantPlayers))]
     public bool ShowAllPlayers = true;
 
+    [PropertyDisplay("在雷达上绘制宠物")]
+    public bool ShowPet = false;
+
     [PropertyDisplay("雷达中无特殊颜色标记的玩家按职业职责显示颜色")]
     public bool ColorPlayersBasedOnRole = false;
 
     [PropertyDisplay("始终显示焦点目标队友")]
     public bool ShowFocusTargetPlayer = false;
 
-    // 提示窗口设置
+    [PropertyDisplay("显示预测的怪物移动（基于仇恨与拉怪距离）")]
+    public bool ShowPullDebug = false;
 
-    [SectionStart]
+    // hint window settings
+    [PageStart("文字提示")]
     [PropertyDisplay("在独立窗口显示文字提示", tooltip: "将雷达窗口与提示窗口分离，可单独调整提示窗口位置")]
     public bool HintsInSeparateWindow = false;
 
@@ -139,8 +145,8 @@ public class BossModuleConfig : ConfigNode
 
 
     // misc. settings
-    [SectionStart]
-    [PropertyDisplay("在游戏场景中显示移动指引", tooltip:  "该功能使用频率不高，会在场景内显示箭头，提示特定机制下的移动位置")]
+    [PageStart("场景提示")]
+    [PropertyDisplay("在游戏场景中显示移动指引", tooltip: "该功能使用频率不高，会在场景内显示箭头，提示特定机制下的移动位置")]
     public bool ShowWorldArrows = false;
     public List<string> DisabledModules = [];
     public List<BossModuleInfo.Category> DisabledCategories = [];

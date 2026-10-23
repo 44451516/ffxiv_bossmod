@@ -1,5 +1,5 @@
-﻿using Dalamud.Interface.Utility.Raii;
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using static BossMod.BossModuleConfig;
 
 namespace BossMod;
@@ -8,13 +8,15 @@ public class BossModuleMainWindow : UIWindow
 {
     private readonly BossModuleManager _mgr;
     private readonly ZoneModuleManager _zmm;
+    private readonly AIHints _hints;
 
     private const string _windowID = "###Boss module";
 
-    public BossModuleMainWindow(BossModuleManager mgr, ZoneModuleManager zmm) : base(_windowID, false, new(400, 400))
+    public BossModuleMainWindow(BossModuleManager mgr, ZoneModuleManager zmm, AIHints hints) : base(_windowID, false, new(400, 400))
     {
         _mgr = mgr;
         _zmm = zmm;
+        _hints = hints;
         RespectCloseHotkey = false;
     }
 
@@ -23,7 +25,7 @@ public class BossModuleMainWindow : UIWindow
         var showZoneModule = ShowZoneModule();
         IsOpen = _mgr.Config.Enable && (_mgr.LoadedModules.Count > 0 || showZoneModule);
         ShowCloseButton = _mgr.ActiveModule != null && !showZoneModule;
-        WindowName = (showZoneModule ? $"Zone module ({_zmm.ActiveModule?.GetType().Name})" : _mgr.ActiveModule != null ? $"Boss module ({_mgr.ActiveModule.GetType().Name})" : "Loaded boss modules") + _windowID;
+        WindowName = (showZoneModule ? $"区域模块 ({_zmm.ActiveModule?.GetType().Name})" : _mgr.ActiveModule != null ? ModuleTitle(_mgr.ActiveModule) : "已加载的首领模块") + _windowID;
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
         if (_mgr.Config.TrishaMode)
             Flags |= ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoBackground;
@@ -33,6 +35,32 @@ public class BossModuleMainWindow : UIWindow
 
         if (_mgr.Config.ShowWorldArrows && _mgr.ActiveModule != null && _mgr.WorldState.Party[PartyState.PlayerSlot] is var pc && pc != null)
             DrawMovementHints(_mgr.ActiveModule.CalculateMovementHintsForRaidMember(PartyState.PlayerSlot, pc), pc.PosRot.Y);
+    }
+
+    private readonly Dictionary<Type, string> _titles = [];
+
+    private string ModuleTitle(BossModule module)
+    {
+        var type = module.GetType();
+        if (_titles.TryGetValue(type, out var title))
+            return title;
+
+        title = type.Name;
+        if (module.Info is { } info)
+        {
+            try
+            {
+                if (info.NameID != 0)
+                    title = ModuleViewer.BNpcName(info.NameID);
+            }
+            catch (Exception ex)
+            {
+                Service.Log($"[BMM] Failed to get boss name for {type}: {ex.Message}");
+            }
+            if (info.Incomplete)
+                title += " [开发中]";
+        }
+        return _titles[type] = title;
     }
 
     public override void OnOpen()
@@ -107,7 +135,7 @@ public class BossModuleMainWindow : UIWindow
         {
             try
             {
-                _mgr.ActiveModule.Draw(_mgr.Config.RotateArena ? _mgr.WorldState.Client.CameraAzimuth : default, PartyState.PlayerSlot, !_mgr.Config.HintsInSeparateWindow, true);
+                _mgr.ActiveModule.Draw(_mgr.Config.RotateArena ? _mgr.WorldState.Client.CameraAzimuth : default, PartyState.PlayerSlot, !_mgr.Config.HintsInSeparateWindow, true, _hints);
             }
             catch (Exception ex)
             {
@@ -119,19 +147,19 @@ public class BossModuleMainWindow : UIWindow
 
     private void DrawMovementHints(BossComponent.MovementHints? arrows, float y)
     {
-        if (arrows == null || arrows.Count == 0 || Camera.Instance == null)
+        if (arrows == null || arrows.Count == 0)
             return;
 
-        foreach ((var start, var end, uint color) in arrows)
+        foreach ((var start, var end, var color) in arrows)
         {
-            Vector3 start3 = start.ToVec3(y);
-            Vector3 end3 = end.ToVec3(y);
-            Camera.Instance.DrawWorldLine(start3, end3, color);
+            var start3 = start.ToVec3(y);
+            var end3 = end.ToVec3(y);
+            Service.Camera.DrawWorldLine(start3, end3, color);
             var dir = Vector3.Normalize(end3 - start3);
             var arrowStart = end3 - 0.4f * dir;
             var offset = 0.07f * Vector3.Normalize(Vector3.Cross(Vector3.UnitY, dir));
-            Camera.Instance.DrawWorldLine(arrowStart + offset, end3, color);
-            Camera.Instance.DrawWorldLine(arrowStart - offset, end3, color);
+            Service.Camera.DrawWorldLine(arrowStart + offset, end3, color);
+            Service.Camera.DrawWorldLine(arrowStart - offset, end3, color);
         }
     }
 

@@ -166,7 +166,7 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
                             MinLevel = NonDefault(fieldSettings.MinLevel, trackInfo.MinLevel, 1),
                             MaxLevel = NonDefault(fieldSettings.MaxLevel, trackInfo.MaxLevel, int.MaxValue),
                             DefaultPriority = NonDefault(fieldSettings.DefaultPriority, trackInfo.DefaultPriority, ActionQueue.Priority.Medium),
-                            Context = NonDefault(fieldSettings.Context, StrategyContext.All),
+                            Context = NonDefault(fieldSettings.Context, trackInfo.Context, StrategyContext.All),
                             Color = fieldSettings.Color
                         });
                     }
@@ -243,7 +243,7 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
         var trait = Service.LuminaRow<Lumina.Excel.Sheets.Trait>(id);
         var unlock = trait?.Quest.RowId ?? 0;
         var level = trait?.Level ?? 0;
-        return Player.Level >= level && (ActionDefinitions.Instance.UnlockCheck?.Invoke(unlock) ?? true);
+        return Player.Level >= level && Service.UnlockState.IsUnlockLinkUnlocked(unlock);
     }
 
     // utility to resolve the target overrides; returns null on failure - in this case module is expected to run smart-targeting logic

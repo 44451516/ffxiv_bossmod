@@ -1,4 +1,5 @@
 ﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using System.Diagnostics;
 using System.IO;
@@ -7,9 +8,6 @@ namespace BossMod;
 
 public sealed class AboutTab(DirectoryInfo? replayDir)
 {
-    private readonly Color TitleColor = Color.FromComponents(255, 165, 0);
-    private readonly Color SectionBgColor = Color.FromComponents(38, 38, 38);
-    private readonly Color BorderColor = Color.FromComponents(178, 178, 178, 204);
     private readonly Color DiscordColor = Color.FromComponents(88, 101, 242);
 
     private string _lastErrorMessage = "";
@@ -19,6 +17,13 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
         using var wrap = ImRaii.TextWrapPos(0);
 
         ImGui.TextUnformatted("Boss Mod (vbm) 提供了 Boss 战雷达、自动循环、冷却规划和 AI 功能。所有模块都可以单独切换。支持信息可以在此标签页底部链接的 Discord 服务器中找到。");
+
+        if (ImGui.Button("查看更新日志"))
+            Service.Mediator.Publish(new OpenWindow(typeof(ConfigChangelogWindow)));
+        ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextDisabled($"版本 {typeof(AboutTab).Assembly.GetName().Version}");
+
         ImGui.Spacing();
         DrawSection("雷达",
         [
@@ -31,7 +36,7 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
         DrawSection("自动循环",
         [
             "自动循环会尽最大可能执行完全优化的循环。",
-            "前往“自动输出预设”标签页创建预设。",
+            "前往“Autorotation Presets”标签页创建预设。",
             "每个循环模块的成熟度可以通过工具提示查看。",
             "使用该功能的指南可在项目的 GitHub wiki 上找到。",
         ]);
@@ -57,57 +62,49 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
             "回放对创建 Boss 模块、分析问题以及制作冷却计划非常有用。",
             "寻求帮助时，请确保提供回放！请注意，回放中会包含你的玩家名称！",
             "在设置中启用“显示回放管理 UI”（或启用自动录制）。",
-            $"文件位于 '{replayDir}'。",
+            $"文件位于 '{HideUserFolder(replayDir)}'。",
         ]);
         ImGui.Spacing();
         ImGui.Spacing();
 
         using (ImRaii.PushColor(ImGuiCol.Button, DiscordColor.ABGR))
-            if (ImGui.Button("Puni.sh Discord", new(180, 0)))
+            if (ImGui.Button("Puni.sh Discord"))
                 _lastErrorMessage = OpenLink("https://discord.gg/Zzrcc8kmvy");
-        ImGui.SameLine();
-        if (ImGui.Button("Boss Mod 仓库", new(180, 0)))
+        UIMisc.SameLineOrWrap(UIMisc.ButtonWidth("Boss Mod 仓库"));
+        if (ImGui.Button("Boss Mod 仓库"))
             _lastErrorMessage = OpenLink("https://github.com/awgil/ffxiv_bossmod");
-        ImGui.SameLine();
-        if (ImGui.Button("Boss Mod Wiki 教程", new(180, 0)))
+        UIMisc.SameLineOrWrap(UIMisc.ButtonWidth("Boss Mod Wiki 教程"));
+        if (ImGui.Button("Boss Mod Wiki 教程"))
             _lastErrorMessage = OpenLink("https://github.com/awgil/ffxiv_bossmod/wiki");
-        ImGui.SameLine();
-        if (ImGui.Button("打开回放文件夹", new(180, 0)) && replayDir != null)
+        UIMisc.SameLineOrWrap(UIMisc.ButtonWidth("打开回放文件夹"));
+        if (ImGui.Button("打开回放文件夹") && replayDir != null)
             _lastErrorMessage = OpenDirectory(replayDir);
-        ImGui.SameLine();
-        if (ImGui.Button("爱发电", new(180, 0)))
+        UIMisc.SameLineOrWrap(UIMisc.ButtonWidth("爱发电"));
+        if (ImGui.Button("爱发电"))
         {
             _lastErrorMessage = OpenLink("https://afdian.com/a/a_44451516");
         }
 
         if (_lastErrorMessage.Length > 0)
-        {
-            using var color = ImRaii.PushColor(ImGuiCol.Text, 0xff0000ff);
-            ImGui.TextUnformatted(_lastErrorMessage);
-        }
+            UIMisc.Banner(FontAwesomeIcon.ExclamationTriangle, _lastErrorMessage, UIMisc.ColorDanger);
     }
 
-    private void DrawSection(string title, string[] bulletPoints)
+    private static void DrawSection(string title, string[] bulletPoints)
     {
-        using var colorBackground = ImRaii.PushColor(ImGuiCol.ChildBg, SectionBgColor.ABGR);
-        using var colorBorder = ImRaii.PushColor(ImGuiCol.Border, BorderColor.ABGR);
-        using var section = ImRaii.Child(title, new(0, 150), false, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.AlwaysUseWindowPadding);
-        if (!section)
-            return;
-
-        using (ImRaii.PushColor(ImGuiCol.Text, TitleColor.ABGR))
-        {
-            ImGui.TextUnformatted(title);
-        }
-
-        ImGui.Separator();
-
+        UIMisc.SectionHeader(title);
         foreach (var point in bulletPoints)
         {
             ImGui.Bullet();
             ImGui.SameLine();
             ImGui.TextUnformatted(point);
         }
+    }
+
+    private static string HideUserFolder(DirectoryInfo? dir)
+    {
+        var path = dir?.FullName ?? "";
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        return appData.Length > 0 && path.StartsWith(appData, StringComparison.OrdinalIgnoreCase) ? "%APPDATA%" + path[appData.Length..] : path;
     }
 
     private string OpenLink(string link)

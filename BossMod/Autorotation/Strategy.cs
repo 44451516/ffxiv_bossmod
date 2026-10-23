@@ -1,5 +1,4 @@
-﻿using BossMod.Autorotation.xan;
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace BossMod.Autorotation;
 
@@ -10,6 +9,7 @@ public enum StrategyTarget
     Self,
     PartyByAssignment, // parameter is assignment; won't work if assignments aren't set up properly for a party
     PartyWithLowestHP, // parameter is StrategyPartyFiltering, which filters subset of party members
+    PartyByFilter, // parameter is StrategyPartyFiltering, but multiple targets can be matched
     EnemyWithHighestPriority, // parameter is StrategyEnemySelection, which determines selecton criteria if there are multiple matching enemies
     EnemyByOID, // parameter is oid; not really useful outside planner; selects closest if there are multiple
     PointAbsolute, // absolute x/y coordinates
@@ -58,6 +58,61 @@ public enum StrategyCondition : int
     AssignedRole = 1
 }
 
+[Renderer(typeof(OffensiveStrategyRenderer))]
+public enum OffensiveStrategy
+{
+    Automatic,
+    Delay,
+    Force
+}
+
+[Renderer(typeof(TargetingRenderer))]
+public enum Targeting
+{
+    [Option("使用玩家的目标")]
+    Manual,
+    [Option("为所有动作自动选择最佳目标")]
+    Auto,
+    [Option("自动选择最佳目标；必须命中玩家的目标")]
+    AutoPrimary,
+    [Option("自动选择最佳目标；若玩家有目标则优先命中它")]
+    AutoTryPri
+}
+
+public enum AOEStrategy
+{
+    [Option("有利时使用AOE循环")]
+    AOE,
+    [Option("使用单体循环")]
+    ST,
+    [Option("始终使用AOE循环，即使只有一个目标")]
+    ForceAOE,
+    [Option("使用单体循环；不使用任何可能命中多个目标的动作")]
+    ForceST
+}
+
+[Renderer(typeof(DefaultOnRenderer))]
+public enum EnabledByDefault
+{
+    Enabled,
+    Disabled
+}
+
+[Renderer(typeof(DefaultOffRenderer))]
+public enum DisabledByDefault
+{
+    Disabled,
+    Enabled
+}
+
+public enum SharedTrack { Targeting, AOE, Buffs, Count }
+
+public interface IStrategyCommon
+{
+    public abstract Targeting Targeting { get; }
+    public abstract AOEStrategy AOE { get; }
+}
+
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class TrackAttribute() : Attribute
 {
@@ -71,6 +126,8 @@ public sealed class TrackAttribute() : Attribute
     public float UiPriority;
     public Type? Renderer;
     public ActionID[] ActionIDs = [];
+
+    public StrategyContext Context = StrategyContext.All;
 
     public object Action
     {

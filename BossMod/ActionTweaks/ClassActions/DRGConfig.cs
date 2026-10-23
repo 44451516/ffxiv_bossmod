@@ -1,6 +1,6 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Parent = typeof(ActionTweaksConfig))]
+[ConfigDisplay(Parent = typeof(ActionTweaksConfig), Group = "职业专属")]
 class DRGConfig : ConfigNode
 {
     // TODO: generalize to common utility

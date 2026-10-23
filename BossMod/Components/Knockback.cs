@@ -78,14 +78,16 @@ public abstract class Knockback(BossModule module, Enum? aid = default, bool ign
     {
         switch (status.ID)
         {
-            case 3054: //Guard in PVP
-            case (uint)WHM.SID.Surecast:
+            case (uint)ClassShared.SID.GuardPvP:
+            case (uint)ClassShared.SID.Surecast:
             case (uint)WAR.SID.ArmsLength:
                 if (Raid.TryFindSlot(actor, out var slot1))
                     PlayerImmunes[slot1].RoleBuffExpire = status.ExpireAt;
                 break;
-            case 1722: //Bluemage Diamondback
             case (uint)WAR.SID.InnerStrength:
+            case (uint)BLU.SID.Diamondback:
+            case (uint)BST.SID.Vileskin:
+            case (uint)BST.SID.Covered:
                 if (Raid.TryFindSlot(actor, out var slot2))
                     PlayerImmunes[slot2].JobBuffExpire = status.ExpireAt;
                 break;
@@ -100,14 +102,16 @@ public abstract class Knockback(BossModule module, Enum? aid = default, bool ign
     {
         switch (status.ID)
         {
-            case 3054: //Guard in PVP
-            case (uint)WHM.SID.Surecast:
+            case (uint)ClassShared.SID.GuardPvP:
+            case (uint)ClassShared.SID.Surecast:
             case (uint)WAR.SID.ArmsLength:
                 if (Raid.TryFindSlot(actor, out var slot1))
                     PlayerImmunes[slot1].RoleBuffExpire = new();
                 break;
-            case 1722: //Bluemage Diamondback
             case (uint)WAR.SID.InnerStrength:
+            case (uint)BLU.SID.Diamondback:
+            case (uint)BST.SID.Vileskin:
+            case (uint)BST.SID.Covered:
                 if (Raid.TryFindSlot(actor, out var slot2))
                     PlayerImmunes[slot2].JobBuffExpire = new();
                 break;
@@ -124,12 +128,12 @@ public abstract class Knockback(BossModule module, Enum? aid = default, bool ign
             yield break;
 
         var from = actor.Position;
-        int count = 0;
+        var count = 0;
         foreach (var s in Sources(slot, actor))
         {
             if (IsImmune(slot, s.Activation))
                 continue; // this source won't affect player due to immunity
-            if (s.Shape != null && !s.Shape.Check(from, s.Origin, s.Direction))
+            if (s.Shape?.Check(from, s.Origin, s.Direction) == false)
                 continue; // this source won't affect player due to being out of aoe
 
             var dir = s.Kind switch
@@ -159,6 +163,39 @@ public abstract class Knockback(BossModule module, Enum? aid = default, bool ign
 
             if (++count == MaxCasts)
                 break;
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        // arbitrary polygon in-bounds test is too expensive, don't bother
+        if (Arena.Bounds is ArenaBoundsCustom)
+            return;
+
+        if (StopAtWall)
+            return;
+
+        foreach (var src in Sources(slot, actor))
+        {
+            if (IsImmune(slot, src.Activation))
+                continue;
+
+            WPos? projected(WPos starting)
+            {
+                if (src.Shape?.Check(starting, src.Origin, src.Direction) == false)
+                    return null;
+
+                return src.Kind switch
+                {
+                    Kind.AwayFromOrigin => AwayFromSource(starting, src.Origin, src.Distance),
+                    Kind.DirForward => starting + src.Direction.ToDirection() * src.Distance,
+                    Kind.DirLeft => starting + src.Direction.ToDirection().OrthoL() * src.Distance,
+                    Kind.DirRight => starting + src.Direction.ToDirection().OrthoR() * src.Distance,
+                    _ => null,
+                };
+            }
+
+            hints.AddForbiddenZone(Sdf.Discrete(p => projected(p) is { } proj && !Arena.InBounds(proj)), src.Activation);
         }
     }
 }

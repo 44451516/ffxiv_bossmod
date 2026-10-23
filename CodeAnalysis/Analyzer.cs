@@ -26,8 +26,10 @@ public class Analyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor RuleUseSingleLineFindSlot = Register("Conditional can be inlined", "Use TryFindSlot instead of testing against 0", DiagnosticSeverity.Warning);
     private static readonly DiagnosticDescriptor RuleNoRealDatetimeInComponents = Register("Use of DateTime.Now in boss module", "DateTime.Now will behave unexpectedly in replays. Use WorldState.CurrentTime instead", DiagnosticSeverity.Error);
     private static readonly DiagnosticDescriptor RuleNoRefTypesInHintFuncs = Register("Reference type captured in closure", "This point test function captures a reference of type {0}, which might be modified before the function is called", DiagnosticSeverity.Error);
+    private static readonly DiagnosticDescriptor RuleNoMathInHintFuncs = Register("Transformation applied to ForbiddenZone input", "This point test function modifies its input, which will cause an incorrect distance to be returned.", DiagnosticSeverity.Error);
     public static readonly DiagnosticDescriptor RuleInternalNamesForOptions = Register("Bad arguments to AddOption", "Second argument ({1}) should match variant name ({0})", DiagnosticSeverity.Error);
     public static readonly DiagnosticDescriptor RuleNoCompareLessThanGCD = Register("Misbehaving comparison", "Testing if a value is strictly less than the GCD timer may result in false positives when the GCD is at zero. Use \"> GCD\" or \"<= GCD\".");
+    public static readonly DiagnosticDescriptor RuleUseModuleInitializer = Register("Obsolete constructor", "Use ModuleInitializer constructor instead of passing arguments separately", DiagnosticSeverity.Error);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -40,7 +42,9 @@ public class Analyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeNoRealDatetime, SyntaxKind.Block);
         context.RegisterSyntaxNodeAction(AnalyzeNoRefsInHints, SyntaxKind.Block);
         context.RegisterSyntaxNodeAction(AnalyzeGCDCompares, SyntaxKind.Block);
+        context.RegisterSyntaxNodeAction(AnalyzeNoMathInHintFn, SyntaxKind.Block);
         //context.RegisterSyntaxNodeAction(AnalyzeOptionInternalNames, SyntaxKind.Block);
+        context.RegisterSyntaxNodeAction(AnalyzeModuleConstructor, SyntaxKind.ClassDeclaration);
     }
 
     private static void AnalyzeNoMutableStatics(SymbolAnalysisContext context)
@@ -166,6 +170,27 @@ public class Analyzer : DiagnosticAnalyzer
         }
     }
 
+    private static void AnalyzeNoMathInHintFn(SyntaxNodeAnalysisContext context)
+    {
+        foreach (var node in context.Node.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (!IsHintZoneFn(context, node, false))
+                continue;
+
+            if (node.ArgumentList.Arguments.First().Expression is LambdaExpressionSyntax lam && context.SemanticModel.GetSymbolInfo(lam).Symbol is IMethodSymbol lambdaSymbol)
+            {
+                foreach (var parameter in lambdaSymbol.Parameters)
+                {
+                    foreach (var stmt in lam.Body.DescendantNodes().OfType<BinaryExpressionSyntax>())
+                    {
+                        if (context.SemanticModel.GetSymbolInfo(stmt.Left).Symbol?.Equals(parameter, SymbolEqualityComparer.Default) == true || context.SemanticModel.GetSymbolInfo(stmt.Right).Symbol?.Equals(parameter, SymbolEqualityComparer.Default) == true)
+                            context.ReportDiagnostic(Diagnostic.Create(RuleNoMathInHintFuncs, stmt.GetLocation(), stmt));
+                    }
+                }
+            }
+        }
+    }
+
     private static void AnalyzeOptionInternalNames(SyntaxNodeAnalysisContext context)
     {
         foreach (var node in context.Node.DescendantNodes().OfType<InvocationExpressionSyntax>())
@@ -189,14 +214,14 @@ public class Analyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsHintZoneFn(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax node)
+    private static bool IsHintZoneFn(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax node, bool checkAll = true)
     {
         if (node.Expression is MemberAccessExpressionSyntax mem)
         {
             if (mem.Name.ToString() == "AddForbiddenZone")
                 return true;
 
-            if (mem.Expression is MemberAccessExpressionSyntax parent)
+            if (checkAll && mem.Expression is MemberAccessExpressionSyntax parent)
             {
                 if (parent.Name.ToString() == "GoalZones" && mem.Name.ToString() == "Add")
                     return true;
@@ -219,6 +244,35 @@ public class Analyzer : DiagnosticAnalyzer
                     context.ReportDiagnostic(Diagnostic.Create(RuleNoRealDatetimeInComponents, node.GetLocation()));
             }
         }
+    }
+
+    private static void AnalyzeModuleConstructor(SyntaxNodeAnalysisContext context)
+    {
+        var bm = context.Compilation.GetTypeByMetadataName("BossMod.BossModule");
+        var ws = context.Compilation.GetTypeByMetadataName("BossMod.WorldState");
+
+        bool isV1Initializer(ParameterListSyntax syn) => syn.Parameters.Count > 0 && SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(syn.Parameters[0].Type!).Symbol, ws);
+
+        if (context.Node is not ClassDeclarationSyntax decl)
+            return;
+
+        // no parent
+        if (decl.BaseList is not { } baseList)
+            return;
+
+        // doesn't inherit from BossModule
+        if (!baseList.Types.Any(t => SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(t.Type).Symbol, bm)))
+            return;
+
+        List<ParameterListSyntax> paramLists = [];
+        if (decl.ParameterList != null)
+            paramLists.Add(decl.ParameterList);
+
+        paramLists.AddRange(decl.ChildNodes().OfType<ConstructorDeclarationSyntax>().Select(ctor => ctor.ParameterList));
+
+        foreach (var plist in paramLists)
+            if (isV1Initializer(plist))
+                context.ReportDiagnostic(Diagnostic.Create(RuleUseModuleInitializer, plist.GetLocation()));
     }
 }
 

@@ -7,12 +7,15 @@ class PathfindingTest : TestWindow
 {
     private MapVisualizer _visu;
 
+    private bool _useNewRasterizer;
+
     private float _mapResolution = 1;
     private float _mapThreshold = 0.5f;
     private Vector2 _mapCenter;
     private Vector2 _mapHalfSize = new(20, 20);
     private float _mapRotationDeg;
     private float _cushion;
+    private float _ping;
 
     private Vector2 _startingPos = new(15, 0);
     private Vector2 _targetPos = new(-15, 0);
@@ -42,15 +45,18 @@ class PathfindingTest : TestWindow
     {
         _visu.Draw();
 
-        bool rebuild = false;
+        var rebuild = false;
         if (ImGui.CollapsingHeader("Map setup"))
         {
+            rebuild |= ImGui.Checkbox("Use new rasterizer", ref _useNewRasterizer);
+
             rebuild |= ImGui.DragFloat("Resolution", ref _mapResolution, 0.1f, 0.1f, 10, "%.1f", ImGuiSliderFlags.Logarithmic);
             rebuild |= ImGui.DragFloat("Block zone threshold", ref _mapThreshold, 0.1f, -5, 5);
             rebuild |= ImGui.DragFloat2("Center", ref _mapCenter);
             rebuild |= ImGui.DragFloat2("Half-size", ref _mapHalfSize, 1, 0, 30);
             rebuild |= ImGui.DragFloat("Rotation", ref _mapRotationDeg, 5, -180, 180);
             rebuild |= ImGui.DragFloat("Cushion", ref _cushion, 0.1f, 0, 5);
+            rebuild |= ImGui.DragFloat("Ping", ref _ping, 0.01f, 0, 0.5f);
 
             rebuild |= ImGui.DragFloat2("Starting position", ref _startingPos, 1, -30, 30);
             rebuild |= ImGui.DragFloat2("Target position", ref _targetPos, 1, -30, 30);
@@ -85,22 +91,26 @@ class PathfindingTest : TestWindow
     private MapVisualizer RebuildMap()
     {
         Map map = new(_mapResolution, new(_mapCenter), _mapHalfSize.X, _mapHalfSize.Y, _mapRotationDeg.Degrees());
-        float[] sg = [];
-        bool[] sb = [];
-        var now = DateTime.MinValue.AddSeconds(NavigationDecision.ActivationTimeCushion);
+        List<float> sg = [];
+        var sb = new BitArray(0);
+        var now = DateTime.MinValue;
         List<(Sdf containsFn, DateTime activation, ulong source)> zones = [];
         if (_blockCone)
             zones.Add((Sdf.Continuous(ShapeDistance.DonutSector(new(_blockConeCenter), _blockConeRadius.X, _blockConeRadius.Y, _blockConeRotationDeg.Degrees(), _blockConeHalfAngle.Degrees())), now.AddSeconds(_blockConeG), 0));
         if (_blockRect)
             zones.Add((Sdf.Continuous(ShapeDistance.Rect(new(_blockRectCenter), _blockRectRotationDeg.Degrees(), _blockRectLen.X, _blockRectLen.Y, _blockRectHalfWidth)), now.AddSeconds(_blockRectG), 0));
         zones.SortBy(z => z.activation);
-        NavigationDecision.RasterizeForbiddenZones(map, zones, now, ref sg, ref sb, _cushion);
+
+        if (_useNewRasterizer)
+            NavigationDecision.RasterizeForbiddenZones(map, zones, now, sg, sb, _ping, _cushion);
+        else
+            NavigationDecision.RasterizeForbiddenZonesOld(map, zones, now, sg, sb, _ping, _cushion);
 
         List<Func<WPos, float>> goals = [];
-        goals.Add(new AIHints().GoalSingleTarget(new(_targetPos), _targetFacingDeg.Degrees(), Positional.Rear, _targetRadius));
+        goals.Add(AIHints.GoalSingleTarget(new(_targetPos), _targetFacingDeg.Degrees(), Positional.Rear, _targetRadius));
         NavigationDecision.RasterizeGoalZones(map, goals, _cushion > 0);
 
-        var visu = new MapVisualizer(map, new(_startingPos));
+        var visu = new MapVisualizer(map, new(_startingPos)/*, sg*/);
 
         if (_blockCone)
             visu.Sectors.Add((new(_blockConeCenter), _blockConeRadius.X, _blockConeRadius.Y, _blockConeRotationDeg.Degrees(), _blockConeHalfAngle.Degrees()));

@@ -49,6 +49,7 @@ public static class BossModuleInfo
         TreasureHunt,
         PVP,
         MaskedCarnivale,
+        Crucible,
         GoldSaucer,
         HallOfTheNovice,
         Quantum,

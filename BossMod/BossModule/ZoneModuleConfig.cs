@@ -1,6 +1,6 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "任务 / 副本全自动模式", Order = 6)]
+[ConfigDisplay(Name = "任务 / 副本全自动模式", Order = 7, Group = "AI与自动化")]
 public sealed class ZoneModuleConfig : ConfigNode
 {
     [PropertyDisplay("加载区域模块所需的成熟度")]

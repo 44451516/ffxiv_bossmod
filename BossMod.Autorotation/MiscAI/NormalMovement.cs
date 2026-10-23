@@ -1,0 +1,418 @@
+﻿using BossMod.Pathfinding;
+using System.Threading.Tasks;
+
+namespace BossMod.Autorotation.MiscAI;
+
+public sealed class NormalMovement(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
+{
+
+    enum SID : uint
+    {
+        ThinIce = 911,
+        Spinning = 2973, // alzadaal's legacy, forced march at 3 units/sec, player can steer left and right
+    }
+
+    public enum Track { Destination, Range, Cast, SpecialModes, ForbiddenZoneCushion, DelayMovement, SeparateDodgeDelay, DodgeDelayMovement }
+    public enum DestinationStrategy { None, Pathfind, Explicit }
+    public enum RangeStrategy { Any, MaxRange, GreedGCDExplicit, GreedLastMomentExplicit, GreedAutomatic }
+    public enum CastStrategy { Leeway, Explicit, Greedy, FinishMove, DropMove, FinishInstants, DropInstants }
+    public enum ForbiddenZoneCushionStrategy { None, Small, Medium, Large }
+    public enum SpecialModesStrategy { Automatic, Ignore }
+    public enum DelayMovementStrategy { None, Short, Long }
+    public enum SeparateDodgeDelayStrategy { Disabled, Enabled }
+
+    public const float GreedTolerance = 0.15f;
+
+    public static RotationModuleDefinition Definition()
+    {
+        var res = new RotationModuleDefinition("自动移动", "根据寻路或显式坐标自动移动角色。", "AI", "veyn", RotationModuleQuality.Good, new(~0ul), 1000, 1, RotationModuleOrder.Movement, CanUseWhileRoleplaying: true, PvP: PvPCompatibility.Any);
+        res.Define(Track.Destination).As<DestinationStrategy>("Destination", "目的地", 30)
+            .AddOption(DestinationStrategy.None, "不自动移动")
+            .AddOption(DestinationStrategy.Pathfind, "使用标准寻路寻找最佳位置")
+            .AddOption(DestinationStrategy.Explicit, "移动到指定地点", supportedTargets: ActionTargets.Area);
+
+        // note that these options used to be melee-specific - internal names are kept unchanged for convenience
+        res.Define(Track.Range).As<RangeStrategy>("Range", "距离", 20)
+            .AddOption(RangeStrategy.Any, "直接前往目的地")
+            .AddOption(RangeStrategy.MaxRange, "停留在离目的地最近目标的最大有效攻击距离内", supportedTargets: ActionTargets.Hostile)
+            .AddOption(RangeStrategy.GreedGCDExplicit, "保持在有效攻击距离内直到最后一个 GCD；确保在计划条目结束前到达目的地", supportedTargets: ActionTargets.Hostile)
+            .AddOption(RangeStrategy.GreedLastMomentExplicit, "保持在有效攻击距离内直到最后可能时刻；确保在计划条目结束前到达目的地", supportedTargets: ActionTargets.Hostile)
+            .AddOption(RangeStrategy.GreedAutomatic, "尽可能久地保持在有效攻击距离内；尝试在机制判定前到达安全位置", supportedTargets: ActionTargets.Hostile)
+            /*.AddOption(RangeStrategy.Drag, "拖拽", "将目标拖到指定位置，同时保持 GCD 输出", supportedTargets: ActionTargets.Hostile)*/; // TODO
+
+        res.Define(Track.Cast).As<CastStrategy>("Cast", "读条", 10)
+            .AddOption(CastStrategy.Leeway, "只要有足够时间到达安全位置，就继续滑步读条")
+            .AddOption(CastStrategy.Explicit, "只要有足够时间在计划条目结束前到达目的地，就继续滑步读条")
+            .AddOption(CastStrategy.Greedy, "不要停止读条，即使有被 AoE 擦到的风险")
+            .AddOption(CastStrategy.FinishMove, "当前读条结束后立即开始移动，到达目的地前使用瞬发技能")
+            .AddOption(CastStrategy.DropMove, "尽快开始移动，必要时打断读条，到达目的地前使用瞬发技能")
+            .AddOption(CastStrategy.FinishInstants, "当前读条结束后不再使用任何读条技能")
+            .AddOption(CastStrategy.DropInstants, "不读条，必要时打断当前读条");
+        res.Define(Track.SpecialModes).As<SpecialModesStrategy>("SpecialModes", "特殊", -1)
+            .AddOption(SpecialModesStrategy.Automatic, "自动处理特殊条件（击退、热病等）")
+            .AddOption(SpecialModesStrategy.Ignore, "忽略所有特殊条件（击退、热病等）");
+        res.Define(Track.ForbiddenZoneCushion).As<ForbiddenZoneCushionStrategy>("ForbiddenZoneCushion", "过度躲避", 25)
+            .AddOption(ForbiddenZoneCushionStrategy.None, "寻路时不使用任何缓冲距离")
+            .AddOption(ForbiddenZoneCushionStrategy.Small, "优先与禁区保持 0.5y 距离")
+            .AddOption(ForbiddenZoneCushionStrategy.Medium, "优先与禁区保持 1.5y 距离")
+            .AddOption(ForbiddenZoneCushionStrategy.Large, "优先与禁区保持 3y 距离");
+        res.Define(Track.DelayMovement).As<DelayMovementStrategy>("DelayMovement", "延迟移动", 9)
+            .AddOption(DelayMovementStrategy.None, "不延迟移动")
+            .AddOption(DelayMovementStrategy.Short, "延迟移动 0.5 秒")
+            .AddOption(DelayMovementStrategy.Long, "延迟移动 1 秒");
+
+        res.Define(Track.SeparateDodgeDelay).As<SeparateDodgeDelayStrategy>("SeparateDodgeDelay", "单独设置躲避延迟", 8, renderer: typeof(DefaultOffRenderer))
+            .AddOption(SeparateDodgeDelayStrategy.Disabled, "禁用")
+            .AddOption(SeparateDodgeDelayStrategy.Enabled, "启用");
+        res.Define(Track.DodgeDelayMovement).As<DelayMovementStrategy>("DodgeDelayMovement", "躲避延迟移动", 7)
+            .AddOption(DelayMovementStrategy.None, "不延迟躲避移动")
+            .AddOption(DelayMovementStrategy.Short, "延迟躲避移动 0.5 秒")
+            .AddOption(DelayMovementStrategy.Long, "延迟躲避移动 1 秒")
+            .VisibleWhen(Track.SeparateDodgeDelay, (int)SeparateDodgeDelayStrategy.Enabled);
+
+        return res;
+    }
+
+    private NavigationDecision.Context CtxActive = new();
+    private NavigationDecision.Context CtxInactive = new();
+
+    public const float MeleeRange = 3;
+    public const float CasterRange = 25;
+    const float SpinningLookahead = 5.5f;
+
+    private Task<NavigationDecision> _decisionTask = Task.FromResult(default(NavigationDecision));
+    private NavigationDecision _lastDecision;
+
+    private DateTime? TimeToMove;
+    private bool? _delayMovementIsDodge;
+
+    private static float DelaySeconds(DelayMovementStrategy strategy) => strategy switch
+    {
+        DelayMovementStrategy.Short => 0.5f,
+        DelayMovementStrategy.Long => 1.0f,
+        _ => 0f
+    };
+
+    private NavigationDecision GetDecision(float speed, float cushionSize)
+    {
+        if (_decisionTask.IsCompletedSuccessfully)
+        {
+            _lastDecision = _decisionTask.Result;
+            Manager.LastRasterizeMs = (float)_lastDecision.RasterizeTime.TotalMilliseconds;
+            Manager.LastPathfindMs = (float)_lastDecision.PathfindTime.TotalMilliseconds;
+        }
+
+        if (_decisionTask.IsCompleted)
+        {
+            if (_decisionTask.Exception is { } exception)
+                Service.Log($"exception during pathfind: {exception}");
+
+            (CtxInactive, CtxActive) = (CtxActive, CtxInactive);
+            _decisionTask = NavigationDecision.BuildAsync(CtxActive, World.CurrentTime, Hints, Player.Position, speed, World.Network.LastRTT, cushionSize);
+        }
+
+        return _lastDecision;
+    }
+
+    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    {
+        // do nothing if we're already being moved by some other module (i.e. quest battle pathfinding)
+        if (Hints.ForcedMovement != null)
+            return;
+
+        // lots of assumptions made in this module are broken by being in flight (or diving)
+        // e.g. being inside an obstacle is fine, AOEs may not reach the player depending on vertical distance, etc
+        if (World.Client.Flying)
+            return;
+
+        // if the player on a ranged job pulls a dungeon boss from outside (e.g. Mistwake B1), pathfinder won't force it to move inside the arena, since their position isn't in the pathfinding map
+        // TODO: what should the generic solution be? do we need multiple sets of bounds?
+        // forcing the player to move directly toward the arena center works fine in this basic case, but would be terrible for other content
+        //   - hunt marks can be hundreds of units away
+        //   - araid/foray bosses are often located on an isolated platform with a clientpath leading to it, so VBM would just run directly forward into the abyss
+        if (Bossmods.ActiveModule is { Info.Category: BossModuleInfo.Category.Dungeon or BossModuleInfo.Category.Variant, StateMachine.ActivePhase: not null } module && !module.Arena.InBounds(Player.Position))
+        {
+            Hints.ForcedMovement = Player.DirectionTo(module.Arena.Center).ToVec3();
+            return;
+        }
+
+        var castOpt = strategy.Option(Track.Cast);
+        var castStrategy = castOpt.As<CastStrategy>();
+        if (castStrategy is CastStrategy.FinishInstants or CastStrategy.DropInstants)
+        {
+            Hints.MaxCastTime = 0;
+            Hints.ForceCancelCast |= castStrategy == CastStrategy.DropInstants;
+        }
+
+        var allowSpecialModes = strategy.Option(Track.SpecialModes).As<SpecialModesStrategy>() == SpecialModesStrategy.Automatic;
+        if (allowSpecialModes)
+        {
+            if (Player.PendingKnockbacks.Count > 0)
+                return; // do not move if there are any unresolved knockbacks - the positions are taken at resolve time, so we might fuck things up
+
+            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
+            {
+                Hints.ForceCancelCast = true; // this is only useful if autopyretic tweak is disabled
+                return; // pyretic is imminent, do not move
+            }
+
+            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.PyreticMove && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
+                return;
+
+            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Freezing && Hints.ImminentSpecialMode.activation <= World.FutureTime(0.5f) && Player.PosRot == Player.PrevPosRot)
+                Hints.WantJump = true;
+        }
+
+        if (Hints.InteractWithTarget != null)
+        {
+            var targetPos = Hints.InteractWithTarget.Position;
+            // strongly prefer moving towards interact target
+            Hints.GoalZones.Add(p =>
+            {
+                var length = (p - targetPos).Length();
+
+                // 99% of eventobjects have an interact range of 3.5y, while the rest have a range of 2.09y
+                // checking only for the shorter range here would be fine in the vast majority of cases, but it can break interact pathfinding in the case that the target object is partially covered by a forbidden zone with a radius between 2.1 and 3.5
+                // this is specifically an issue in the metal gear thancred solo duty in endwalker
+                return length <= 2.09f ? 101 : length <= 3.5f ? 100 : 0;
+            });
+        }
+
+        // fallback so that we can automatically start some quest battles xddd (the RP rotation is a component on the module, which isn't active until we pull, so no goal zone)
+        if (Hints.GoalZones.Count == 0 && primaryTarget is { IsAlly: false, IsDead: false } && Player.Statuses.Any(s => RotationModuleManager.TransformationStatuses.Contains(s.ID)))
+            Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget, Player, World.Actors, 3));
+
+        var isSpinning = Player.FindStatus(SID.Spinning) != null;
+        // simulate forward forced movement; this is kind of a hack, but it definitely doesn't belong in modules because it's part of the movement constraint
+        if (isSpinning)
+        {
+            // rect is offset by -1 unit player-relative. we know very well that player-centered shapes make the pathfinder freak the fuck out
+            Hints.AddForbiddenZone(ShapeDistance.Rect(Player.Position, Player.Rotation, SpinningLookahead, SpinningLookahead + 2, SpinningLookahead + 2), World.FutureTime(2));
+            Hints.AddForbiddenZone(ShapeDistance.Cone(Player.Position, 100, Player.Rotation + 180.Degrees(), 45.Degrees()), DateTime.MaxValue);
+        }
+
+        if (Player.FindStatus(SID.ThinIce) is { } thinIce)
+        {
+            var distance = thinIce.Extra * 0.1f;
+            Hints.AddForbiddenZone(ShapeDistance.Donut(Player.Position, 1, distance - 1), World.FutureTime(2));
+        }
+
+        foreach (var enemy in Hints.PotentialTargets.Where(e => e.Actor.TargetID == Player.InstanceID))
+        {
+            if (enemy.CanMove && enemy.DesiredPosition is { } pos)
+                Hints.GoalZones.Add(Hints.PullTargetToLocation(enemy.Actor, pos, Player, GCD, 0.5f, enemy.Priority >= 0));
+
+            if (enemy.DesiredRotation is { } rot)
+            {
+                var dist = (enemy.Actor.Position - Player.Position).Length();
+                var goal = enemy.Actor.Position + rot.ToDirection() * enemy.Actor.HitboxRadius;
+                var sh = ShapeDistance.PrecisePosition(goal, new(0, 1), Hints.PathfindMapBounds.MapResolution, Player.Position, 0.1f);
+                Hints.GoalZones.Add(p => sh(p) >= 0 ? 10 : 0);
+            }
+        }
+
+        var speed = World.Client.MoveSpeed;
+        var destinationOpt = strategy.Option(Track.Destination);
+        var destinationStrategy = destinationOpt.As<DestinationStrategy>();
+        var cushionStrategy = strategy.Option(Track.ForbiddenZoneCushion).As<ForbiddenZoneCushionStrategy>();
+        var cushionSize = cushionStrategy switch
+        {
+            ForbiddenZoneCushionStrategy.Small => 0.5f,
+            ForbiddenZoneCushionStrategy.Medium => 1.5f,
+            ForbiddenZoneCushionStrategy.Large => 3.0f,
+            _ => 0f
+        };
+        var movementDelay = DelaySeconds(strategy.Option(Track.DelayMovement).As<DelayMovementStrategy>());
+        var separateDodgeDelay = strategy.Option(Track.SeparateDodgeDelay).As<SeparateDodgeDelayStrategy>() == SeparateDodgeDelayStrategy.Enabled;
+        var dodgeDelay = DelaySeconds(strategy.Option(Track.DodgeDelayMovement).As<DelayMovementStrategy>());
+        NavigationDecision navi = default;
+        var resetStats = true;
+        switch (destinationStrategy)
+        {
+            case DestinationStrategy.Pathfind:
+                navi = GetDecision(speed, cushionSize);
+                resetStats = false;
+                var isDodge = navi.LeewaySeconds < float.MaxValue;
+                var delay = separateDodgeDelay
+                    ? (isDodge ? dodgeDelay : movementDelay)
+                    : movementDelay;
+                if (separateDodgeDelay && _delayMovementIsDodge != isDodge)
+                {
+                    _delayMovementIsDodge = isDodge;
+                    TimeToMove = delay > 0 ? World.FutureTime(delay) : null;
+                }
+                else if (delay > 0)
+                    TimeToMove ??= World.FutureTime(delay);
+                else
+                    TimeToMove = null;
+                break;
+            case DestinationStrategy.Explicit:
+                navi = new() { Destination = ResolveTargetLocation(destinationOpt.Value), TimeToGoal = destinationOpt.Value.ExpireIn };
+                break;
+        }
+
+        if (resetStats)
+        {
+            _lastDecision = default;
+            Manager.LastPathfindMs = 0;
+            Manager.LastRasterizeMs = 0;
+        }
+
+        if (isSpinning)
+        {
+            if (Hints.SpinDirection == null && navi.Destination is { } wp)
+                Hints.SpinDirection = Player.DirectionTo(wp).ToAngle();
+
+            return;
+        }
+
+        if (navi.Destination == null)
+        {
+            TimeToMove = null;
+            _delayMovementIsDodge = null;
+            return; // nothing to do
+        }
+
+        if (World.CurrentTime < TimeToMove)
+            return; // delaying movement
+
+        var rangeOpt = strategy.Option(Track.Range);
+        var rangeStrategy = rangeOpt.As<RangeStrategy>();
+        if (rangeStrategy != RangeStrategy.Any && Player.InCombat)
+        {
+            var rangeReference = ResolveTarget(rangeOpt.Value) ?? primaryTarget;
+            if (rangeReference != null)
+            {
+                // TODO: instead of hardcoding, is it possible to reuse goal zones for this purpose?
+                // it would allow greeding AOE actions as well, but requires modification to NavigationDecision to avoid duplicating work
+                var effectiveRange = Player.Role is Role.Tank or Role.Melee ? MeleeRange : CasterRange;
+                var toDestination = navi.Destination.Value - rangeReference.Position;
+                var maxRange = Player.HitboxRadius + rangeReference.HitboxRadius + effectiveRange - GreedTolerance;
+                var range = toDestination.Length();
+                if (range > maxRange)
+                {
+                    var uptimePosition = rangeReference.Position + maxRange / range * toDestination;
+                    var uptimeToDestinationTime = (range - maxRange) / speed;
+                    switch (rangeStrategy)
+                    {
+                        case RangeStrategy.MaxRange:
+                            navi.Destination = uptimePosition;
+                            navi.LeewaySeconds -= uptimeToDestinationTime; // assume we'll want to reach destination later, so leeway has to be reduced
+                            break;
+                        case RangeStrategy.GreedGCDExplicit:
+                        case RangeStrategy.GreedLastMomentExplicit:
+                            navi.LeewaySeconds = destinationOpt.Value.ExpireIn - uptimeToDestinationTime;
+                            if (navi.LeewaySeconds > (rangeStrategy == RangeStrategy.GreedGCDExplicit ? GCD : 0))
+                                navi.Destination = uptimePosition;
+                            break;
+
+                        // TODO: don't use a _navCtx that's being modified in a background thread; we should hold onto two of them and swap them when the task completes
+                        case RangeStrategy.GreedAutomatic:
+                            var uptimeCell = CtxInactive.Map.GridToIndex(CtxInactive.Map.WorldToGrid(uptimePosition));
+                            var curCell = CtxInactive.ThetaStar.StartNodeIndex;
+                            if (navi.LeewaySeconds > 0)
+                            {
+                                if (CtxInactive.Map.PixelMaxG.BoundSafeAt(uptimeCell) >= CtxInactive.Map.PixelMaxG.BoundSafeAt(curCell))
+                                    navi.Destination = uptimePosition;
+                                else if (Player.DistanceToHitbox(primaryTarget) <= maxRange)
+                                    navi.Destination = Player.Position;
+                            }
+                            break;
+                    }
+                }
+                // else: destination is already in our effective range, nothing to adjust here
+            }
+        }
+
+        var dir = navi.Destination.Value - Player.Position;
+        var distSq = dir.LengthSq();
+        if (distSq <= 0.01f)
+        {
+            // we're already very close to destination
+            Hints.ForcedMovement = default;
+            return;
+        }
+
+        // we want to move somewhere, check whether we're allowed to
+        if (allowSpecialModes && Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Misdirection && Hints.ImminentSpecialMode.activation <= World.CurrentTime)
+        {
+            // special case for misdirection
+            // assume it's always fine to drop casts during misdirection (add new option to the specialmode track if it's ever not the case, i guess...)
+            // we have only two options really - either move to the current forced direction, or wait (and this direction will change) - so see whether moving now brings us closer to the destination
+            // if our destination is not the last one (turn != 0), we can only move if it will move us *further* from second-next point - otherwise we're moving towards the wall
+            // the tolerance angle can be inferred from following consideration: in the worst case our movement should keep us at the same distance to destination (or it can move us closer)
+            // so let's consider isosceles triangle with legs equal to distance to target, and base equal to distance we move over a period of time - the base angle is then our threshold
+            // this means that cos(threshold) = speed * dt / 2 / distance
+            // assuming we wanna move at least for a second, speed is standard 6, threshold of 60 degrees would be fine for distances >= 6
+            // for micro adjusts, if we move for 1 frame (1/60s), threshold of 60 degrees would be fine for distance 0.1, which is our typical threshold
+            var threshold = 30.Degrees();
+            var allowMovement = World.Client.ForcedMovementDirection.AlmostEqual(Angle.FromDirection(dir), threshold.Rad);
+            if (allowMovement && destinationStrategy == DestinationStrategy.Pathfind)
+            {
+                // if we have a map, we can try to see if current direction has long enough unobstructed path
+                // TODO: maybe just check a single closest grid cell that we would intersect if we go forward?..
+                allowMovement = CalculateUnobstructedPathLength(World.Client.ForcedMovementDirection) >= Math.Min(4, distSq);
+            }
+            Hints.ForcedMovement = allowMovement ? World.Client.ForcedMovementDirection.ToDirection().ToVec3() : default;
+
+            //var halfThreshold = Hints.MisdirectionThreshold; // even much smaller threshold seems to work fine in practice (TODO: reconsider...)
+            //var idealDir = Angle.FromDirection(dir);
+            //if (destinationStrategy == DestinationStrategy.Pathfind)
+            //{
+            //    var lenL = CalculateUnobstructedPathLength(idealDir + halfThreshold);
+            //    var lenR = CalculateUnobstructedPathLength(idealDir - halfThreshold);
+            //    if (lenL < 4)
+            //        idealDir -= halfThreshold;
+            //    if (lenR < 4)
+            //        idealDir += halfThreshold;
+            //}
+            //var withinThreshold = World.Client.ForcedMovementDirection.AlmostEqual(idealDir, halfThreshold.Rad);
+            //Hints.ForcedMovement = withinThreshold ? World.Client.ForcedMovementDirection.ToDirection().ToVec3(Player.PosRot.Y) : default;
+        }
+        else
+        {
+            // fine to move if we won't interrupt cast (or are explicitly allowed to)
+            var allowMovement = Player.CastInfo == null || Player.CastInfo.EventHappened || castStrategy is CastStrategy.DropMove or CastStrategy.DropInstants;
+            Hints.ForcedMovement = allowMovement ? dir.ToVec3() : default;
+        }
+
+        var maxCastTime = castStrategy switch
+        {
+            CastStrategy.Leeway => navi.LeewaySeconds,
+            CastStrategy.Explicit => castOpt.Value.ExpireIn,
+            CastStrategy.Greedy => float.MaxValue,
+            _ => 0,
+        };
+        Hints.MaxCastTime = Math.Max(0, Math.Min(Hints.MaxCastTime, maxCastTime));
+        Hints.ForceCancelCast |= castStrategy == CastStrategy.DropMove;
+        if (castStrategy is CastStrategy.Leeway && Player.CastInfo is { } castInfo)
+        {
+            var effectiveCastRemaining = Math.Max(0, castInfo.RemainingTime - 0.5f);
+            if (Hints.MaxCastTime < effectiveCastRemaining)
+            {
+                Hints.ForceCancelCast = true;
+                // no leeway, cast might have been initiated by user, keep moving
+                Hints.ForcedMovement = dir.ToVec3();
+            }
+        }
+    }
+
+    private float CalculateUnobstructedPathLength(Angle dir)
+    {
+        var start = CtxInactive.Map.WorldToGrid(Player.Position);
+        if (!CtxInactive.Map.InBounds(start.x, start.y))
+            return 0;
+
+        var end = CtxInactive.Map.WorldToGrid(Player.Position + 100 * dir.ToDirection());
+        var startG = CtxInactive.Map.PixelMaxG[CtxInactive.Map.GridToIndex(start.x, start.y)];
+        foreach (var p in CtxInactive.Map.EnumeratePixelsInLine(start.x, start.y, end.x, end.y))
+        {
+            if (!CtxInactive.Map.InBounds(p.x, p.y) || CtxInactive.Map.PixelMaxG[CtxInactive.Map.GridToIndex(p.x, p.y)] < startG)
+            {
+                var dest = CtxInactive.Map.GridToWorld(p.x, p.y, 0.5f, 0.5f);
+                return (dest - Player.Position).LengthSq();
+            }
+        }
+        return float.MaxValue;
+    }
+}

@@ -1,17 +1,20 @@
-﻿using System.IO;
+﻿using BossMod.Services;
 
 namespace BossMod.Autorotation;
 
-public sealed class RotationDatabase
+public sealed class RotationDatabase(PresetDatabase presets, PlanDatabase plans, ModulePackService loader) : IDisposable
 {
-    public readonly PresetDatabase Presets;
-    public readonly PlanDatabase Plans;
+    public readonly PresetDatabase Presets = presets;
+    public readonly PlanDatabase Plans = plans;
 
-    public RotationDatabase(DirectoryInfo rootPath, FileInfo defaultPresets)
+    private readonly EventSubscriptions _subscriptions = new(loader.Modified.Subscribe(() =>
     {
-        if (!rootPath.Exists)
-            rootPath.Create();
-        Presets = new(rootPath.FullName + "/presets", defaultPresets);
-        Plans = new(rootPath.FullName + "/plans");
+        presets.Load();
+        plans.Load();
+    }));
+
+    public void Dispose()
+    {
+        _subscriptions.Dispose();
     }
 }

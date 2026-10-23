@@ -1,10 +1,18 @@
-﻿using System.IO;
+﻿using Autofac.Features.AttributeFilters;
+using Microsoft.Extensions.Hosting;
+using System.IO;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace BossMod.Autorotation;
 
 // note: plans in the database are immutable (otherwise eg. manager won't see the changes in active plan)
-public sealed class PlanDatabase
+public sealed class PlanDatabase(
+    [KeyFilter(Keys.PlanManifest)] FileInfo manifestPath,
+    [KeyFilter(Keys.PlanDatabase)] DirectoryInfo planStore,
+    JsonSerializerOptions jsonSerializerOptions
+    ) : IHostedService
 {
     public record class PlanList
     {
@@ -15,27 +23,43 @@ public sealed class PlanDatabase
     public readonly Dictionary<Type, Dictionary<Class, PlanList>> Plans = [];
     public Event<Type, Class> ListModifed = new();
     public Event<Plan?, Plan?> PlanModified = new(); // (old, new); old == null if plan is added, new == null if plan is removed
+    public readonly JsonSerializerOptions SerializerOptions = jsonSerializerOptions;
+    private readonly SensibleFileWatcher _watcher = new(planStore.FullName, filter: "*.json", includeSubdirectories: true);
+    private readonly EventSubscriptions _subscriptions = new();
 
-    private readonly FileInfo _manifestPath;
-    private readonly DirectoryInfo _planStore;
+    private readonly Queue<string> _pendingFiles = [];
 
-    public PlanDatabase(string rootPath)
+    async Task IHostedService.StartAsync(CancellationToken cancellationToken)
     {
-        _manifestPath = new(rootPath + ".manifest.json");
-        _planStore = new(rootPath);
-        if (!_planStore.Exists)
-            _planStore.Create();
+        _subscriptions.Add(
+            _watcher.Changed.Subscribe(OnPlanFileChanged),
+            _watcher.Deleted.Subscribe(OnPlanFileDeleted)
+        );
+
+        if (!planStore.Exists)
+            planStore.Create();
+
+        _watcher.EnableRaisingEvents = true;
+    }
+    Task IHostedService.StopAsync(CancellationToken cancellationToken)
+    {
+        _watcher.EnableRaisingEvents = false;
+        return Task.CompletedTask;
+    }
+
+    public void Load()
+    {
+        Plans.Clear();
 
         // first load all actually available plans
         Dictionary<string, Plan> foundPlans = [];
-        var serOptions = Serialization.BuildSerializationOptions();
-        foreach (var f in _planStore.EnumerateFiles("*.json"))
+        foreach (var f in planStore.EnumerateFiles("*.json"))
         {
             try
             {
                 var data = PlanPresetConverter.PlanSchema.Load(f);
                 using var json = data.document;
-                var plan = data.payload.Deserialize<Plan>(serOptions);
+                var plan = data.payload.Deserialize<Plan>(SerializerOptions);
                 if (plan != null)
                 {
                     plan.Guid = f.Name[..^5];
@@ -49,26 +73,25 @@ public sealed class PlanDatabase
         }
 
         // now load the manifest, and add referenced plans to the database
-        if (_manifestPath.Exists)
+        if (manifestPath.Exists)
         {
             try
             {
-                using var json = Serialization.ReadJson(_manifestPath.FullName);
+                using var json = Serialization.ReadJson(manifestPath.FullName);
                 var version = json.RootElement.GetProperty("version").GetInt32();
                 var payload = json.RootElement.GetProperty("payload");
                 foreach (var enc in payload.EnumerateObject())
                 {
                     // TODO: rename after some appropriately long wait (typename will be corrected next time the plan database is modified, so eventually nobody will have an old cdplan left)
                     var correctName = PlanPresetConverter.FTBRenames.TryGetValue(enc.Name, out var rename) ? rename : enc.Name;
-                    var encType = Type.GetType(correctName);
-                    var encInfo = encType != null ? BossModuleRegistry.FindByType(encType) : null;
+                    var encInfo = BossModuleRegistry.FindByName(correctName);
                     if (encInfo == null)
                     {
                         Service.Log($"Error while deserializing plan database: failed to find encounter {enc.Name}");
                         continue;
                     }
 
-                    var encData = Plans[encType!] = [];
+                    var encData = Plans[encInfo.ModuleType] = [];
                     foreach (var cls in enc.Value.EnumerateObject())
                     {
                         var job = Enum.Parse<Class>(cls.Name);
@@ -85,7 +108,7 @@ public sealed class PlanDatabase
                                 else if (planList.SelectedIndex > planList.Plans.Count)
                                     --planList.SelectedIndex;
                             }
-                            else if (plan.Encounter != encType || plan.Class != job)
+                            else if (plan.Encounter != encInfo.ModuleType || plan.Class != job)
                             {
                                 Service.Log($"Error while deserializing plan database: plan '{planGuid}' expected for {job} {enc.Name}, but is actually for {plan.Class} {plan.Encounter.FullName}");
                                 foundPlans[planGuid] = plan; // add back, so that it's added to proper bucket later
@@ -104,7 +127,7 @@ public sealed class PlanDatabase
             }
             catch (Exception ex)
             {
-                Service.Log($"Failed to parse plan database '{_manifestPath}': {ex}");
+                Service.Log($"Failed to parse plan database '{manifestPath}': {ex}");
             }
         }
 
@@ -124,7 +147,7 @@ public sealed class PlanDatabase
         ListModifed.Fire(encounter, cls);
         try
         {
-            using var fstream = new FileStream(_manifestPath.FullName, FileMode.Create, FileAccess.Write, FileShare.Read);
+            using var fstream = new FileStream(manifestPath.FullName, FileMode.Create, FileAccess.Write, FileShare.Read);
             using var jwriter = Serialization.WriteJson(fstream);
             jwriter.WriteStartObject();
             jwriter.WriteNumber("version", 0);
@@ -152,11 +175,11 @@ public sealed class PlanDatabase
             }
             jwriter.WriteEndObject();
             jwriter.WriteEndObject();
-            Service.Log($"Manifest saved successfully to '{_manifestPath.FullName}'");
+            Service.Log($"Manifest saved successfully to '{manifestPath.FullName}'");
         }
         catch (Exception ex)
         {
-            Service.Log($"Failed to write manifest to '{_manifestPath.FullName}': {ex}");
+            Service.Log($"Failed to write manifest to '{manifestPath.FullName}': {ex}");
         }
     }
 
@@ -188,7 +211,7 @@ public sealed class PlanDatabase
             // just modify the plan
             SavePlan(modified);
             var plans = Plans[existing.Encounter][existing.Class].Plans;
-            var index = plans.IndexOf(existing);
+            var index = plans.FindIndex(p => p.Guid == existing.Guid);
             plans[index] = modified;
         }
         else
@@ -202,29 +225,84 @@ public sealed class PlanDatabase
 
     private void SavePlan(Plan plan)
     {
-        var filename = $"{_planStore.FullName}/{plan.Guid}.json";
+        var filename = $"{planStore.FullName}/{plan.Guid}.json";
         try
         {
-            PlanPresetConverter.PlanSchema.Save(new(filename), jwriter => JsonSerializer.Serialize(jwriter, plan, Serialization.BuildSerializationOptions()));
+            _pendingFiles.Enqueue(plan.Guid);
+            PlanPresetConverter.PlanSchema.Save(new(filename), jwriter => JsonSerializer.Serialize(jwriter, plan, SerializerOptions));
             Service.Log($"Plan saved successfully to '{filename}'");
         }
         catch (Exception ex)
         {
+            _pendingFiles.Dequeue();
             Service.Log($"Failed to write database to '{filename}': {ex}");
         }
     }
 
     private void DeletePlan(Plan plan)
     {
-        var filename = $"{_planStore.FullName}/{plan.Guid}.json";
+        var filename = $"{planStore.FullName}/{plan.Guid}.json";
         try
         {
+            _pendingFiles.Enqueue(plan.Guid);
             new FileInfo(filename).Delete();
             Service.Log($"Plan '{filename}' deleted successfully");
         }
         catch (Exception ex)
         {
+            _pendingFiles.Dequeue();
             Service.Log($"Failed to delete plan '{filename}': {ex}");
         }
+    }
+
+    private void OnPlanFileChanged(FileSystemEventArgs args)
+    {
+        var guid = Path.GetFileNameWithoutExtension(args.FullPath);
+        if (_pendingFiles.TryPeek(out var pp) && pp == guid)
+        {
+            _pendingFiles.Dequeue();
+            return;
+        }
+        Service.Log($"Plan file changed: {guid}");
+
+        var matchingPlan = Plans.Values.SelectMany(v => v.Values.SelectMany(v2 => v2.Plans.Where(p => p.Guid == guid))).FirstOrDefault();
+        if (matchingPlan == null)
+        {
+            Service.Log($"New plan was created - this is not supported by hot reload. Reload the plugin at your earliest convenience!");
+            return;
+        }
+
+        try
+        {
+            var data = PlanPresetConverter.PlanSchema.Load(new(args.FullPath));
+            using var json = data.document;
+            var newPlan = data.payload.Deserialize<Plan>(SerializerOptions);
+            if (newPlan != null)
+            {
+                newPlan.Guid = guid;
+                var ix = Plans[matchingPlan.Encounter][matchingPlan.Class].Plans.FindIndex(p => p.Guid == guid);
+                Plans[matchingPlan.Encounter][matchingPlan.Class].Plans[ix] = newPlan;
+                Service.ShowNotification($"已从磁盘重新加载计划 '{guid}'");
+            }
+            else
+                Service.Log($"Modified plan file '{args.FullPath}' failed to load, doing nothing");
+        }
+        catch (Exception ex)
+        {
+            Service.Log($"Failed to parse modified plan file '{args.FullPath}': {ex}");
+        }
+    }
+
+    private void OnPlanFileDeleted(FileSystemEventArgs args)
+    {
+        var guid = Path.GetFileNameWithoutExtension(args.FullPath);
+        if (_pendingFiles.TryPeek(out var pp) && pp == guid)
+            _pendingFiles.Dequeue();
+    }
+
+    public void Dispose()
+    {
+        _subscriptions.Dispose();
+        _watcher.Dispose();
     }
 }

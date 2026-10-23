@@ -31,6 +31,8 @@ class ReplayDetailsWindow : UIWindow
     private readonly EventList _events;
     private readonly ReplayAnalysis.AnalysisManager _analysis;
     private BossModule.DebugOptions _moduleDebug = new();
+    private UIWindow? _modulePopout;
+    private EventSubscriptions? _replayDebugEvents;
 
     private readonly UITree _pfTree = new();
     private AIHintsVisualizer? _pfVisu;
@@ -55,6 +57,7 @@ class ReplayDetailsWindow : UIWindow
         _first = data.Ops[0].Timestamp;
         _last = data.Ops[^1].Timestamp;
         _curTime = initialTime ?? _first;
+        EnableDebugEvents();
         _player.AdvanceTo(_curTime, _mgr.Update);
         _config = new(Service.Config, _player.WorldState, null, null);
         _events = new(data, MoveTo, rotationDB.Plans, this);
@@ -63,6 +66,8 @@ class ReplayDetailsWindow : UIWindow
 
     protected override void Dispose(bool disposing)
     {
+        _replayDebugEvents?.Dispose();
+        _modulePopout?.Dispose();
         _analysis.Dispose();
         _config.Dispose();
         _rmm.Dispose();
@@ -84,13 +89,24 @@ class ReplayDetailsWindow : UIWindow
         DrawControlRow();
         DrawTimelineRow();
         ImGui.TextUnformatted($"Num loaded modules: {_mgr.LoadedModules.Count}, num active modules: {_mgr.LoadedModules.Count(m => m.StateMachine.ActiveState != null)}, active module: {_mgr.ActiveModule?.GetType()}, zone module: {_zmm.ActiveModule?.GetType()}");
-        if (_zmm.ActiveModule != null)
+        if (_zmm.ActiveModule is { } zm)
         {
-            // TODO: reconsider where this is all drawn...
-            if (_zmm.ActiveModule.WantDrawHints())
-                _zmm.ActiveModule.DrawGlobalHints();
-            if (_zmm.ActiveModule.WantDrawExtra())
-                _zmm.ActiveModule.DrawExtra();
+            if (zm.WantDrawHints())
+                zm.DrawGlobalHints();
+
+            if (zm.GetWindowDescription() is { } desc)
+            {
+                if (_modulePopout == null)
+                {
+                    _modulePopout = new UISimpleWindow($"{desc.Name}###replay-zonemod", () => zm.DrawWindow(_rmm), true, new(600, 400), desc.Flags);
+                    _modulePopout.OpenAndBringToFront();
+                }
+            }
+            else
+            {
+                _modulePopout?.IsOpen = false;
+                _modulePopout = null;
+            }
         }
         if (!_azimuthOverride)
             _azimuth = _mgr.WorldState.Client.CameraAzimuth.Deg;
@@ -101,10 +117,15 @@ class ReplayDetailsWindow : UIWindow
         _hintsBuilder.Update(_hints, _povSlot, false);
         _rmm.Update(0, false, false);
         var drawnGauge = false;
+
+        var pov = _mgr.WorldState.Party[_povSlot];
+
         if (_mgr.ActiveModule != null)
         {
             if (ImGui.Checkbox("Draw all actors", ref _moduleDebug.DrawAllActors))
                 _mgr.ActiveModule.DebugOpts = _moduleDebug;
+
+            ImGui.Text($"延迟: {_mgr.WorldState.Network.LastRTT * 1000:f1}ms");
 
             if (_mgr.WorldState.Client.CountdownRemaining != null)
             {
@@ -113,7 +134,7 @@ class ReplayDetailsWindow : UIWindow
             }
 
             var drawTimerPre = DateTime.Now;
-            _mgr.ActiveModule.Draw(_azimuthOverride ? _azimuth.Degrees() : _mgr.WorldState.Client.CameraAzimuth, _povSlot, true, true);
+            _mgr.ActiveModule.Draw(_azimuthOverride ? _azimuth.Degrees() : _mgr.WorldState.Client.CameraAzimuth, _povSlot, true, true, _hints);
             var drawTimerPost = DateTime.Now;
 
             if (_showDebug && _mgr.ActiveModule.Raid[_povSlot] is var pc && pc != null)
@@ -136,7 +157,6 @@ class ReplayDetailsWindow : UIWindow
             drawnGauge = DrawGauge(true);
 
             var compList = string.Join(", ", _mgr.ActiveModule.Components.Select(c => c.GetType().Name));
-            var pov = _mgr.WorldState.Party[_povSlot];
             var povOffsetString = "";
             if (pov != null)
             {
@@ -161,12 +181,12 @@ class ReplayDetailsWindow : UIWindow
             if (_mgr.ActiveModule?.Info?.PlanLevel > 0)
             {
                 ImGui.SameLine();
-                var plans = _rotationDB.Plans.GetPlans(_mgr.ActiveModule.GetType(), _mgr.WorldState.Party.Player()?.Class ?? Class.None);
+                var plans = _rotationDB.Plans.GetPlans(_mgr.ActiveModule.GetType(), pov?.Class ?? Class.None);
                 var newSel = UIPlanDatabaseEditor.DrawPlanCombo(plans, plans.SelectedIndex, "Plan");
                 if (newSel != plans.SelectedIndex)
                 {
                     plans.SelectedIndex = newSel;
-                    _rotationDB.Plans.ModifyManifest(_mgr.ActiveModule.GetType(), _mgr.WorldState.Party.Player()?.Class ?? Class.None);
+                    _rotationDB.Plans.ModifyManifest(_mgr.ActiveModule.GetType(), pov?.Class ?? Class.None);
                     resetPF = true;
                 }
 
@@ -175,7 +195,7 @@ class ReplayDetailsWindow : UIWindow
                 {
                     if (plans.SelectedIndex < 0)
                     {
-                        var plan = new Plan($"New {plans.Plans.Count + 1}", _mgr.ActiveModule.GetType()) { Guid = Guid.NewGuid().ToString(), Class = _mgr.WorldState.Party.Player()?.Class ?? Class.None, Level = _mgr.ActiveModule.Info.PlanLevel };
+                        var plan = new Plan($"新计划 {plans.Plans.Count + 1}", _mgr.ActiveModule.GetType()) { Guid = Guid.NewGuid().ToString(), Class = pov?.Class ?? Class.None, Level = _mgr.ActiveModule.Info.PlanLevel };
                         plans.SelectedIndex = plans.Plans.Count;
                         _rotationDB.Plans.ModifyPlan(null, plan);
                     }
@@ -183,7 +203,7 @@ class ReplayDetailsWindow : UIWindow
                     var enc = _player.Replay.Encounters.FirstOrDefault(e => e.InstanceID == _mgr.ActiveModule.PrimaryActor.InstanceID);
                     if (enc != null)
                     {
-                        _ = new ReplayTimelineWindow(_player.Replay, enc, new(1), _rotationDB.Plans, this);
+                        _ = new ReplayTimelineWindow(_player.Replay, enc, BitMask.Build(_povSlot), _rotationDB.Plans, this);
                     }
                 }
             }
@@ -191,10 +211,9 @@ class ReplayDetailsWindow : UIWindow
             // TODO: more fancy action history/queue...
             ImGui.TextUnformatted($"Modules: {_rmm}");
             ImGui.TextUnformatted($"GCD={_mgr.WorldState.Client.Cooldowns[ActionDefinitions.GCDGroup].Remaining:f3}, AnimLock={_mgr.WorldState.Client.AnimationLock:f3}, Combo={_mgr.WorldState.Client.ComboState.Remaining:f3}, RBIn={_mgr.RaidCooldowns.NextDamageBuffIn():f3}");
-            var player = _mgr.WorldState.Party.Player();
-            if (player != null)
+            if (pov != null)
             {
-                var best = _hints.ActionsToExecute.FindBest(_mgr.WorldState, player, _mgr.WorldState.Client.Cooldowns, _mgr.WorldState.Client.AnimationLock, _hints, 0.02f, false);
+                var best = _hints.ActionsToExecute.FindBest(_mgr.WorldState, pov, _mgr.WorldState.Client.Cooldowns, _mgr.WorldState.Client.AnimationLock, _hints, 0.02f, false);
                 ImGui.TextUnformatted($"! {best.Action} ({best.Priority:f2}) in {best.Delay:f3} @ {best.Target}");
             }
             foreach (var a in _hints.ActionsToExecute.Entries)
@@ -224,7 +243,7 @@ class ReplayDetailsWindow : UIWindow
             var cursor = ImGui.GetCursorPos();
             if (inline)
                 ImGui.SameLine();
-            GaugeVisualizer.Instance().Draw(player, _mgr.WorldState.Client);
+            Service.GaugeVisualizer.Draw(player, _mgr.WorldState.Client);
             if (inline)
                 ImGui.SetCursorPos(cursor);
             return true;
@@ -335,7 +354,7 @@ class ReplayDetailsWindow : UIWindow
         var posX = actor.Position.X;
         var posZ = actor.Position.Z;
         var rot = actor.Rotation.Deg;
-        bool modified = false;
+        var modified = false;
         ImGui.TableNextColumn();
         modified |= ImGui.DragFloat("###X", ref posX, 0.25f, minx, maxx);
         ImGui.TableNextColumn();
@@ -348,7 +367,7 @@ class ReplayDetailsWindow : UIWindow
         ImGui.TableNextColumn();
         if (actor.HPMP.MaxHP > 0)
         {
-            float frac = Math.Min((float)(actor.HPMP.CurHP + actor.HPMP.Shield) / actor.HPMP.MaxHP, 1);
+            var frac = Math.Min((float)(actor.HPMP.CurHP + actor.HPMP.Shield) / actor.HPMP.MaxHP, 1);
             ImGui.ProgressBar(frac, new(ImGui.GetColumnWidth(), 0), $"{frac:#0.#%} ({actor.HPMP.CurHP} + {actor.HPMP.Shield} / {actor.HPMP.MaxHP}) [{actor.PendingHPDifference} pending]");
         }
 
@@ -358,11 +377,15 @@ class ReplayDetailsWindow : UIWindow
         ImGui.TableNextColumn();
         var target = _player.WorldState.Actors.Find(actor.TargetID);
         if (target != null)
-            ImGui.TextUnformatted($"{target} (d={(target.Position - actor.Position).Length():f3})");
+        {
+            var dist = target.DistanceToHitbox(actor);
+            var distfull = dist + target.HitboxRadius + actor.HitboxRadius;
+            ImGui.TextUnformatted($"{target} (d={distfull:f3} hb={dist:f3})");
+        }
 
         ImGui.TableNextColumn();
         if (actor.CastInfo != null)
-            ImGui.TextUnformatted($"{actor.CastInfo.Action}: {Utils.CastTimeString(actor.CastInfo, _player.WorldState.CurrentTime)}");
+            ImGui.TextUnformatted($"{actor.CastInfo.Action}: {Utils.CastTimeString(actor.CastInfo)}");
 
         ImGui.TableNextColumn();
         var numRealStatuses = actor.Statuses.Count(s => s.ID != 0);
@@ -374,7 +397,7 @@ class ReplayDetailsWindow : UIWindow
                         if (tooltip.Alive)
             {
                 string fromString(string prefix, ulong instanceId) => instanceId == 0 ? "" : $", {prefix} {_player.WorldState.Actors.Find(instanceId)?.ToString() ?? instanceId.ToString("X")}";
-                for (int i = 0; i < actor.Statuses.Length; ++i)
+                for (var i = 0; i < actor.Statuses.Length; ++i)
                 {
                     ref var s = ref actor.Statuses[i];
                     if (s.ID != 0)
@@ -390,7 +413,7 @@ class ReplayDetailsWindow : UIWindow
                 {
                     ImGui.TextUnformatted($"[dispel] {Utils.StatusString(s.StatusId)}{fromString("by", s.Effect.SourceInstanceId)}");
                 }
-                for (int i = 0; i < actor.IncomingEffects.Length; ++i)
+                for (var i = 0; i < actor.IncomingEffects.Length; ++i)
                 {
                     ref var inc = ref actor.IncomingEffects[i];
                     if (inc.GlobalSequence != 0)
@@ -422,12 +445,12 @@ class ReplayDetailsWindow : UIWindow
         ImGui.TableSetupColumn("Statuses", ImGuiTableColumnFlags.WidthFixed, 100);
         ImGui.TableSetupColumn("Hints", ImGuiTableColumnFlags.WidthFixed, 250);
         ImGui.TableHeadersRow();
-        foreach ((int slot, var player) in _player.WorldState.Party.WithSlot(true))
+        foreach ((var slot, var player) in _player.WorldState.Party.WithSlot(true))
         {
             ImGui.PushID((int)player.InstanceID);
             ImGui.TableNextRow();
 
-            bool isPOV = _povSlot == slot;
+            var isPOV = _povSlot == slot;
             ImGui.TableNextColumn();
             if (ImGui.Checkbox("###POV", ref isPOV) && isPOV)
             {
@@ -450,7 +473,7 @@ class ReplayDetailsWindow : UIWindow
             if (_mgr.ActiveModule != null)
             {
                 var hints = _mgr.ActiveModule.CalculateHintsForRaidMember(slot, player);
-                foreach ((var hint, bool risk) in hints)
+                foreach ((var hint, var risk) in hints)
                 {
                     ImGui.PushStyleColor(ImGuiCol.Text, risk ? 0xff00ffff : 0xff00ff00);
                     ImGui.TextUnformatted(hint);
@@ -543,7 +566,7 @@ class ReplayDetailsWindow : UIWindow
         _pfVisu ??= new(_hints, _mgr.WorldState, player, _pfCushion);
         _pfVisu.Draw(_pfTree);
 
-        bool rebuild = false;
+        var rebuild = false;
         rebuild |= ImGui.SliderFloat("Zone cushion", ref _pfCushion, 0, 5);
         rebuild |= UICombo.Enum("Ability positional", ref _pfPositional);
         if (rebuild)
@@ -565,6 +588,7 @@ class ReplayDetailsWindow : UIWindow
             _zmm = new(_player.WorldState);
             _hintsBuilder = new(_player.WorldState, _mgr, _zmm);
             _rmm = new(_rotationDB, _mgr, _hints);
+            EnableDebugEvents();
         }
         _player.AdvanceTo(t, _mgr.Update);
         _mgr.ActiveModule?.DebugOpts = _moduleDebug;
@@ -597,6 +621,20 @@ class ReplayDetailsWindow : UIWindow
         _pfVisu = null;
     }
 
+    private void EnableDebugEvents()
+    {
+        _replayDebugEvents?.Dispose();
+
+        _replayDebugEvents = new(
+            _player.WorldState.ReplayState.ActivePresetsChanged.Subscribe(p =>
+            {
+                _rmm.Clear();
+                foreach (var active in p.Presets)
+                    _rmm.Activate(active);
+            })
+        );
+    }
+
     private void SplitLog()
     {
         if (_player.Replay.Ops.Count == 0)
@@ -626,5 +664,12 @@ class ReplayDetailsWindow : UIWindow
         player.AdvanceTo(enc.Time.Start, () => { });
         using var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, true, new FileInfo(_player.Replay.Path).Directory!, $"Encounter_{Utils.StringToIdentifier(primaryActorName ?? "unknown")}", false);
         player.AdvanceTo(enc.Time.End, () => { });
+    }
+
+    public override void OnClose()
+    {
+        base.OnClose();
+        _modulePopout?.IsOpen = false;
+        _modulePopout = null;
     }
 }

@@ -1,8 +1,7 @@
 ﻿namespace BossMod.AI;
 
-
-[ConfigDisplay(Name = "AI配置", Order = 8)]
-sealed class AIConfig : ConfigNode
+[ConfigDisplay(Name = "AI配置", Order = 9, Group = "AI与自动化")]
+public sealed class AIConfig : ConfigNode
 {
     public enum Slot
     {
@@ -19,30 +18,11 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("显示游戏内UI")]
     public bool DrawUI = false;
 
-    [PropertyDisplay("在UI中显示高级选项")]
-    public bool ShowExtraUIOptions = true;
-
-    [PropertyDisplay("在游戏内UI标题栏中显示AI状态")]
-    public bool ShowStatusOnTitlebar = true;
-
-    [PropertyDisplay("在服务器信息栏中显示AI状态")]
-    public bool ShowDTR = true;
-
-    // AI设置
-    [PropertyDisplay("覆盖位置偏好")]
-    public bool OverridePositional = false;
-
-    [PropertyDisplay("期望的位置偏好(Any任意,Flank侧面,Rear背面,Front正面)")]
-    public Positional DesiredPositional = 0;
-
-    [PropertyDisplay("移动延迟（秒）", tooltip: "保持此值较低！如果设置得太高，某些机制下它将无法及时移动。")]
-    public float MoveDelay = 0f;
-
-    [PropertyDisplay("跟随槽位")]
-    public Slot FollowSlot = 0;
+    [PropertyDisplay("目标设置为焦点")]
+    public bool FocusTargetMaster = false;
 
     [PropertyDisplay("与主控的距离")]
-    [PropertySlider(3, 25, Speed = 0.1f)]
+    [PropertySlider(3, 25)]
     public float DistanceToMaster = 25f;
 
     [PropertyDisplay("即使首领模块处于活动状态也跟随主控")]
@@ -78,15 +58,15 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("自动攻击FATE怪物", since: "0.0.0.253")]
     public bool AutoFate = true;
 
-    [PropertyDisplay("目标设置为焦点")]
-    public bool FocusTargetMaster = false;
-
     [PropertyDisplay("将按键广播到其他窗口")]
     public bool BroadcastToSlaves = false;
 
     [PropertyDisplay("朝当前目标移动", since: "7.5.1.21")]
     public bool GoalZoneFallback = true;
 
-    [PropertyDisplay("Print AI status changes to chat", since: "7.5.1.36")]
+    [PropertyDisplay("AI 状态变化时在聊天栏输出提示", since: "7.5.1.36")]
     public bool ChatConfirmation = false;
+
+    // defined here for DtrConfig migration
+    public bool ShowDTR = true;
 }

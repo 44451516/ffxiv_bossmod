@@ -1,0 +1,396 @@
+﻿namespace BossMod.Stormblood.Ultimate.UCOB;
+
+class Hatch : Components.CastCounter
+{
+    public bool Active = true;
+    public int NumNeurolinkSpawns { get; private set; }
+    public int NumTargetsAssigned { get; private set; }
+    private readonly List<(Actor orb, DateTime moveStart)> _orbs = [];
+    private readonly List<Actor> _neurolinks = [];
+    private BitMask _targets;
+    private BitMask _nontargets;
+    private readonly Actor?[] _assignedLinks = new Actor?[PartyState.MaxPartySize];
+    private readonly List<InterceptState> _intercepts = [];
+
+    class InterceptState(int first, int second)
+    {
+        public int First = first;
+        public int Second = second;
+        public Actor? Link;
+        public int NumHits;
+    }
+
+    public const float Radius = 8;
+
+    public BitMask WaitForTwister;
+
+    public enum Phase
+    {
+        P1,
+        Tenstrike,
+        Adds
+    }
+
+    public Phase CurrentPhase = Phase.P1;
+
+    public bool IsTarget(int slot) => _targets[slot];
+    // only set for tenstrike
+    public bool IsUntargeted(int slot) => _nontargets[slot];
+
+    public Hatch(BossModule module) : base(module, AID.Hatch)
+    {
+        KeepOnPhaseChange = true;
+    }
+
+    public void Reset()
+    {
+        _targets.Reset();
+        NumTargetsAssigned = NumCasts = 0;
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (!Active)
+            return;
+
+        var inNeurolink = _neurolinks.InRadius(actor.Position, 2).Any();
+        if (_targets[slot])
+            hints.Add("前往 neurolink！", !inNeurolink);
+        else if (inNeurolink)
+            hints.Add("远离 neurolink！");
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Module.PrimaryActor.IsTargetable)
+        {
+            var twintania = hints.FindEnemy(Module.PrimaryActor);
+            if (twintania == null)
+                return;
+            switch (_neurolinks.Count)
+            {
+                case 0:
+                    twintania.DesiredPosition = new(0, -8);
+                    twintania.DesiredRotation = 180.Degrees();
+                    break;
+                case 1:
+                    twintania.DesiredPosition = new(-8, 5);
+                    twintania.DesiredRotation = -60.Degrees();
+
+                    // TODO: find a melee spot that's easy to get twin out of
+                    //if (_numHatches == 0)
+                    //    twintania.DesiredPosition = new(-7, -8);
+                    break;
+                case 2:
+                    twintania.DesiredPosition = new(8, 5);
+                    twintania.DesiredRotation = 60.Degrees();
+                    break;
+            }
+        }
+
+        if (!Active || _neurolinks.Count == 0)
+            return;
+
+        var linkShape = ShapeDistance.Union([.. _neurolinks.Select(n => ShapeDistance.Circle(n.Position, 2))]);
+
+        if (_targets[slot])
+        {
+            // tiebreaker
+            var myLink = _assignedLinks[slot];
+            if (myLink == null)
+                return;
+
+            var leewaySeconds = 10f;
+
+            Actor? closestOrb = null;
+
+            if (_orbs.Count > 0)
+            {
+                var waitMove = MathF.Max(0, (float)(_orbs[0].moveStart - WorldState.CurrentTime).TotalSeconds);
+                (closestOrb, var dist) = _orbs.Select(o => (o.orb, actor.DistanceToHitbox(o.orb))).MinBy(o => o.Item2);
+                leewaySeconds = waitMove + dist / 5f;
+            }
+
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(myLink.Position, 5, 0.5f));
+
+            if (closestOrb is { LastFrameMovement: var m } && m != default)
+            {
+                var src = closestOrb.Position;
+                var dir = m.Normalized();
+                hints.GoalZones.Add(p => p.InRect(src, dir * 1000, 1) ? 1 : 0);
+            }
+
+            /*
+            // now that we don't do super long twister dodges, i don't think this is necessary anymore?
+            // but it might be worth bringing back the logic to let ranged have more non-neurolink uptime
+            if (WaitForTwister[slot])
+                hints.AddForbiddenZone(Sdf.Continuous(ShapeDistance.DonutSector(myLink.Position, 3, 5, Module.PrimaryActor.AngleTo(myLink), 90.Degrees())).Inverted(), WorldState.FutureTime(leewaySeconds));
+            else
+            */
+            hints.AddForbiddenZone(ShapeDistance.InvertedCircle(myLink.Position, 2), WorldState.FutureTime(leewaySeconds));
+        }
+        else
+        {
+            foreach (var (orb, t) in _orbs)
+            {
+                hints.AddForbiddenZone(ShapeDistance.Circle(orb.Position, 2));
+                if (orb.LastFrameMovement == default)
+                {
+                    foreach (var (_, pt) in Raid.WithSlot().IncludedInMask(_targets))
+                        hints.AddForbiddenZone(ShapeDistance.Capsule(orb.Position, orb.AngleTo(pt), 6, 2), WorldState.FutureTime(2));
+                }
+                else
+                    hints.AddForbiddenZone(ShapeDistance.Capsule(orb.Position, orb.LastFrameMovement.ToAngle(), 6, 2), WorldState.FutureTime(2));
+            }
+
+            if (_orbs.Count > 0)
+            {
+                foreach (var (_, tar) in Raid.WithSlot().IncludedInMask(_targets))
+                {
+                    var (closest, moveStart) = _orbs.MinBy(o => (o.orb.Position - tar.Position).LengthSq());
+                    var waitMove = MathF.Max(0, (float)(moveStart - WorldState.CurrentTime).TotalSeconds);
+                    var toOrb = (closest.Position - tar.Position).Normalized();
+                    // radius = 8 tested extensively to work fine in P1, but first baiters get clipped by it in P3...i don't know
+                    hints.AddForbiddenZone(ShapeDistance.Circle(tar.Position + toOrb, Radius + 1), WorldState.FutureTime(waitMove + tar.DistanceToHitbox(closest) / 5f));
+                }
+            }
+
+            if (_neurolinks.Count == 1 && _orbs.Count > 0)
+                hints.AddForbiddenZone(ShapeDistance.Circle(_neurolinks[0].Position, 12));
+
+            hints.AddForbiddenZone(linkShape, DateTime.MaxValue);
+        }
+
+        if (_intercepts.FirstOrDefault(i => i.NumHits == 1 && i.First == slot) is { Link: { } li })
+        {
+            var linkDir = (li.Position - Arena.Center).Normalized();
+
+            // first hatch player should dodge directly backwards to wall
+            hints.AddForbiddenZone(ShapeDistance.InvertedRect(Arena.Center + linkDir * 17, Arena.Center + linkDir * 22, 1));
+        }
+
+        if (_intercepts.FirstOrDefault(i => i.NumHits == 0 && i.Second == slot) is { Link: { } link })
+        {
+            var linkPos = link.Position;
+            var linkDir = (linkPos - Arena.Center).Normalized();
+            var adj = linkDir.OrthoR();
+            hints.GoalZones.Add(p => p.InRect(linkPos, adj * 100, 2) ? 10 : 0);
+        }
+    }
+
+    public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
+    {
+        return Active && _targets[playerSlot] ? PlayerPriority.Danger : PlayerPriority.Irrelevant;
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        if (!Active)
+            return;
+
+        foreach (var (o, _) in _orbs)
+            Arena.ZoneCircle(o.Position, 2, ArenaColor.AOE);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        if (!Active)
+            return;
+
+        foreach (var neurolink in _neurolinks)
+        {
+            Arena.AddCircle(neurolink.Position, 2, _targets[pcSlot] ? ArenaColor.Safe : ArenaColor.Danger);
+
+            foreach (var player in Raid.WithoutSlot().InRadius(neurolink.Position, 2))
+            {
+                if (_orbs.Select(o => o.orb).Closest(player.Position) is { } orb)
+                {
+                    var off = (orb.Position - player.Position).Normalized();
+                    Arena.AddCircle(player.Position + off, Radius, ArenaColor.Danger);
+                }
+            }
+        }
+    }
+
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if (iconID == (uint)IconID.Generate)
+        {
+            _targets.Set(Raid.FindSlot(actor.InstanceID));
+            ++NumTargetsAssigned;
+            if (_targets.NumSetBits() == _neurolinks.Count)
+                AssignLinks();
+        }
+    }
+
+    void AssignLinks()
+    {
+        switch (CurrentPhase)
+        {
+            case Phase.P1:
+                AssignP1();
+                break;
+            case Phase.Tenstrike:
+                AssignTenstrike();
+                break;
+            case Phase.Adds:
+                AssignAdds();
+                break;
+        }
+    }
+
+    // can't use proximity for assignment during p1 because players are moving
+    void AssignP1()
+    {
+        Array.Fill(_assignedLinks, null);
+        List<Actor> linksAvailable = [.. _neurolinks];
+        linksAvailable.SortBy(l => l.InstanceID);
+
+        foreach (var (slot, player) in Raid.WithSlot().IncludedInMask(_targets).OrderBy(p => p.Item2.InstanceID))
+        {
+            _assignedLinks[slot] = linksAvailable[0];
+            linksAvailable.RemoveAt(0);
+        }
+    }
+
+    // assumption is that players are stationary in spread spots, so proximity is fine
+    void AssignTenstrike()
+    {
+        if (_nontargets.Any())
+            return;
+
+        Array.Fill(_assignedLinks, null);
+
+        List<(int slot, Actor player)> set1 = [];
+        List<(int slot, Actor player)> set2 = [];
+
+        foreach (var (slot, player) in Raid.WithSlot())
+        {
+            (_targets[slot] ? set1 : set2).Add((slot, player));
+        }
+
+        foreach (var link in _neurolinks.OrderBy(n => n.InstanceID))
+        {
+            var closest = set1.MinBy(p => p.player.DistanceToPoint(link.Position));
+            set1.Remove(closest);
+            var closestFriend = set2.MinBy(p => p.player.DistanceToPoint(link.Position));
+            set2.Remove(closestFriend);
+            _assignedLinks[closest.slot] = _assignedLinks[closestFriend.slot] = link;
+            _intercepts.Add(new(closest.slot, closestFriend.slot) { Link = link });
+        }
+
+        _nontargets = set2.Mask();
+    }
+
+    void AssignAdds()
+    {
+        Array.Fill(_assignedLinks, null);
+        _intercepts.Clear();
+
+        if (_neurolinks.Count != 3)
+            return;
+
+        var roles = Service.Config.Get<PartyRolesConfig>().AssignmentsPerSlot(Raid);
+
+        if (roles.Length == 0)
+            return;
+
+        Actor?[] links = [.. _neurolinks.OrderBy(n => n.Position.Z < 0 ? 0 : n.Position.X > 0 ? 1 : 2)];
+
+        var toAssign = new BitMask(_targets.Raw);
+
+        foreach (var (slot, player) in Raid.WithSlot().IncludedInMask(toAssign))
+        {
+            switch (roles[slot])
+            {
+                case PartyRolesConfig.Assignment.M1:
+                    _assignedLinks[slot] = links[0];
+                    links[0] = null;
+                    toAssign.Clear(slot);
+                    break;
+                case PartyRolesConfig.Assignment.M2:
+                    _assignedLinks[slot] = links[1];
+                    links[1] = null;
+                    toAssign.Clear(slot);
+                    break;
+                case PartyRolesConfig.Assignment.R1:
+                    _assignedLinks[slot] = links[2];
+                    WaitForTwister.Set(slot);
+                    links[2] = null;
+                    toAssign.Clear(slot);
+                    break;
+            }
+        }
+
+        // hatch assignments are fucked up due to deaths or missing role assignments, it's a free for all
+        if (toAssign.NumSetBits() > 1)
+        {
+            Array.Fill(_assignedLinks, null);
+            return;
+        }
+
+        foreach (var (slot, player) in Raid.WithSlot().IncludedInMask(toAssign))
+        {
+            _assignedLinks[slot] = links.FirstOrDefault(l => l != null);
+            if (links.Last() != null)
+                WaitForTwister[slot] = true;
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action == WatchedAction)
+        {
+            ++NumCasts;
+            _orbs.RemoveAll(o => o.orb == caster);
+            foreach (var t in spell.Targets)
+            {
+                if (Raid.TryFindSlot(t.ID, out var slot))
+                {
+                    _targets.Clear(slot);
+                    for (var i = 0; i < _intercepts.Count; i++)
+                    {
+                        if (_intercepts[i].First == slot)
+                        {
+                            _intercepts[i].NumHits++;
+                            _targets.Set(_intercepts[i].Second);
+                        }
+                        else if (_intercepts[i].Second == slot)
+                            _intercepts[i].NumHits++;
+                    }
+                }
+            }
+        }
+    }
+
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
+    {
+        if ((OID)actor.OID == OID.Twintania && id == 0x94)
+            ++NumNeurolinkSpawns;
+    }
+
+    public override void OnActorCreated(Actor actor)
+    {
+        switch ((OID)actor.OID)
+        {
+            case OID.Neurolink:
+                _neurolinks.Add(actor);
+                break;
+            case OID.Oviform:
+                _orbs.Add((actor, WorldState.FutureTime(4)));
+                break;
+        }
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if ((OID)actor.OID == OID.Oviform)
+            _orbs.RemoveAll(o => o.orb == actor);
+    }
+
+    public override void Update()
+    {
+        if (WaitForTwister.Any() && Module.FindComponent<Twister>() is { PredictedPositions.Count: > 0 })
+            WaitForTwister.Reset();
+    }
+}

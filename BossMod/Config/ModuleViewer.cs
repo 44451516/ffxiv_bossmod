@@ -1,4 +1,5 @@
 ﻿using BossMod.Autorotation;
+using BossMod.Config;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
@@ -34,6 +35,8 @@ public sealed class ModuleViewer : IDisposable
     private readonly Vector2 _iconSize = new Vector2(32, 32) * ImGuiHelpers.GlobalScale;
 
     private string _searchText = "";
+
+    private readonly EventSubscriptions _subscriptions;
 
     public ModuleViewer(PlanDatabase? planDB, WorldState ws)
     {
@@ -78,6 +81,7 @@ public sealed class ModuleViewer : IDisposable
         var playStyle = Service.LuminaSheet<CharaCardPlayStyle>()!;
         Customize(BossModuleInfo.Category.Foray, playStyle.GetRow(6));
         Customize(BossModuleInfo.Category.MaskedCarnivale, playStyle.GetRow(8));
+        Customize(BossModuleInfo.Category.Crucible, playStyle.GetRow(35));
         Customize(BossModuleInfo.Category.Hunt, playStyle.GetRow(10));
 
         _categories[(int)BossModuleInfo.Category.Extreme].icon = _categories[(int)BossModuleInfo.Category.Trial].icon;
@@ -93,8 +97,16 @@ public sealed class ModuleViewer : IDisposable
         _iconHunt = (uint)playStyle.GetRow(10).Icon;
 
         _groups = new List<ModuleGroup>[(int)BossModuleInfo.Expansion.Count, (int)BossModuleInfo.Category.Count];
-        for (int i = 0; i < (int)BossModuleInfo.Expansion.Count; ++i)
-            for (int j = 0; j < (int)BossModuleInfo.Category.Count; ++j)
+
+        _subscriptions = new(
+            BossModuleRegistry.Modified.ExecuteAndSubscribe(Rebuild)
+        );
+    }
+
+    private void Rebuild()
+    {
+        for (var i = 0; i < (int)BossModuleInfo.Expansion.Count; ++i)
+            for (var j = 0; j < (int)BossModuleInfo.Category.Count; ++j)
                 _groups[i, j] = [];
 
         foreach (var info in BossModuleRegistry.RegisteredModules.Values)
@@ -109,7 +121,7 @@ public sealed class ModuleViewer : IDisposable
             }
             else if (groups[groupIndex].Info != groupInfo)
             {
-                Service.Log($"[ModuleViewer] Group properties mismatch between {groupInfo} and {groups[groupIndex].Info}");
+                Service.PluginLog.Warning($"[ModuleViewer] Group properties mismatch between {groupInfo} and {groups[groupIndex].Info}");
             }
             groups[groupIndex].Modules.Add(moduleInfo);
         }
@@ -119,20 +131,21 @@ public sealed class ModuleViewer : IDisposable
             groups.SortBy(g => g.Info.SortOrder);
             foreach (var (g1, g2) in groups.Pairwise())
                 if (g1.Info.SortOrder == g2.Info.SortOrder)
-                    Service.Log($"[ModuleViewer] Same sort order between groups {g1.Info} and {g2.Info}");
+                    Service.PluginLog.Warning($"[ModuleViewer] Same sort order between groups {g1.Info} and {g2.Info}");
 
             foreach (var g in groups)
             {
                 g.Modules.SortBy(m => m.SortOrder);
                 foreach (var (m1, m2) in g.Modules.Pairwise())
                     if (m1.SortOrder == m2.SortOrder)
-                        Service.Log($"[ModuleViewer] Same sort order between modules {m1.Info.ModuleType.FullName} and {m2.Info.ModuleType.FullName}");
+                        Service.PluginLog.Warning($"[ModuleViewer] Same sort order between modules {m1.Info.ModuleType.FullName} and {m2.Info.ModuleType.FullName}");
             }
         }
     }
 
     public void Dispose()
     {
+        _subscriptions.Dispose();
     }
 
     public void Draw(UITree tree, WorldState ws)
@@ -172,7 +185,7 @@ public sealed class ModuleViewer : IDisposable
 
     private void DrawSearchBar()
     {
-        ImGui.InputTextWithHint("##search", "例如“绝境战”", ref _searchText, 100, ImGuiInputTextFlags.CallbackCompletion);
+        ImGui.InputTextWithHint("##search", "例如“绝境战”", ref _searchText, 100);
 
         if (ImGui.IsItemHovered() && !ImGui.IsItemFocused())
         {
@@ -273,7 +286,7 @@ public sealed class ModuleViewer : IDisposable
         {
             ImGui.Image(tex.Handle, _iconSize, Vector2.Zero, Vector2.One, tintCol);
             if (ex != null)
-                Service.Logger.Warning(ex, $"unable to load icon {iconId}");
+                Service.PluginLog.Warning(ex, $"unable to load icon {iconId}");
         }
 
         ImGui.TableNextColumn();
@@ -324,11 +337,11 @@ public sealed class ModuleViewer : IDisposable
 
         var modified = false;
 
-        for (int i = 0; i < (int)BossModuleInfo.Expansion.Count; ++i)
+        for (var i = 0; i < (int)BossModuleInfo.Expansion.Count; ++i)
         {
             if (_filterExpansions[i])
                 continue;
-            for (int j = 0; j < (int)BossModuleInfo.Category.Count; ++j)
+            for (var j = 0; j < (int)BossModuleInfo.Category.Count; ++j)
             {
                 if (_filterCategories[j])
                     continue;
@@ -345,12 +358,21 @@ public sealed class ModuleViewer : IDisposable
                     UIMisc.Image(Service.Texture?.GetFromGameIcon(group.Info.Icon != 0 ? group.Info.Icon : _categories[j].icon), _iconSize);
                     ImGui.TableNextColumn();
 
-                    foreach (var ng in tree.Node($"{group.Info.Name}###{i}/{j}/{group.Info.Id}"))
+                    var wipCount = group.Modules.Count(m => m.Info.Incomplete);
+                    var groupLabel = wipCount > 0 ? $"{group.Info.Name} ({wipCount} 开发中)" : group.Info.Name;
+                    foreach (var ng in tree.Node($"{groupLabel}###{i}/{j}/{group.Info.Id}", false, wipCount > 0 ? UIMisc.ColorWarning : 0xffffffff))
                     {
                         foreach (var mod in group.Modules)
                         {
                             var identifier = mod.Info.ModuleType.ToString();
                             var isEnabled = !_bmConfig.DisabledModules.Contains(identifier);
+                            var statusColor = mod.Info.Incomplete ? UIMisc.ColorWarning : UIMisc.ColorGood;
+                            ImGui.AlignTextToFramePadding();
+                            using (ImRaii.PushColor(ImGuiCol.Text, statusColor))
+                                UIMisc.IconText(mod.Info.Incomplete ? FontAwesomeIcon.Wrench : FontAwesomeIcon.CheckCircle);
+                            if (ImGui.IsItemHovered())
+                                ImGui.SetTooltip(mod.Info.Incomplete ? "开发中：部分机制可能缺失或有误。仅在开启“启用未完成模块”后加载。" : "已完成");
+                            ImGui.SameLine();
                             if (ImGui.Checkbox($"###enabled{mod.Info.ModuleType}", ref isEnabled))
                             {
                                 modified = true;
@@ -370,9 +392,16 @@ public sealed class ModuleViewer : IDisposable
                             ImGui.SameLine();
                             UIMisc.HelpMarker(() => ModuleHelpText(mod));
                             ImGui.SameLine();
-                            var textColor = mod.Info.Incomplete ? 0xff0000ff : 0xff00ff00;
-                            using (ImRaii.PushColor(ImGuiCol.Text, textColor))
-                                ImGui.TextUnformatted($"{mod.Name} [{mod.Info.ModuleType.Name}]");
+                            ImGui.AlignTextToFramePadding();
+                            using (ImRaii.PushColor(ImGuiCol.Text, isEnabled ? statusColor : ImGui.GetColorU32(ImGuiCol.TextDisabled)))
+                                ImGui.TextUnformatted(mod.Name);
+                            ImGui.SameLine();
+                            ImGui.TextDisabled($"[{mod.Info.ModuleType.Name}]");
+                            if (mod.Info.PlanLevel > 0)
+                            {
+                                ImGui.SameLine();
+                                UIMisc.Badge($"CD 计划 L{mod.Info.PlanLevel}", UIMisc.ColorInfo);
+                            }
 
                             using (var popup = ImRaii.Popup($"{mod.Info.ModuleType.FullName}_popup"))
                                 if (popup)
@@ -459,6 +488,10 @@ public sealed class ModuleViewer : IDisposable
             return;
 
         var mplans = _planDB.Plans.GetOrAdd(info.ModuleType);
+
+        if (ImGui.Selectable("导出..."))
+            _ = new MultiExport(mplans);
+
         foreach (var (cls, plans) in mplans)
         {
             foreach (var plan in plans.Plans)
@@ -470,16 +503,57 @@ public sealed class ModuleViewer : IDisposable
             }
         }
 
-        var player = _ws.Party.Player();
-        if (player != null)
+        if (Service.IsMock)
+        {
+            foreach (var cls in supportedClasses)
+                if (ImGui.Selectable($"为 {cls} 新建计划..."))
+                    CreateForClass(info, mplans, cls);
+        }
+        else if (_ws.Party.Player() is { } player)
         {
             if (ImGui.Selectable($"为 {player.Class} 新建计划..."))
-            {
-                var plans = mplans.GetOrAdd(player.Class);
-                var plan = new Plan($"新建 {plans.Plans.Count + 1}", info.ModuleType) { Guid = Guid.NewGuid().ToString(), Class = player.Class, Level = info.PlanLevel };
-                _planDB.ModifyPlan(null, plan);
-                UIPlanDatabaseEditor.StartPlanEditor(_planDB, plan);
-            }
+                CreateForClass(info, mplans, player.Class);
         }
     }
+
+    private void CreateForClass(BossModuleRegistry.Info info, Dictionary<Class, PlanDatabase.PlanList> mplans, Class cls)
+    {
+        var plans = mplans.GetOrAdd(cls);
+        var plan = new Plan($"新计划 {plans.Plans.Count + 1}", info.ModuleType) { Guid = Guid.NewGuid().ToString(), Class = cls, Level = info.PlanLevel };
+
+        plan.Targeting.Add(new(new StrategyValueTrack())
+        {
+            TimeSinceActivation = -30,
+            WindowLength = 30
+        });
+
+        _planDB!.ModifyPlan(null, plan);
+        UIPlanDatabaseEditor.StartPlanEditor(_planDB, plan);
+    }
+
+    static readonly Class[] supportedClasses = [
+        Class.PLD,
+        Class.MNK,
+        Class.WAR,
+        Class.DRG,
+        Class.BRD,
+        Class.WHM,
+        Class.BLM,
+        Class.SMN,
+        Class.SCH,
+        Class.NIN,
+        Class.MCH,
+        Class.DRK,
+        Class.AST,
+        Class.SAM,
+        Class.RDM,
+        Class.BLU,
+        Class.GNB,
+        Class.DNC,
+        Class.RPR,
+        Class.SGE,
+        Class.VPR,
+        Class.PCT,
+        Class.BST
+    ];
 }

@@ -13,7 +13,7 @@ public interface IRotationModuleData
 // the manager contains a set of rotation module instances corresponding to the selected preset/plan
 public sealed class RotationModuleManager : IDisposable
 {
-    private readonly record struct ActiveModule(int DataIndex, RotationModuleDefinition Definition, RotationModule Module);
+    public readonly record struct ActiveModule(int DataIndex, RotationModuleDefinition Definition, RotationModule Module);
     public readonly record struct LineOfSightFix(ulong TargetID, WPos Origin, WPos Destination);
 
     public readonly List<Preset> Presets = [];
@@ -27,13 +27,14 @@ public sealed class RotationModuleManager : IDisposable
     private readonly PartyRolesConfig _prc = Service.Config.Get<PartyRolesConfig>();
     private readonly EventSubscriptions _subscriptions;
     private List<(int index, ActiveModule module)>? _activeModules;
-    private IEnumerable<ActiveModule> ActiveModulesFlat => _activeModules?.Select(m => m.module) ?? [];
+    public IEnumerable<ActiveModule> ActiveModulesFlat => _activeModules?.Select(m => m.module) ?? [];
     private bool WantsLoSFix => ActiveModulesFlat.Any(m => m.Module.WantsLoSFix);
 
     public static readonly Preset ForceDisable = new(""); // empty preset, so if it's activated, rotation is force disabled
 
     private readonly AIConfig _aiConfig = Service.Config.Get<AIConfig>();
-    private readonly Preset _pMultibox;
+
+    private Preset PresetMultibox => Database.Presets.DefaultPresets.First(p => p.Name == "VBM Multibox");
 
     public bool IsForceDisabled => Presets.Count == 1 && Presets[0] == ForceDisable;
 
@@ -60,10 +61,10 @@ public sealed class RotationModuleManager : IDisposable
         (uint)Roleplay.SID.FreshPerspective, // sapphire weapon quest
 
         // hacking interlude gimmick in Paradigm's Breach boss 3
-        (uint)Shadowbringers.Alliance.A34RedGirl.SID.Program000000,
-        (uint)Shadowbringers.Alliance.A34RedGirl.SID.ProgramFFFFFFF,
+        //(uint)Shadowbringers.Alliance.A34RedGirl.SID.Program000000, (2633)
+        //(uint)Shadowbringers.Alliance.A34RedGirl.SID.ProgramFFFFFFF, (2632)
 
-        (uint)Stormblood.Dungeon.D09DrownedCityOfSkalla.D092TheOldOne.SID.Transfiguration,
+        //(uint)Stormblood.Dungeon.D09DrownedCityOfSkalla.D092TheOldOne.SID.Transfiguration, (1448)
 
         565, // "Transfiguration" from certain pomanders in Palace of the Dead
         439, // "Toad", palace of the dead
@@ -85,7 +86,6 @@ public sealed class RotationModuleManager : IDisposable
         Bossmods = bmm;
         PlayerSlot = playerSlot;
         Hints = hints;
-        _pMultibox = Database.Presets.DefaultPresets.First(f => f.Name == "VBM Multibox");
         _subscriptions = new
         (
             WorldState.Actors.Added.Subscribe(a => DirtyActiveModules(PlayerInstanceId == a.InstanceID)),
@@ -102,6 +102,11 @@ public sealed class RotationModuleManager : IDisposable
             WorldState.Client.ActionFailedLoS.Subscribe(OnLoSFailed),
             Database.Presets.PresetModified.Subscribe(OnPresetModified),
             WorldState.IsPvPAreaChanged.Subscribe(a => DirtyActiveModules(true)),
+            RotationModuleRegistry.Modified.Subscribe(() =>
+            {
+                Clear();
+                DirtyActiveModules(true);
+            }),
             _aiConfig.Modified.Subscribe(() => DirtyActiveModules(true))
         );
     }
@@ -126,9 +131,9 @@ public sealed class RotationModuleManager : IDisposable
         if (_activeModules == null)
         {
             // ensure AI compatibility status matches config option, unless force disabled
-            Presets.Remove(_pMultibox);
+            Presets.Remove(PresetMultibox);
             if (_aiConfig.Enabled && !Presets.Contains(ForceDisable))
-                Presets.Add(_pMultibox);
+                Presets.Add(PresetMultibox);
 
             _activeModules ??= Presets.Count > 0 ? [.. Presets.SelectMany((p, i) => RebuildActiveModules(p.Modules, i))] : Planner?.Plan != null ? RebuildActiveModules(Planner.Plan.Modules, 0) : [];
         }
@@ -164,6 +169,14 @@ public sealed class RotationModuleManager : IDisposable
         StrategyTarget.EnemyWithHighestPriority => Hints.PriorityTargets.MaxBy(RateEnemy((StrategyEnemySelection)param))?.Actor,
         StrategyTarget.EnemyByOID => Player != null && (uint)param is var oid && oid != 0 ? Hints.PotentialTargets.Where(e => e.Actor.OID == oid).MinBy(e => (e.Actor.Position - Player.Position).LengthSq())?.Actor : null,
         _ => null
+    };
+
+    public IEnumerable<Actor> ResolvePartyMembers(StrategyTarget strategy, int param) => strategy switch
+    {
+        StrategyTarget.Self or StrategyTarget.PartyByAssignment or StrategyTarget.PartyWithLowestHP => ResolveTargetOverride(strategy, param) is { } tar ? [tar] : [],
+        StrategyTarget.PartyByFilter => FilteredPartyMembers((StrategyPartyFiltering)param),
+        StrategyTarget.Automatic => WorldState.Party.WithoutSlot(),
+        _ => []
     };
 
     public WPos ResolveTargetLocation(StrategyTarget strategy, int param, float off1, float off2) => strategy switch
@@ -281,7 +294,7 @@ public sealed class RotationModuleManager : IDisposable
         if (player != null)
         {
             var isRPMode = player.Statuses.Any(IsTransformStatus);
-            for (int i = 0; i < modules.Count; ++i)
+            for (var i = 0; i < modules.Count; ++i)
             {
                 var def = modules[i].Definition;
                 if (!def.Classes[(int)player.Class] || player.Level < def.MinLevel || player.Level > def.MaxLevel)
@@ -336,7 +349,8 @@ public sealed class RotationModuleManager : IDisposable
         }
 
         // some jank: we can't check value of this.Planner because the expected plan isn't loaded until either countdown starts or boss is pulled, and BMM doesn't activate the module until after this event fires, so the best we can do is check what the plan is expected to be
-        else if (actor.InCombat && WorldState.Client.CountdownRemaining == null && Config.PlannedPullSafety && Bossmods.LoadedModules is [var mod] && Database.Plans.GetPlans(mod.GetType(), actor.Class).SelectedIndex >= 0)
+        // note checking for more than 1 party member, since we have a handful of plan-supported solo encounters where facepulling is entirely reasonable
+        else if (actor.InCombat && WorldState.Client.CountdownRemaining == null && Config.PlannedPullSafety && Bossmods.LoadedModules is [var mod] && Database.Plans.GetPlans(mod.GetType(), actor.Class).SelectedIndex >= 0 && WorldState.Party.WithoutSlot(true).Count() > 1)
         {
             Service.Log($"[RMM] Boss pulled without countdown => force-disabling from '{PresetNames}'");
             SetForceDisabled();
@@ -347,6 +361,9 @@ public sealed class RotationModuleManager : IDisposable
     {
         if (PlayerInstanceId != actor.InstanceID)
             return; // don't care
+
+        if (Hints.ScriptedDeath)
+            return;
 
         // note: if combat ends while player is dead, we'll reset the preset, which is desirable
         if (actor.IsDead && actor.InCombat && Config.ClearPresetOnDeath)

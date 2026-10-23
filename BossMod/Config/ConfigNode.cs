@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using BossMod.Autorotation;
+using System.Reflection;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace BossMod;
@@ -12,6 +14,7 @@ public sealed class ConfigDisplayAttribute : Attribute
     public Type? Parent { get; set; }
     public string? Since { get; set; }
     public string[]? Tags { get; set; }
+    public string? Group { get; set; }
 }
 
 [AttributeUsage(AttributeTargets.Field)]
@@ -21,9 +24,16 @@ public sealed class SectionStartAttribute(string label = "", bool separator = tr
     public bool Separator { get; } = separator;
 }
 
+// attribute that starts a new page of a config node, drawn as a section header outside the settings window
+[AttributeUsage(AttributeTargets.Field)]
+public sealed class PageStartAttribute(string name) : Attribute
+{
+    public string Name { get; } = name;
+}
+
 // attribute that specifies how config node field or enumeration value is shown in the UI
 [AttributeUsage(AttributeTargets.Field)]
-public sealed class PropertyDisplayAttribute(string label, uint color = 0xffffffff, string tooltip = "", string? since = null, string? depends = null, string[]? tags = null) : Attribute
+public sealed class PropertyDisplayAttribute(string label, uint color = 0xffffffff, string tooltip = "", string? since = null, string? depends = null, string[]? tags = null, Type? renderer = null) : Attribute
 {
     public string Label { get; } = label;
     public uint Color { get; } = color;
@@ -31,6 +41,7 @@ public sealed class PropertyDisplayAttribute(string label, uint color = 0xffffff
     public string? Since { get; } = since;
     public string? Depends { get; } = depends;
     public string[] Tags { get; } = tags ?? [];
+    public Type? Renderer { get; } = renderer;
 }
 
 // attribute that specifies combobox should be used for displaying int/bool property
@@ -44,11 +55,16 @@ public sealed class PropertyComboAttribute(string[] values) : Attribute
 #pragma warning restore CA1019
 }
 
+[AttributeUsage(AttributeTargets.Field)]
+public sealed class PropertyRadioAttribute(bool inline = false) : Attribute
+{
+    public bool Inline { get; } = inline;
+}
+
 // attribute that specifies slider should be used for displaying float/int property
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class PropertySliderAttribute(float min, float max) : Attribute
 {
-    public float Speed { get; set; } = 1;
     public float Min { get; } = min;
     public float Max { get; } = max;
     public bool Logarithmic { get; set; }
@@ -63,7 +79,7 @@ public abstract class ConfigNode
     public Event Modified = new();
 
     // draw custom contents; override this for complex config nodes
-    public virtual void DrawCustom(UITree tree, WorldState ws) { }
+    public virtual void DrawCustom(UITree tree, WorldState ws, RotationDatabase? db) { }
 
     // deserialize fields from json; default implementation should work fine for most cases
     public virtual void Deserialize(JsonElement j, JsonSerializerOptions ser)
@@ -109,4 +125,9 @@ public sealed class ConfigListener<T>(T data, Action<T> modified) : IDisposable 
     private readonly EventSubscription _listener = data.Modified.ExecuteAndSubscribe(() => modified(data));
 
     public void Dispose() => _listener.Dispose();
+}
+
+public abstract class PropertyRenderer
+{
+    public abstract bool Draw(PropertyDisplayAttribute attrs, bool nested, ConfigNode node, FieldInfo member, object value, ConfigRoot root, UITree tree, WorldState ws);
 }

@@ -1,4 +1,5 @@
-﻿using Dalamud.Bindings.ImGui;
+﻿using BossMod.Services;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin;
 using System.Reflection;
@@ -15,13 +16,14 @@ class MainDevWindow : UIWindow
 
     readonly EventSubscription _configChange;
     private readonly IDalamudPluginInterface dalamud;
+    private readonly ModulePackService packs;
     readonly List<Type> _devWindows;
 
-    public MainDevWindow(IDalamudPluginInterface dalamud) : base("Dev tools", false, new(600, 600))
+    public MainDevWindow(IDalamudPluginInterface dalamud, ModulePackService packs) : base("Dev tools", false, new(600, 600))
     {
         _configChange = Service.Config.Modified.Subscribe(() => ConfigModified = true);
         this.dalamud = dalamud;
-
+        this.packs = packs;
         _devWindows = [.. Utils.GetDerivedTypes<TestWindow>(Assembly.GetExecutingAssembly()).Where(t => !t.IsAbstract)];
     }
 
@@ -40,6 +42,9 @@ class MainDevWindow : UIWindow
                 Service.Config.SaveToFile(dalamud.ConfigFile);
                 ConfigModified = false;
             }
+
+        foreach (var p in packs.Loaded)
+            ImGui.Text($"Loaded assembly: {p.FullName}");
 
         ImGui.Separator();
 

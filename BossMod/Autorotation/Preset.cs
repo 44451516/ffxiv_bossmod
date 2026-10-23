@@ -75,7 +75,7 @@ public sealed record class Preset(string Name)
 
     public static Modifier CurrentModifiers()
     {
-        Modifier mods = Modifier.None;
+        var mods = Modifier.None;
         if (ImGui.GetIO().KeyShift)
             mods |= Modifier.Shift;
         if (ImGui.GetIO().KeyCtrl)
@@ -83,6 +83,44 @@ public sealed record class Preset(string Name)
         if (ImGui.GetIO().KeyAlt)
             mods |= Modifier.Alt;
         return mods;
+    }
+
+    public bool ShallowCompare(Preset other)
+    {
+        if (Name != other.Name)
+            return false;
+
+        if (Modules.Count != other.Modules.Count)
+            return false;
+
+        for (var i = 0; i < Modules.Count; i++)
+        {
+            var thismod = Modules[i];
+            var othermod = other.Modules[i];
+
+            if (thismod.Type != othermod.Type)
+                return false;
+
+            if (!MemoryExtensions.SequenceEqual(thismod.SerializedSettings.AsSpan(), othermod.SerializedSettings.AsSpan()))
+                return false;
+
+            if (!MemoryExtensions.SequenceEqual(thismod.TransientSettings.AsSpan(), othermod.TransientSettings.AsSpan()))
+                return false;
+        }
+
+        return true;
+    }
+
+    public static bool ShallowCompare(List<Preset> a, List<Preset> b)
+    {
+        if (a.Count != b.Count)
+            return false;
+
+        for (var i = 0; i < a.Count; i++)
+            if (!a[i].ShallowCompare(b[i]))
+                return false;
+
+        return true;
     }
 }
 
@@ -95,14 +133,13 @@ public class JsonPresetConverter : JsonConverter<Preset>
         var res = new Preset(jdoc.RootElement.GetProperty(nameof(Preset.Name)).GetString() ?? "");
         foreach (var jm in jdoc.RootElement.GetProperty(nameof(Preset.Modules)).EnumerateObject())
         {
-            var mt = Type.GetType(jm.Name);
-            if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
+            if (!RotationModuleRegistry.Modules.TryGetValue(jm.Name, out var md))
             {
-                Service.Log($"Error while deserializing preset {res.Name}: failed to find module {jm.Name}");
+                Service.PluginLog.Warning($"Error while deserializing preset {res.Name}: failed to find module {jm.Name}");
                 continue;
             }
 
-            var mi = res.AddModule(mt, md.Definition, md.Builder);
+            var mi = res.AddModule(md.ModuleType, md.Definition, md.Builder);
             var m = res.Modules[mi];
             foreach (var js in jm.Value.EnumerateArray())
             {
@@ -112,7 +149,7 @@ public class JsonPresetConverter : JsonConverter<Preset>
                 s.Track = md.Definition.Configs.FindIndex(s => s.InternalName == trackName);
                 if (s.Track < 0)
                 {
-                    Service.Log($"Error while deserializing preset {res.Name}: failed to find track {trackName} in module {jm.Name}");
+                    Service.PluginLog.Warning($"Error while deserializing preset {res.Name}: failed to find track {trackName} in module {jm.Name}");
                     continue;
                 }
 
@@ -128,7 +165,7 @@ public class JsonPresetConverter : JsonConverter<Preset>
 
                         if (t.Option < 0)
                         {
-                            Service.Log($"Error while deserializing preset {res.Name}: failed to find option {optionName} in track {trackName} in module {jm.Name}");
+                            Service.PluginLog.Warning($"Error while deserializing preset {res.Name}: failed to find option {optionName} in track {trackName} in module {jm.Name}");
                             continue;
                         }
                         break;

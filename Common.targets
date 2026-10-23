@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Collections.Immutable" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Numerics" />
+    <Using Include="Lumina.Extensions" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LocalCS>false</LocalCS>
+    <LocalDalamock>false</LocalDalamock>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(LocalCS)' == 'true'">
+    <Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
+    <DefineConstants>LOCAL_CS</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <NuGetLockFilePath Condition="'$(LocalDalamock)' == 'true'">$(MSBuildProjectDirectory)\obj\packages.local.lock.json</NuGetLockFilePath>
+    <NuGetLockFilePath Condition="'$(LocalDalamock)' != 'true'">$(MSBuildProjectDirectory)\obj\packages.dev.lock.json</NuGetLockFilePath>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(LocalCS)' == 'true'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)\FFXIVClientStructs\FFXIVClientStructs\FFXIVClientStructs.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)\FFXIVClientStructs\InteropGenerator.Runtime\InteropGenerator.Runtime.csproj" />
+  </ItemGroup>
+</Project>

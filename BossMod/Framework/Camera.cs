@@ -1,19 +1,18 @@
-﻿using Dalamud.Bindings.ImGui;
+﻿using BossMod.Interfaces;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 
 namespace BossMod;
 
-class Camera
+public class Camera : ICamera
 {
-    public static Camera? Instance;
-
     public Vector3 Origin;
     public Matrix4x4 View;
     public Matrix4x4 Proj;
     public Matrix4x4 ViewProj;
     public Vector4 NearPlane;
-    public float CameraAzimuth; // facing north = 0, facing west = pi/4, facing south = +-pi/2, facing east = -pi/4
+    public float CameraAzimuth { get; private set; } // facing north = 0, facing west = pi/4, facing south = +-pi/2, facing east = -pi/4
     public float CameraAltitude; // facing horizontally = 0, facing down = pi/4, facing up = -pi/4
     public Vector2 ViewportSize;
 
@@ -76,12 +75,12 @@ class Camera
 
     public void DrawWorldCone(Vector3 center, float radius, Angle direction, Angle halfWidth, uint color, float thickness = 1)
     {
-        int numSegments = CurveApprox.CalculateCircleSegments(radius, halfWidth, 1 / 90f);
+        var numSegments = CurveApprox.CalculateCircleSegments(radius, halfWidth, 1 / 90f);
         var delta = halfWidth / numSegments;
 
         var prev = center + radius * (direction - delta * numSegments).ToDirection().ToVec3();
         DrawWorldLine(center, prev, color, thickness);
-        for (int i = -numSegments + 1; i <= numSegments; ++i)
+        for (var i = -numSegments + 1; i <= numSegments; ++i)
         {
             var curr = center + radius * (direction + delta * i).ToDirection().ToVec3();
             DrawWorldLine(prev, curr, color, thickness);
@@ -92,9 +91,9 @@ class Camera
 
     public void DrawWorldCircle(Vector3 center, float radius, uint color, float thickness = 1)
     {
-        int numSegments = CurveApprox.CalculateCircleSegments(radius, 360.Degrees(), 1 / 90f);
+        var numSegments = CurveApprox.CalculateCircleSegments(radius, 360.Degrees(), 1 / 90f);
         var prev = center + new Vector3(0, 0, radius);
-        for (int i = 1; i <= numSegments; ++i)
+        for (var i = 1; i <= numSegments; ++i)
         {
             var curr = center + radius * (i * 360.0f / numSegments).Degrees().ToDirection().ToVec3();
             DrawWorldLine(curr, prev, color, thickness);
@@ -104,11 +103,11 @@ class Camera
 
     public void DrawWorldSphere(Vector3 center, float radius, uint color, float thickness = 1)
     {
-        int numSegments = CurveApprox.CalculateCircleSegments(radius, 360.Degrees(), 1 / 90f);
+        var numSegments = CurveApprox.CalculateCircleSegments(radius, 360.Degrees(), 1 / 90f);
         var prev1 = center + new Vector3(0, 0, radius);
         var prev2 = center + new Vector3(0, radius, 0);
         var prev3 = center + new Vector3(radius, 0, 0);
-        for (int i = 1; i <= numSegments; ++i)
+        for (var i = 1; i <= numSegments; ++i)
         {
             var dir = (i * 360.0f / numSegments).Degrees().ToDirection();
             var curr1 = center + radius * new Vector3(dir.X, 0, dir.Z);

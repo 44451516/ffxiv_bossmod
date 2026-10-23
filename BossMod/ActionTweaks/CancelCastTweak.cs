@@ -13,6 +13,9 @@ public sealed class CancelCastTweak(WorldState ws, AIHints hints)
         if (currentTime < _nextCancelAllowed)
             return false;
 
+        if (_ws.Party.Player() is { CastInfo.Action.Type: ActionType.Mount })
+            return false;
+
         if (!force && !WantCancel())
             return false;
 
@@ -22,15 +25,11 @@ public sealed class CancelCastTweak(WorldState ws, AIHints hints)
 
     private bool WantCancel()
     {
-        if (_config.PyreticThreshold > 0 && hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && hints.ImminentSpecialMode.activation < _ws.FutureTime(_config.PyreticThreshold))
+        if (_config.AutoPyretic && hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && hints.ImminentSpecialMode.activation < _ws.FutureTime(_config.PyreticThreshold))
             return true;
 
         var cast = _ws.Party.Player()?.CastInfo;
         if (cast == null || cast.Action.Type == ActionType.KeyItem) // don't auto cancel quest items, that's never a good idea
-            return false;
-
-        // mount doesn't break movement as of 7.whatever
-        if (cast.Action.Type == ActionType.Mount)
             return false;
 
         var target = _ws.Actors.Find(cast.TargetID);

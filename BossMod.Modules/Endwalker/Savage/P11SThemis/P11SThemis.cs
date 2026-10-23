@@ -1,0 +1,4 @@
+﻿namespace BossMod.Endwalker.Savage.P11SThemis;
+
+[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 941, NameID = 12388, PlanLevel = 90)]
+public class P11SThemis(ModuleInit init) : BossModule(init, new(100, 100), new ArenaBoundsCircle(20));

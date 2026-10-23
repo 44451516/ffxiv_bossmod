@@ -1,6 +1,6 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "通用机制解算设置", Order = 7)]
+[ConfigDisplay(Name = "通用机制解算设置", Order = 8, Group = "雷达与模块")]
 public sealed class AIHintsConfig : ConfigNode
 {
     public enum DonutFallbackBehavior
@@ -15,7 +15,7 @@ public sealed class AIHintsConfig : ConfigNode
     public DonutFallbackBehavior DonutFallback = DonutFallbackBehavior.AssumeCircle;
 
     [PropertyDisplay("未知锥形范围伤害的推测角度", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
-    [PropertySlider(1, 180, Speed = 5)]
+    [PropertySlider(1, 180)]
     public float ConeFallbackAngle = 180;
 
     public enum OmenBehavior
@@ -31,9 +31,9 @@ public sealed class AIHintsConfig : ConfigNode
     [PropertyDisplay("无范围指示器技能的处理逻辑", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     public OmenBehavior OmenSetting = OmenBehavior.Automatic;
 
-    [PropertyDisplay("Enable raycasting", tooltip: "Prevents VBM from trying to attack mobs that it can't see. Disable to improve performance, but AI mode will not behave optimally.")]
+    [PropertyDisplay("启用射线检测", tooltip: "防止 VBM 尝试攻击其看不到的怪物。关闭可提升性能，但 AI 模式的表现会变差。")]
     public bool EnableRaycasts = true;
 
-    [PropertyDisplay("Enable priority tracing", tooltip: "Only useful for debugging. Will slightly reduce performance.")]
+    [PropertyDisplay("启用优先级追踪", tooltip: "仅用于调试，会轻微降低性能。")]
     public bool PriorityTracing = false;
 }

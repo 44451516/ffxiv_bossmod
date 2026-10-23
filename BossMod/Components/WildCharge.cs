@@ -37,8 +37,8 @@ public class GenericWildCharge(BossModule module, float halfWidth, Enum? aid = d
                 break;
             case PlayerRole.Share:
             case PlayerRole.ShareNotFirst:
-                bool badShare = false;
-                int numShares = 0;
+                var badShare = false;
+                var numShares = 0;
                 foreach (var aoe in EnumerateAOEs().Where(aoe => InAOE(aoe, actor)))
                 {
                     if (++numShares > 1)
@@ -78,7 +78,7 @@ public class GenericWildCharge(BossModule module, float halfWidth, Enum? aid = d
                     if (farthest != null)
                     {
                         var stack = GetAOEForTarget(Source.Position, farthest.Position);
-                        hints.AddForbiddenZone(ShapeDistance.InvertedCone(stack.origin, 100, stack.dir.ToAngle(), Angle.Asin(HalfWidth / (Source.Position - farthest.Position).Length())), Activation);
+                        hints.AddForbiddenZone(ShapeDistance.InvertedCone(stack.origin, 100, stack.dir.ToAngle(), MathF.Atan2(HalfWidth, (Source.Position - farthest.Position).Length()).Radians()), Activation);
                     }
                 }
                 break;

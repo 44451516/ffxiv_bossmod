@@ -1,6 +1,8 @@
-﻿using System.Globalization;
+﻿using BossMod.Autorotation;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Text.Json;
 using System.Threading;
 
 namespace BossMod;
@@ -104,7 +106,7 @@ public sealed class ReplayParserLog : IDisposable
         {
             var str = ReadString();
             var res = new byte[str.Length >> 1];
-            for (int i = 0; i < res.Length; ++i)
+            for (var i = 0; i < res.Length; ++i)
                 res[i] = byte.Parse(str.AsSpan()[(2 * i)..(2 * i + 2)], NumberStyles.HexNumber);
             return res;
         }
@@ -119,13 +121,13 @@ public sealed class ReplayParserLog : IDisposable
         public override ActorStatus ReadStatus()
         {
             var sid = ReadString();
-            int sep = sid.IndexOf(' ', StringComparison.Ordinal);
+            var sep = sid.IndexOf(' ', StringComparison.Ordinal);
             return new(uint.Parse(sep >= 0 ? sid.AsSpan(0, sep) : sid.AsSpan()), ushort.Parse(ReadString(), NumberStyles.HexNumber), Timestamp.AddSeconds(ReadFloat()), ReadActorID());
         }
         public override ActionEffects ReadActionEffects()
         {
             var effects = new ActionEffects();
-            for (int i = 0; i < ActionEffects.MaxCount; ++i)
+            for (var i = 0; i < ActionEffects.MaxCount; ++i)
                 effects[i] = ReadULong(true);
             return effects;
         }
@@ -135,7 +137,7 @@ public sealed class ReplayParserLog : IDisposable
             {
                 var parts = ReadString().Split('!');
                 var effects = new ActionEffects();
-                for (int j = 1; j < parts.Length; ++j)
+                for (var j = 1; j < parts.Length; ++j)
                     effects[j - 1] = ulong.Parse(parts[j], NumberStyles.HexNumber);
                 list.Add(new(ParseActorID(parts[0]), effects));
             }
@@ -204,7 +206,7 @@ public sealed class ReplayParserLog : IDisposable
         public override ActionEffects ReadActionEffects()
         {
             var effects = new ActionEffects();
-            for (int i = 0; i < ActionEffects.MaxCount; ++i)
+            for (var i = 0; i < ActionEffects.MaxCount; ++i)
                 effects[i] = ReadULong(true);
             return effects;
         }
@@ -212,7 +214,7 @@ public sealed class ReplayParserLog : IDisposable
         {
             var count = _input.ReadInt32();
             list.Capacity = count;
-            for (int i = 0; i < count; ++i)
+            for (var i = 0; i < count; ++i)
                 list.Add(new(_input.ReadUInt64(), ReadActionEffects()));
         }
         public override (float, float) ReadFloatPair() => (_input.ReadSingle(), _input.ReadSingle());
@@ -247,7 +249,7 @@ public sealed class ReplayParserLog : IDisposable
             }
 
             var streamInvLength = 1.0f / rawStream.Length;
-            int curOp = 0;
+            var curOp = 0;
             using ReplayBuilder builder = new(path);
             using ReplayParserLog parser = new(input, builder);
             while (parser.ParseLine())
@@ -345,6 +347,7 @@ public sealed class ReplayParserLog : IDisposable
             [new("PAR-"u8)] = ParsePartyLeave, // legacy (up to v3)
             [new("PAR!"u8)] = ParsePartyModify, // legacy (up to v3)
             [new("LB  "u8)] = ParsePartyLimitBreak,
+            [new("ALGI"u8)] = ParsePartyAlliance,
             [new("CLAR"u8)] = ParseClientActionRequest,
             [new("CLRJ"u8)] = ParseClientActionReject,
             [new("CDN+"u8)] = () => ParseClientCountdown(true),
@@ -359,6 +362,8 @@ public sealed class ReplayParserLog : IDisposable
             [new("CLDA"u8)] = ParseClientDutyActions,
             [new("CLBH"u8)] = ParseClientBozjaHolster,
             [new("CBLU"u8)] = ParseClientBlueMageSpells,
+            [new("CBST"u8)] = ParseClientBeastmasterBeasts,
+            [new("CCRU"u8)] = ParseClientCrucibleInventory,
             [new("CLVL"u8)] = ParseClientClassJobLevels,
             [new("CLAF"u8)] = ParseClientActiveFate,
             [new("CPET"u8)] = ParseClientActivePet,
@@ -380,6 +385,12 @@ public sealed class ReplayParserLog : IDisposable
             [new("IPCI"u8)] = ParseNetworkLegacyIDScramble,
             [new("IPCX"u8)] = ParseNetworkIDScramble,
             [new("IPCS"u8)] = ParseNetworkServerIPC,
+            [new("RTT "u8)] = ParseNetworkRTT,
+            [new("RPRE"u8)] = ParseReplayPresets,
+            [new("RMOD"u8)] = ParseReplayModifiers,
+            [new("RROL"u8)] = ParseReplayRoles,
+            [new("RMOV"u8)] = ParseReplayMove,
+            [new("RACT"u8)] = ParseReplayActions,
         };
     }
 
@@ -687,6 +698,7 @@ public sealed class ReplayParserLog : IDisposable
     }
     private PartyState.OpModify ParsePartyLeave() => new(_input.ReadInt(), new(0, 0, false));
     private PartyState.OpLimitBreakChange ParsePartyLimitBreak() => new(_input.ReadInt(), _input.ReadInt());
+    private PartyState.OpAllianceChange ParsePartyAlliance() => new((AllianceLetter)_input.ReadInt());
 
     private ClientState.OpActionRequest ParseClientActionRequest()
     {
@@ -726,7 +738,7 @@ public sealed class ReplayParserLog : IDisposable
         var reset = _input.ReadBool();
         List<(int, Cooldown)> cooldowns = [];
         cooldowns.Capacity = _input.ReadByte(false);
-        for (int i = 0; i < cooldowns.Capacity; ++i)
+        for (var i = 0; i < cooldowns.Capacity; ++i)
             cooldowns.Add((_input.ReadByte(false), new(_input.ReadFloat(), _input.ReadFloat())));
         if (_version < 19)
             foreach (ref var cd in cooldowns.AsSpan())
@@ -755,7 +767,7 @@ public sealed class ReplayParserLog : IDisposable
     {
         List<(BozjaHolsterID, byte)> contents = [];
         contents.Capacity = _input.ReadByte(false);
-        for (int i = 0; i < contents.Capacity; ++i)
+        for (var i = 0; i < contents.Capacity; ++i)
             contents.Add(((BozjaHolsterID)_input.ReadByte(false), _input.ReadByte(false)));
         return new(contents);
     }
@@ -764,15 +776,33 @@ public sealed class ReplayParserLog : IDisposable
     {
         var contents = new uint[ClientState.NumBlueMageSpells];
         var count = _input.ReadByte(false);
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
             contents[i] = _input.ReadUInt(false);
+        return new(contents);
+    }
+
+    private ClientState.OpBeastmasterBeastsChange ParseClientBeastmasterBeasts()
+    {
+        var contents = new byte[ClientState.NumBeastmasterBeasts];
+        var count = _input.ReadByte(false);
+        for (var i = 0; i < count; i++)
+            contents[i] = _input.ReadByte(false);
+        return new(contents);
+    }
+
+    private ClientState.OpCrucibleInventoryChange ParseClientCrucibleInventory()
+    {
+        var contents = new ushort[ClientState.NumCrucibleSlots];
+        var count = _input.ReadByte(false);
+        for (var i = 0; i < count; i++)
+            contents[i] = _input.ReadUShort(false);
         return new(contents);
     }
 
     private ClientState.OpClassJobLevelsChange ParseClientClassJobLevels()
     {
         var contents = new short[_input.ReadByte(false)];
-        for (int i = 0; i < contents.Length; i++)
+        for (var i = 0; i < contents.Length; i++)
             contents[i] = _input.ReadShort();
         return new(contents);
     }
@@ -836,6 +866,7 @@ public sealed class ReplayParserLog : IDisposable
     private NetworkState.OpLegacyIDScramble ParseNetworkLegacyIDScramble() => new(_input.ReadUInt(false));
     private NetworkState.OpIDScramble ParseNetworkIDScramble() => new(new(_input.ReadUInt(false), _input.ReadUInt(false), _input.ReadUInt(false), _input.ReadUInt(false), _input.ReadUInt(false)));
     private NetworkState.OpServerIPC ParseNetworkServerIPC() => new(new((Network.ServerIPC.PacketID)_input.ReadInt(), _input.ReadUShort(false), _input.ReadUInt(false), _input.ReadUInt(true), new(_input.ReadLong()), _input.ReadBytes()));
+    private NetworkState.OpRTT ParseNetworkRTT() => new(_input.ReadFloat());
 
     private ActorHPMP ReadActorHPMP()
     {
@@ -848,5 +879,38 @@ public sealed class ReplayParserLog : IDisposable
         {
             return new(_input.ReadUInt(false), _input.ReadUInt(false), _input.ReadUInt(false), _input.ReadUInt(false), _version >= 24 ? _input.ReadUInt(false) : 10000);
         }
+    }
+
+    private ReplayState.OpActivePresetsChange ParseReplayPresets()
+    {
+        var stream = new MemoryStream(_input.ReadBytes());
+        if (JsonSerializer.Deserialize<List<Preset>>(stream) is { } ps)
+            return new(ps);
+
+        Service.PluginLog.Warning("unable to parse preset JSON");
+        return new([]);
+    }
+    private ReplayState.OpModifierKeysChange ParseReplayModifiers() => new((Preset.Modifier)_input.ReadByte(false));
+    private ReplayState.OpRoleAssignmentsChange ParseReplayRoles()
+    {
+        var roles = new PartyRolesConfig.Assignment[PartyState.MaxPartySize];
+        for (var i = 0; i < roles.Length; i++)
+            roles[i] = (PartyRolesConfig.Assignment)_input.ReadByte(false);
+        return new(roles);
+    }
+    private ReplayState.OpMoveInputChange ParseReplayMove() => new(new WDir(_input.ReadFloat(), _input.ReadFloat()));
+    private ReplayState.OpManualActionsChange ParseReplayActions()
+    {
+        var length = _input.ReadInt();
+        List<ReplayState.SimpleEntry> entries = [];
+        for (var i = 0; i < length; i++)
+            entries.Add(new(
+                _input.ReadAction(),
+                _input.ReadActorID(),
+                _input.ReadFloat(),
+                _input.ReadFloat(),
+                _input.ReadVec3()
+            ));
+        return new(entries);
     }
 }

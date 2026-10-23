@@ -1,0 +1,22 @@
+﻿namespace BossMod.Endwalker.Criterion.C01ASS.C013Shadowcaster;
+
+class FiresteelFracture(BossModule module, AID aid) : Components.Cleave(module, aid, new AOEShapeCone(40, 30.Degrees()));
+class NFiresteelFracture(BossModule module) : FiresteelFracture(module, AID.NFiresteelFracture);
+class SFiresteelFracture(BossModule module) : FiresteelFracture(module, AID.SFiresteelFracture);
+
+// TODO: show AOEs
+class BlazingBenifice(BossModule module, AID aid) : Components.CastCounter(module, aid);
+class NBlazingBenifice(BossModule module) : BlazingBenifice(module, AID.NBlazingBenifice);
+class SBlazingBenifice(BossModule module) : BlazingBenifice(module, AID.SBlazingBenifice);
+
+class PureFire(BossModule module, AID aid) : Components.StandardAOEs(module, aid, 6);
+class NPureFire(BossModule module) : PureFire(module, AID.NPureFireAOE);
+class SPureFire(BossModule module) : PureFire(module, AID.SPureFireAOE);
+
+public abstract class C013Shadowcaster(ModuleInit init) : BossModule(init, new(289, -105), new ArenaBoundsRect(15, 20));
+
+[ModuleInfo(PrimaryActorOID = (uint)OID.NBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 878, NameID = 11393, SortOrder = 9, PlanLevel = 90)]
+public class C013NShadowcaster(ModuleInit init) : C013Shadowcaster(init);
+
+[ModuleInfo(PrimaryActorOID = (uint)OID.SBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 879, NameID = 11393, SortOrder = 9, PlanLevel = 90)]
+public class C013SShadowcaster(ModuleInit init) : C013Shadowcaster(init);

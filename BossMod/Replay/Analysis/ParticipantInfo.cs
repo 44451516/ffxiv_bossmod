@@ -33,7 +33,7 @@ class ParticipantInfo : CommonEnumInfo
                 foreach (var (commonOID, participants) in enc.ParticipantsByOID)
                 {
                     var data = _data.GetOrAdd(commonOID);
-                    int spawnedPreFight = 0;
+                    var spawnedPreFight = 0;
                     foreach (var p in participants.Where(p => !IsIgnored(p) && p.EffectiveExistence.Start <= minExistence))
                     {
                         data.Types.Add(p.Type);
@@ -222,7 +222,7 @@ class ParticipantInfo : CommonEnumInfo
         sb.AppendLine("}");
         sb.AppendLine();
         sb.AppendLine($"[ModuleInfo(Incomplete = true, GroupType = BossModuleInfo.GroupType.CFC, GroupID = {data.Zones.FirstOrDefault().cfcId}, NameID = {data.Names.FirstOrDefault().id})]");
-        sb.AppendLine($"public class {name}(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20));");
+        sb.AppendLine($"public class {name}(ModuleInit init) : BossModule(init, new(100, 100), new ArenaBoundsCircle(20));");
         return sb;
     }
 }

@@ -1,5 +1,4 @@
 ﻿using BossMod.Autorotation;
-using BossMod.Autorotation.xan;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Utility.Raii;
@@ -11,7 +10,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace BossMod;
 
-class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleManager zmm, ActionManagerEx amex, MovementOverride move, AIHintsBuilder hintBuilder, IDalamudPluginInterface dalamud) : UIWindow("Boss mod debug UI", false, new(300, 200))
+class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManagerEx amex, MovementOverride move, AIHintsBuilder hintBuilder, IDalamudPluginInterface dalamud) : UIWindow("Boss mod debug UI", false, new(300, 200))
 {
     private readonly DebugObstacles _debugObstacles = new(hintBuilder.Obstacles, dalamud);
     private readonly DebugObjects _debugObjects = new();
@@ -41,7 +40,8 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
     {
         var playerCID = UIState.Instance()->PlayerState.ContentId;
         var player = Service.ObjectTable.LocalPlayer;
-        ImGui.TextUnformatted($"Current zone: {ws.CurrentZone}, player=0x{(ulong)Utils.GameObjectInternal(player):X}, playerCID={playerCID:X}, pos = {Utils.Vec3String(player?.Position ?? new Vector3())}");
+        ImGui.TextUnformatted($"Current zone: {ws.CurrentZone} / {ws.CurrentCFCID}, player=0x{(ulong)Utils.GameObjectInternal(player):X}, playerCID={playerCID:X}, pos = {Utils.Vec3String(player?.Position ?? new Vector3())}");
+        ImGui.TextUnformatted($"Last RTT: {ws.Network.LastRTT}");
         // ImGui.TextUnformatted($"ID scramble: {Network.IDScramble.Delta} = {*Network.IDScramble.OffsetAdjusted} - {*Network.IDScramble.OffsetBaseFixed} - {*Network.IDScramble.OffsetBaseChanging}");
         ImGui.TextUnformatted($"Player mode: {(player is null ? "No player found" : Utils.CharacterInternal(player)->Mode.ToString())}");
 
@@ -105,11 +105,6 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         {
             DrawPartyHealth();
         }
-        if (ImGui.CollapsingHeader("Solo duty module"))
-        {
-            if (zmm.ActiveModule is QuestBattle.QuestBattle qb)
-                qb.DrawDebugInfo();
-        }
         if (ImGui.CollapsingHeader("Graphics scene"))
         {
             _debugGraphics.DrawSceneTree();
@@ -122,7 +117,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         {
             _debugGraphics.DrawMatrices();
         }
-        if (Camera.Instance != null && ImGui.CollapsingHeader("In-game overlay"))
+        if (ImGui.CollapsingHeader("In-game overlay"))
         {
             _debugGraphics.DrawOverlay();
         }
@@ -198,7 +193,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         if (player == null)
             return;
 
-        ImGui.TextUnformatted($"Forced movement direction: {MovementOverride.ForcedMovementDirection->Radians()}");
+        ImGui.TextUnformatted($"Forced movement direction: {move.ForcedMovementDirection->Radians()}");
         ImGui.SameLine();
         if (ImGui.Button("Add misdirection"))
             player->GetStatusManager()->SetStatus(20, 3909, 20.0f, 100, (GameObjectId)0xE0000000, true);
@@ -259,7 +254,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(elem.CastInfo.Action.ToString());
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted(Utils.CastTimeString(elem.CastInfo, ws.CurrentTime));
+            ImGui.TextUnformatted(Utils.CastTimeString(elem.CastInfo));
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(Utils.Vec3String(elem.CastInfo.Location));
             ImGui.TableNextColumn();
@@ -466,7 +461,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         ImGui.TableSetupColumn("Index");
         ImGui.TableSetupColumn("Value");
         ImGui.TableHeadersRow();
-        for (int i = 0; i < 74; ++i)
+        for (var i = 0; i < 74; ++i)
         {
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
