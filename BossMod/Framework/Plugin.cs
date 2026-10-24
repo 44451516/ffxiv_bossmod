@@ -44,7 +44,8 @@ public class Plugin(IDalamudPluginInterface dalamud) : HostedPlugin(dalamud)
             .Keyed<FileInfo>(Keys.DefaultPresetsFile);
         containerBuilder.Register(ctx => new FileInfo(Path.Join(autorotRoot, "presets.db.json")))
             .Keyed<FileInfo>(Keys.PresetDatabase);
-        containerBuilder.Register(ctx => new DirectoryInfo(Path.Join(autorotRoot, "plans")))
+        // PlanDatabase's FileSystemWatcher throws if the directory does not exist yet, so create it here
+        containerBuilder.Register(ctx => Directory.CreateDirectory(Path.Join(autorotRoot, "plans")))
             .Keyed<DirectoryInfo>(Keys.PlanDatabase);
         containerBuilder.Register(ctx => new FileInfo(Path.Join(autorotRoot, "plans.manifest.json")))
             .Keyed<FileInfo>(Keys.PlanManifest);
@@ -143,7 +144,7 @@ public class Plugin(IDalamudPluginInterface dalamud) : HostedPlugin(dalamud)
         {
             unsafe
             {
-                MultiboxUnlock.Exec();
+                MultiboxUnlock.Exec(ctx.Resolve<IPluginLog>());
             }
         });
 

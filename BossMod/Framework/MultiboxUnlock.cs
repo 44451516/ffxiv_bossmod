@@ -6,7 +6,7 @@ namespace BossMod;
 // utility to remove anti-multibox check
 public static partial class MultiboxUnlock
 {
-    public static unsafe void Exec()
+    public static unsafe void Exec(Dalamud.Plugin.Services.IPluginLog log)
     {
         foreach (var handle in EnumHandles())
         {
@@ -17,7 +17,7 @@ public static partial class MultiboxUnlock
                 var name = ObjectNameOrTypeName(handle, false);
                 if (name.Contains("6AA83AB5-BAC4-4a36-9F66-A309770760CB_ffxiv_game0", StringComparison.Ordinal))
                 {
-                    Service.Log($"[Multibox] Closing handle {handle:X} '{name}'");
+                    log.Debug($"[Multibox] Closing handle {handle:X} '{name}'");
                     CloseHandle(handle);
                 }
             }

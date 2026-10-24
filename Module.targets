@@ -24,4 +24,11 @@
       SourceFiles="$(OutDir)\$(AssemblyName).dll"
       DestinationFolder="$(AppData)\vbm\modules-dev" />
   </Target>
+
+  <!-- ModulePackService installs modules from the directory containing BossMod.dll, which is release\ for Release builds -->
+  <Target Name="CopyReleaseDll" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Copy
+      SourceFiles="$(OutDir)\$(AssemblyName).dll"
+      DestinationFolder="$(MSBuildThisFileDirectory)release" />
+  </Target>
 </Project>

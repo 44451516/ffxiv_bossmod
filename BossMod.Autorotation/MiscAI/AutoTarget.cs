@@ -51,10 +51,10 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.DefineInt(Track.MaxTargets, "最大拉怪数量（0 = 不限制）", minValue: 0, maxValue: 30, uiPriority: -120);
         res.Define(Track.Treasure).As<Flag>("Treasure", "开启宝箱", renderer: typeof(DefaultOffRenderer), uiPriority: -115)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
+        res.DefineInt(Track.MaxTargets, "最大拉怪数量（0 = 不限制）", minValue: 0, maxValue: 30, uiPriority: -120);
 
         res.Define(Track.Zodiac).As<Flag>("Zodiac", "Prioritize mobs in the current Zodiac Book", renderer: typeof(DefaultOffRenderer), uiPriority: -95)
             .AddOption(Flag.Disabled)

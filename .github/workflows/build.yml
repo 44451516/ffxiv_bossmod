@@ -65,6 +65,12 @@ jobs:
       - name: Restore Project
         run: dotnet restore
 
+      - name: Build Modules
+        run: |
+          dotnet build BossMod.Autorotation/BossMod.Autorotation.csproj --configuration Release -p:Platform=x64
+          dotnet build BossMod.Modules/BossMod.Modules.csproj --configuration Release -p:Platform=x64
+          dotnet build BossMod.Ultimate/BossMod.Ultimate.csproj --configuration Release -p:Platform=x64
+
       - name: Build Project
         run: |
           dotnet build --configuration Release "${PROJECT_FILE}" --output "${PLUGIN_BUILD_DIR}"
@@ -74,6 +80,13 @@ jobs:
             exit 1
           fi
           cp "${zip_path}" latest.zip
+          for dll in BossMod.Autorotation/bin/x64/Release/BossMod.Autorotation.dll BossMod.Modules/bin/x64/Release/BossMod.Modules.dll BossMod.Ultimate/bin/x64/Release/BossMod.Ultimate.dll; do
+            if [ ! -f "${dll}" ]; then
+              echo "${dll} was not produced by the module build" >&2
+              exit 1
+            fi
+          done
+          zip -j latest.zip BossMod.Autorotation/bin/x64/Release/BossMod.Autorotation.dll BossMod.Modules/bin/x64/Release/BossMod.Modules.dll BossMod.Ultimate/bin/x64/Release/BossMod.Ultimate.dll
           unzip -l latest.zip
 
       - name: Upload build output
