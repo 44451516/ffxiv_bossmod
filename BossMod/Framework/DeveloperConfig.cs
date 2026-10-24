@@ -11,4 +11,6 @@ public sealed class DeveloperConfig : ConfigNode
 
     [PropertyDisplay("自动生成障碍物地图")]
     public bool AutoBitmaps = true;
+
+    public bool DebugWindowOpen;
 }

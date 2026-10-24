@@ -56,8 +56,6 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-
-
         res.Define(Track.Zodiac).As<Flag>("Zodiac", "Prioritize mobs in the current Zodiac Book", renderer: typeof(DefaultOffRenderer), uiPriority: -95)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);

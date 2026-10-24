@@ -31,6 +31,10 @@ public sealed class AIHintsConfig : ConfigNode
     [PropertyDisplay("无范围指示器技能的处理逻辑", since: "0.3.0.0", tooltip: "此设置仅在无首领模块激活时生效。")]
     public OmenBehavior OmenSetting = OmenBehavior.Automatic;
 
+    [PropertyDisplay("寻路缓冲距离")]
+    [PropertySlider(0, 1)]
+    public float AdditionalPathfindingCushion = 0.3f;
+
     [PropertyDisplay("启用射线检测", tooltip: "防止 VBM 尝试攻击其看不到的怪物。关闭可提升性能，但 AI 模式的表现会变差。")]
     public bool EnableRaycasts = true;
 

@@ -6,9 +6,12 @@ using Dalamud.Interface.Utility.Raii;
 
 namespace BossMod;
 
-[ConfigDisplay(Name = "服务器信息栏", Order = 6, Group = "通用")]
+[ConfigDisplay(Name = "界面", Order = -10, Group = "通用")]
 public sealed class DtrConfig : ConfigNode
 {
+    [PropertyDisplay("游戏界面隐藏时隐藏窗口")]
+    public bool HideWithGameUi = true;
+
     public enum DtrStatus
     {
         [PropertyDisplay("禁用")]
@@ -19,6 +22,7 @@ public sealed class DtrConfig : ConfigNode
         Icon
     }
 
+    [PageStart("服务器信息栏")]
     [PropertyDisplay("自动循环状态指示")]
     [PropertyRadio(inline: true)]
     public DtrStatus ShowAutorot = Service.Config.Get<AutorotationConfig>().ShowDTR;
@@ -31,9 +35,9 @@ public sealed class DtrConfig : ConfigNode
 
     public List<string> ShowPresets = ["VBM Default", "VBM AI"];
 
-    public override void DrawCustom(UITree tree, WorldState ws, RotationDatabase? db)
+    public override void DrawCustom(string? page, UITree tree, WorldState ws, RotationDatabase? db)
     {
-        if (db == null)
+        if (db == null || page != "服务器信息栏")
             return;
 
         var modified = false;
