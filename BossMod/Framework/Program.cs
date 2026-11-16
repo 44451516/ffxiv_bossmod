@@ -1,4 +1,4 @@
-﻿#if DEBUG
+#if DEBUG
 using Autofac;
 using BossMod;
 using BossMod.Dev;
@@ -40,7 +40,7 @@ static class Program
 
             containerBuilder.Register(_ =>
             {
-                var ws = new WorldState(0, "unknown");
+                var ws = new WorldState(0, "未知");
 
                 ws.Execute(new ActorState.OpCreate(0x12345678, 0, 0, 0, "Player", 0, ActorType.Player, Class.WAR, 100, new(90, 0, 90, 0), 0.5f, new(500, 600, 100, 10000, 10000), true, true, 0, 0));
                 ws.Execute(new PartyState.OpModify(0, new(0x87654321, 0x12345678, false)));
@@ -53,6 +53,7 @@ static class Program
             containerBuilder.RegisterSingletonSelfAndInterfaces<MockMovementOverride>();
             containerBuilder.RegisterSingletonSelfAndInterfaces<MockHintExecutor>();
             containerBuilder.RegisterSingletonSelfAndInterfaces<MockCamera>();
+            containerBuilder.RegisterSingletonSelfAndInterfaces<MockShadowcaster>();
 
             containerBuilder.RegisterSingletonSelf<MainDevWindow>();
         }

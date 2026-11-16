@@ -1,4 +1,4 @@
-﻿using Autofac.Features.AttributeFilters;
+using Autofac.Features.AttributeFilters;
 using BossMod.Autorotation;
 using DalaMock.Shared.Interfaces;
 using Dalamud.Bindings.ImGui;
@@ -83,7 +83,8 @@ public sealed class ReplayManager(RotationDatabase rotationDB, IFileDialogManage
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        RestoreHistory();
+        if (Service.IsMock)
+            RestoreHistory();
     }
 
     Task IHostedService.StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -195,7 +196,7 @@ public sealed class ReplayManager(RotationDatabase rotationDB, IFileDialogManage
             }
 
             ImGui.TableNextColumn();
-            if (ImGui.Button(e.Replay.IsCompleted ? "Unload" : "Cancel", new(50, 0)))
+            if (ImGui.Button(e.Replay.IsCompleted ? "卸载" : "取消", new(50, 0)))
             {
                 e.Dispose();
                 foreach (var a in _analysisEntries.Where(a => !a.Disposed && a.Replays.Contains(e)))
@@ -215,7 +216,7 @@ public sealed class ReplayManager(RotationDatabase rotationDB, IFileDialogManage
 
         var numSelected = _replayEntries.Count(e => e.Selected);
         var shouldSelectAll = _replayEntries.Count == 0 || numSelected < _replayEntries.Count;
-        if (ImGui.Button(shouldSelectAll ? "Select all" : "Unselect all", new(80, 0)))
+        if (ImGui.Button(shouldSelectAll ? "全选" : "取消全选", new(80, 0)))
         {
             foreach (var e in _replayEntries)
                 e.Selected = shouldSelectAll;
@@ -368,7 +369,8 @@ public sealed class ReplayManager(RotationDatabase rotationDB, IFileDialogManage
         _replayHistory.History = [.. _replayEntries.Where(r => !r.Disposing).Select(r => new ReplayMemory(r.Path, r.Window?.IsOpen ?? false, r.Window?.CurrentTime ?? default))];
         try
         {
-            _replayHistory.Save();
+            using (Utils.GetGlobalLock())
+                _replayHistory.Save();
         }
         catch (IOException ex)
         {

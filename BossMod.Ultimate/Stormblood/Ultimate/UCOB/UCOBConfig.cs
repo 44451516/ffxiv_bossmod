@@ -1,7 +1,3 @@
-﻿using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility.Raii;
-using System.Reflection;
-
 namespace BossMod.Stormblood.Ultimate.UCOB;
 
 [ConfigDisplay(Order = 0x200, Parent = typeof(StormbloodConfig))]
@@ -22,42 +18,7 @@ public class UCOBConfig() : ConfigNode()
     public GroupAssignmentUnique P3HeavensfallTrioTowers = new() { Assignments = [7, 0, 6, 1, 5, 2, 4, 3] };
 
     [SectionStart("仅 AI 设置")]
-    [PropertyDisplay("P1：负责承受 Plummet 的玩家（用于 LB）", renderer: typeof(RolesRenderer))]
-    public BitMask P1PlummetTargets = new();
-}
-
-public class RolesRenderer : PropertyRenderer
-{
-    public override bool Draw(PropertyDisplayAttribute attrs, bool nested, ConfigNode node, FieldInfo member, object value, ConfigRoot root, UITree tree, WorldState ws)
-    {
-        var cfg = (UCOBConfig)node;
-
-        ConfigUI.DrawHelp(attrs.Tooltip, nested);
-
-        var modified = false;
-
-        foreach (var _ in tree.Node(attrs.Label, false))
-        {
-            using (ImRaii.PushIndent())
-            {
-                for (var i = 2; i < 8; i++)
-                {
-                    var assignment = (PartyRolesConfig.Assignment)i;
-                    var isChecked = cfg.P1PlummetTargets[i];
-                    if (ImGui.Checkbox($"{assignment}###plummet{i}", ref isChecked))
-                    {
-                        if (isChecked)
-                            cfg.P1PlummetTargets.Set(i);
-                        else
-                            cfg.P1PlummetTargets.Clear(i);
-                        modified = true;
-                    }
-                    if (i < 7)
-                        ImGui.SameLine();
-                }
-            }
-        }
-
-        return modified;
-    }
+    [PropertyDisplay("旋风预判时间窗口")]
+    [PropertySlider(0, 2)]
+    public float TwisterPreDodge = 0.4f;
 }

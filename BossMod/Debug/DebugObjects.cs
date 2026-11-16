@@ -40,8 +40,10 @@ public class DebugObjects
                 var character = obj as ICharacter;
                 var internalChara = Utils.CharacterInternal(character);
 
+            _tree.LeafNode($"地址：0x{(nint)internalObj:X}");
                 _tree.LeafNode($"Unique ID: {uniqueID:X}");
                 _tree.LeafNode($"Gimmick ID: {Utils.ReadField<uint>(internalObj, 0x7C):X}");
+            _tree.LeafNode($"实际位置：{*internalObj->GetPosition()}");
                 _tree.LeafNode($"Radius: {obj.HitboxRadius:f3}");
                 _tree.LeafNode($"Owner: {Utils.ObjectString(obj.OwnerId)}");
                 _tree.LeafNode($"BNpcBase/Name: {obj.BaseId:X}/{Utils.GameObjectInternal(obj)->GetNameId()}");
@@ -93,15 +95,15 @@ public class DebugObjects
         if (selected != null)
         {
             var h = new Vector3(0, Utils.GameObjectInternal(selected)->Height, 0);
-            Service.Camera.DrawWorldLine(Service.ObjectTable.LocalPlayer?.Position ?? default, selected.Position, 0xff0000ff);
-            Service.Camera.DrawWorldCircle(selected.Position - h, selected.HitboxRadius, 0xff00ff00);
-            Service.Camera.DrawWorldCircle(selected.Position, selected.HitboxRadius, 0xff00ff00);
-            Service.Camera.DrawWorldCircle(selected.Position + h, selected.HitboxRadius, 0xff00ff00);
+            Service.Camera.AddLine(Service.ObjectTable.LocalPlayer?.Position ?? default, selected.Position, 0xff0000ff, occluded: false);
+            Service.Camera.AddCircle(selected.Position, selected.HitboxRadius, 0xff00ff00);
+            Service.Camera.AddCircle(selected.Position + h, selected.HitboxRadius, 0xff00ff00);
+            Service.Camera.AddCircle(selected.Position + h * 2, selected.HitboxRadius, 0xff00ff00);
             var numSegments = CurveApprox.CalculateCircleSegments(selected.HitboxRadius, 360.Degrees(), 1);
             for (var i = 0; i < numSegments; ++i)
             {
                 var p = selected.Position + selected.HitboxRadius * (i * 360.0f / numSegments).Degrees().ToDirection().ToVec3();
-                Service.Camera.DrawWorldLine(p - h, p + h, 0xff00ff00);
+                Service.Camera.AddLine(p + h, p - h, 0xff00ff00);
             }
         }
     }
@@ -147,12 +149,12 @@ public class DebugObjects
                 if (chara.IsCasting)
                 {
                     var target = Service.ObjectTable.SearchById(chara.CastTargetObjectId);
-                    var targetString = target != null ? Utils.ObjectString(target) : "unknown";
+                    var targetString = target != null ? Utils.ObjectString(target) : "未知";
                     res.Append($", castAction={new ActionID((ActionType)chara.CastActionType, chara.CastActionId)}, castTarget={targetString}, castLoc={Utils.Vec3String(Utils.BattleCharaInternal(chara)->GetCastInfo()->TargetLocation)}, castTime={Utils.CastTimeString(chara.CurrentCastTime, chara.TotalCastTime)}");
                 }
                 foreach (var status in chara!.StatusList)
                 {
-                    var src = status.SourceObject != null ? Utils.ObjectString(status.SourceObject) : "none";
+                    var src = status.SourceObject != null ? Utils.ObjectString(status.SourceObject) : "无";
                     res.Append($"\n  status {status.StatusId} '{status.GameData.Value.Name}': param={status.Param}, stacks={status.Param}, time={status.RemainingTime:f2}, source={src}");
                 }
             }
@@ -180,7 +182,7 @@ public class DebugObjects
 
     private unsafe void ObjectContextMenu(IGameObject obj)
     {
-        if (ImGui.MenuItem("Target"))
+        if (ImGui.MenuItem("目标"))
         {
             Service.TargetManager.Target = obj;
         }

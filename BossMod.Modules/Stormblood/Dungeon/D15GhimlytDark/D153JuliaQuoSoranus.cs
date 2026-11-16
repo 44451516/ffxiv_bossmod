@@ -1,4 +1,4 @@
-﻿namespace BossMod.Stormblood.Dungeon.D15GhimlytDark.D153JuliaQuoSoranus;
+namespace BossMod.Stormblood.Dungeon.D15GhimlytDark.D153JuliaQuoSoranus;
 
 public enum OID : uint
 {
@@ -64,8 +64,8 @@ class Bombardment(BossModule module) : Components.StandardAOEs(module, AID.Bomba
 class CoveringFire(BossModule module) : Components.SpreadFromCastTargets(module, AID.CoveringFire, 8);
 class DeltaTrance(BossModule module) : Components.SingleTargetCast(module, AID.DeltaTrance);
 class Heirsbane(BossModule module) : Components.SingleTargetCast(module, AID.Heirsbane, "Single target, moderate damage"); // wiki says this is targeted, but it's aiming at the tank? Need to source this out more
-class ImperialAuthorityAnnia(BossModule module) : Components.RaidwideCast(module, AID.ImperialAuthorityAnnia, "Enrage!");
-class ImperialAuthorityJulia(BossModule module) : Components.RaidwideCast(module, AID.ImperialAuthorityJulia, "Enrage!");
+class ImperialAuthorityAnnia(BossModule module) : Components.RaidwideCast(module, AID.ImperialAuthorityAnnia, "狂暴！");
+class ImperialAuthorityJulia(BossModule module) : Components.RaidwideCast(module, AID.ImperialAuthorityJulia, "狂暴！");
 class Innocence(BossModule module) : Components.SingleTargetCast(module, AID.Innocence);
 class MissileImpact(BossModule module) : Components.StandardAOEs(module, AID.MissileImpact, 6);
 class Quaternity1(BossModule module) : Components.StandardAOEs(module, AID.Quaternity1, new AOEShapeRect(41, 2));
@@ -168,8 +168,6 @@ class CrossbonesKB(BossModule module) : Components.Knockback(module, stopAtWall:
         if ((AID)spell.Action.ID == AID.Crossbones)
             _caster = null;
     }
-
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<Bombardment>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
 }
 
 class D153JuliaQuoSoranusStates : StateMachineBuilder

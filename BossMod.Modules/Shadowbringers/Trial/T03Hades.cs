@@ -77,13 +77,28 @@ class RavenousAssault(BossModule module) : Components.BaitAwayCast(module, AID.R
 class BadFaith(BossModule module) : Components.GroupedAOEs(module, [AID.BadFaith, AID.BadFaithAlt], new AOEShapeRect(20, 10));
 class ShadowSpread(BossModule module) : Components.GroupedAOEs(module, [AID.ShadowSpread, AID.ShadowSpreadAlt], new AOEShapeCone(40, 15.Degrees()));
 class DarkEruptionAOE(BossModule module) : Components.StandardAOEs(module, AID.DarkEruptionAOE, 6);
-class DarkEruptionSpread(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(6), (uint)IconID.Spread, AID.DarkEruption, 3, centerAtTarget: true)
+class DarkEruptionSpread(BossModule module) : Components.UniformStackSpread(module, 0, 6, alwaysShowSpreads: true)
 {
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if (iconID == (uint)IconID.Spread)
+            AddSpread(actor, WorldState.FutureTime(3));
+    }
+
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        base.OnEventCast(caster, spell);
-        if (CurrentBaits.Count != 0 && spell.Action.ID is (uint)AID.DarkEruption or (uint)AID.NetherBlast)
-            CurrentBaits.RemoveAt(0);
+        if (Spreads.Count == 0)
+            return;
+        switch ((AID)spell.Action.ID)
+        {
+            case AID.DarkEruption:
+                Spreads.Remove(Spreads.MinBy(s => (s.Target.Position - spell.TargetXZ).LengthSq()));
+                break;
+            case AID.NetherBlast:
+                var index = Spreads.FindIndex(s => s.Target.InstanceID == spell.MainTargetID);
+                Spreads.RemoveAt(index >= 0 ? index : 0);
+                break;
+        }
     }
 }
 
@@ -169,7 +184,7 @@ class HellbornYawpBait(BossModule module) : Components.BaitAwayIcon(module, new 
 }
 class CaptivityBait(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(8), (uint)IconID.CaptivityBait, AID.CaptivityCast, 4.7f, centerAtTarget: true);
 class LifeInCaptivity(BossModule module) : Components.RaidwideCast(module, AID.LifeInCaptivity);
-class TheDarkDevours(BossModule module) : Components.RaidwideCastDelay(module, AID.TheDarkDevoursVisual, AID.TheDarkDevours, 0.5f);
+class TheDarkDevours(BossModule module) : Components.RaidwideMultiHit(module, AID.TheDarkDevoursVisual, [AID.TheDarkDevours], 1.2f, 2.02f, 4);
 class BlackCauldron(BossModule module) : Components.RaidwideInstant(module, AID.BlackCauldron, 0.5f)
 {
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -184,28 +199,17 @@ class ShadowAdds(BossModule module) : Components.AddsMulti(module, [(uint)OID.Sh
 
 class DoomTowers(BossModule module) : Components.GenericTowers(module)
 {
-    public override void OnActorCreated(Actor actor)
+    public override void Update()
     {
-        if (actor.OID == (uint)OID.DoomTower)
-            Towers.Add(new(actor.Position, 2, 1, 2));
-    }
-
-    public override void OnActorDestroyed(Actor actor)
-    {
-        base.OnActorDestroyed(actor);
-        if (actor.OID == (uint)OID.DoomTower)
-            Towers.Clear();
+        Towers.Clear();
+        foreach (var t in Module.Enemies(OID.DoomTower).Where(a => !a.IsDestroyed))
+            Towers.Add(new(t.Position, 2, 1, 2));
     }
 }
 
 class NetherBlast(BossModule module) : Components.BaitAwayTethers(module, new AOEShapeCircle(6), (uint)TetherID.NetherBlast, AID.NetherBlast, centerAtTarget: true)
 {
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        base.OnEventCast(caster, spell);
-        if (spell.Action == WatchedAction)
-            CurrentBaits.RemoveAll(b => b.Target.IsDead);
-    }
+    public override void Update() => CurrentBaits.RemoveAll(b => b.Target.IsDead);
 }
 
 class T03HadesStates : StateMachineBuilder

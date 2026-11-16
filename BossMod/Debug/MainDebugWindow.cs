@@ -1,4 +1,5 @@
-﻿using BossMod.Autorotation;
+using BossMod.Autorotation;
+using BossMod.Debug;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Utility.Raii;
@@ -10,10 +11,11 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace BossMod;
 
-class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManagerEx amex, MovementOverride move, AIHintsBuilder hintBuilder, IDalamudPluginInterface dalamud) : UIWindow("Boss mod debug UI", false, new(300, 200))
+class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManagerEx amex, MovementOverride move, Camera camera, AIHintsBuilder hintBuilder, IDalamudPluginInterface dalamud, Shadowcast shadows) : UIWindow("首领模块调试界面", false, new(300, 200))
 {
     private readonly DebugObstacles _debugObstacles = new(hintBuilder.Obstacles, dalamud);
     private readonly DebugObjects _debugObjects = new();
+    private readonly DebugRaycast _debugRaycast = new(ws, camera, shadows);
     private readonly DebugParty _debugParty = new();
     private readonly DebugMapEffect _debugMapEffect = new(ws);
     private readonly DebugGraphics _debugGraphics = new();
@@ -34,6 +36,11 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         _debugMapEffect.Dispose();
         _debugVfx.Dispose();
         base.Dispose(disposing);
+    }
+
+    public override void PreOpenCheck()
+    {
+        Service.Config.Get<DeveloperConfig>().DebugWindowOpen = IsOpen;
     }
 
     public override unsafe void Draw()
@@ -60,6 +67,10 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         if (ImGui.CollapsingHeader("Obstacles"))
         {
             _debugObstacles.Draw();
+        }
+        if (ImGui.CollapsingHeader("Shadowcasting"))
+        {
+            _debugRaycast.Draw();
         }
         if (ImGui.CollapsingHeader("Full object list"))
         {
@@ -97,7 +108,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         {
             _debugMapEffect.Draw();
         }
-        if (ImGui.CollapsingHeader("Autorotation"))
+        if (ImGui.CollapsingHeader("自动循环"))
         {
             _debugAutorot.Draw();
         }
@@ -117,7 +128,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         {
             _debugGraphics.DrawMatrices();
         }
-        if (ImGui.CollapsingHeader("In-game overlay"))
+        if (ImGui.CollapsingHeader("游戏内叠加显示"))
         {
             _debugGraphics.DrawOverlay();
         }
@@ -221,7 +232,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
                 {
                     foreach (var status in chara.StatusList)
                     {
-                        var src = status.SourceObject != null ? Utils.ObjectString(status.SourceObject) : "none";
+                        var src = status.SourceObject != null ? Utils.ObjectString(status.SourceObject) : "无";
                         ImGui.TextUnformatted($"{status.StatusId} '{status.GameData.Value.Name}': param={status.Param}, stacks={status.Param}, time={status.RemainingTime:f2}, source={src} ({status.SourceId:X8})");
                     }
                 }
@@ -234,8 +245,8 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
     {
         ImGui.BeginTable("enemies", 7, ImGuiTableFlags.Resizable);
         ImGui.TableSetupColumn("Caster");
-        ImGui.TableSetupColumn("Target");
-        ImGui.TableSetupColumn("Action");
+        ImGui.TableSetupColumn("目标");
+        ImGui.TableSetupColumn("技能");
         ImGui.TableSetupColumn("Time");
         ImGui.TableSetupColumn("Location");
         ImGui.TableSetupColumn("Position");
@@ -274,7 +285,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         ImGui.BeginTable("items", 3, ImGuiTableFlags.Resizable | ImGuiTableFlags.RowBg);
         ImGui.TableSetupColumn("ID", ImGuiTableColumnFlags.WidthFixed, 30);
         ImGui.TableSetupColumn("Quant", ImGuiTableColumnFlags.WidthFixed, 30);
-        ImGui.TableSetupColumn("Name");
+        ImGui.TableSetupColumn("名称");
         ImGui.TableHeadersRow();
         foreach (var (k, i) in ws.Client.Inventory)
         {
@@ -306,9 +317,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         ImGui.BeginTable("effects", 6, ImGuiTableFlags.Resizable | ImGuiTableFlags.RowBg);
         ImGui.TableSetupColumn("Seq", ImGuiTableColumnFlags.WidthFixed, 30);
         ImGui.TableSetupColumn("Index", ImGuiTableColumnFlags.WidthFixed, 30);
-        ImGui.TableSetupColumn("Action");
+        ImGui.TableSetupColumn("技能");
         ImGui.TableSetupColumn("Source");
-        ImGui.TableSetupColumn("Target");
+        ImGui.TableSetupColumn("目标");
         ImGui.TableSetupColumn("Effects");
         ImGui.TableHeadersRow();
         foreach (var entry in aeh->IncomingEffects)
@@ -349,7 +360,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         ImGui.TextUnformatted($"StD: {overall.StdDevCurrent:f3} (current) / {overall.StdDevCurrent:f3} (predicted)");
 
         ImGui.BeginTable("partyhealth", 4, ImGuiTableFlags.Resizable);
-        ImGui.TableSetupColumn("Name");
+        ImGui.TableSetupColumn("名称");
         ImGui.TableSetupColumn("HP");
         ImGui.TableSetupColumn("Type");
         ImGui.TableHeadersRow();
@@ -376,7 +387,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
         var targPos = Service.ObjectTable.LocalPlayer?.TargetObject?.Position ?? new();
         var angle = player?.Rotation.Radians() ?? default; //Angle.FromDirection(new((targPos - selfPos).XZ()));
         var ts = FFXIVClientStructs.FFXIV.Client.Game.Control.TargetSystem.Instance();
-        DrawTarget("Target", ts->Target, selfPos, angle);
+        DrawTarget("目标", ts->Target, selfPos, angle);
         DrawTarget("Soft target", ts->SoftTarget, selfPos, angle);
         DrawTarget("GPose target", ts->GPoseTarget, selfPos, angle);
         DrawTarget("Mouseover", ts->MouseOverTarget, selfPos, angle);
@@ -421,7 +432,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ActionManage
             }
         }
 
-        using (ImRaii.Table("Target", 2))
+        using (ImRaii.Table("目标", 2))
         {
             for (var i = 0; i < markers->Markers.Length; i++)
             {

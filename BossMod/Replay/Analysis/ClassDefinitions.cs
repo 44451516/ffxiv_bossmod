@@ -1,4 +1,4 @@
-﻿using BossMod.Data;
+using BossMod.Data;
 using Dalamud.Bindings.ImGui;
 using System.Text;
 
@@ -60,10 +60,27 @@ class ClassDefinitions
         public readonly Dictionary<uint, StatusData> Statuses = [];
     }
 
+    class Mean
+    {
+        public readonly List<double> Values = [];
+        public double Average { get; private set; }
+
+        public void Add(IEnumerable<double> item)
+        {
+            var def = item.DefaultIfEmpty(float.MinValue).Min();
+            if (def > float.MinValue)
+            {
+                Values.Add(def);
+                Average = Values.Average();
+            }
+        }
+    }
+
     private readonly Dictionary<ActionID, ActionData> _actionData = [];
     private readonly Dictionary<Class, ClassData> _classData = [];
     private readonly SortedDictionary<string, List<ActionData>> _byCategory = [];
     private readonly Dictionary<int, Dictionary<ActionID, List<Entry>>> _byLock = [];
+    private readonly Dictionary<ActionID, Mean> _appDelay = [];
     private readonly SortedDictionary<int, List<ActionData>> _byCDGroup = [];
     private readonly BitMask[] _classPerCategory = new BitMask[(int)ClassCategory.Limited + 1];
 
@@ -111,6 +128,8 @@ class ClassDefinitions
             {
                 var alock = (int)MathF.Round(a.AnimationLock * 1000);
                 _byLock.GetOrAdd(alock).GetOrAdd(a.ID).Add(new(r, a));
+
+                _appDelay.GetOrAdd(a.ID).Add(a.Targets.Where(t => t.ConfirmationTarget != default).Select(t => (t.ConfirmationTarget - a.Timestamp).TotalSeconds));
 
                 if (RegisterAction(a.ID, a.ID.Type == ActionType.Spell ? actionSheet?.GetRow(a.ID.ID) : null, nullOwner, out var data))
                     data.ReplayOnly = true;
@@ -308,6 +327,8 @@ class ClassDefinitions
             {
                 DrawEntries(tree, nl.Value);
             }
+            if (_appDelay.TryGetValue(na.ID, out var m))
+                tree.LeafNode($"生效延迟：{m.Average:f3}（{m.Values.Count} 个样本）", m.Values.Count < 10 ? 0xFF00FFFF : 0xFFFFFFFF);
             foreach (var ns in tree.Node("Statuses applied to self", na.AppliedStatusesToSource.Count == 0))
             {
                 tree.LeafNodes(na.AppliedStatusesToSource, Utils.StatusString);
@@ -337,7 +358,7 @@ class ClassDefinitions
         if (ImGui.MenuItem("Generate AID enum"))
         {
             var writer = new AIDWriter(ns);
-            writer.Add("None", 0);
+            writer.Add("无", 0);
             writer.Add("Sprint", ActionDefinitions.IDSprint.ID);
             for (var c = ClassCategory.Tank; c <= ClassCategory.Limited; ++c)
                 writer.Group(c.ToString(), _byCategory.GetOrAdd($"Category: {c}"), false);
@@ -421,7 +442,7 @@ class ClassDefinitions
     private string GenerateClassAID(ClassData cd)
     {
         var writer = new AIDWriter(cd.ID.ToString());
-        writer.Add("None", 0);
+        writer.Add("无", 0);
         writer.Add("Sprint", "ClassShared.AID.Sprint");
         writer.Group("", cd.Actions.Where(a => a.OwningClasses.NumSetBits() == 1), false);
         writer.Group("Shared", cd.Actions.Where(a => a.OwningClasses.NumSetBits() > 1), false, true);
@@ -431,7 +452,7 @@ class ClassDefinitions
     private string GenerateClassTraitID(ClassData cd)
     {
         var writer = new EnumWriter("TraitID");
-        writer.Add("None", 0);
+        writer.Add("无", 0);
         foreach (var trait in cd.Traits)
             writer.Add(TraitIDName(cd.ID.ToString(), trait), trait.RowId, $"L{trait.Level}");
         return writer.Result();
@@ -440,7 +461,7 @@ class ClassDefinitions
     private string GenerateClassSID(ClassData cd)
     {
         var writer = new EnumWriter("SID");
-        writer.Add("None", 0);
+        writer.Add("无", 0);
         foreach (var (sid, data) in cd.Statuses)
             writer.Add(StatusIDName(cd.ID.ToString(), sid), sid, $"applied by {data.AppliedByString()} to {data.AppliedToString()}");
         return writer.Result();

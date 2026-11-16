@@ -1,4 +1,4 @@
-﻿// TODO: revise and refactor voidzone components; 'persistent' part of name is redundant
+// TODO: revise and refactor voidzone components; 'persistent' part of name is redundant
 namespace BossMod.Components;
 
 // voidzone (circle aoe that stays active for some time) centered at each existing object with specified OID, assumed to be persistent voidzone center
@@ -147,7 +147,7 @@ public class InvertibleVoidzone(BossModule module, float radius, Func<BossModule
         if (Inverted)
             hints.Add(inVoidzone ? "Stay in voidzone" : "Go to voidzone!", !inVoidzone);
         else if (inVoidzone)
-            hints.Add("GTFO from voidzone!");
+            hints.Add("远离虚空地带！");
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -156,9 +156,11 @@ public class InvertibleVoidzone(BossModule module, float radius, Func<BossModule
         if (shapes.Count == 0)
             return;
 
-        float distance(WPos p)
+        var shh = ShapeDistance.Union(shapes);
+
+        VFloat distance(WVec p)
         {
-            var dist = shapes.Min(s => s(p));
+            var dist = shh(p);
             return Inverted ? -dist : dist;
         }
         hints.AddForbiddenZone(distance, InvertResolveAt);

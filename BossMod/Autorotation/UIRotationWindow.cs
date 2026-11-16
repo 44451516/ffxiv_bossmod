@@ -1,4 +1,4 @@
-﻿using BossMod.Services;
+using BossMod.Services;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
@@ -40,11 +40,6 @@ public sealed class UIRotationWindow : UIWindow
         }
     }
 
-    public override void PreOpenCheck()
-    {
-        DrawPositional();
-    }
-
     public override bool DrawConditions() => _mgr.WorldState.Party.Player() != null;
 
     public override void Draw()
@@ -62,7 +57,7 @@ public sealed class UIRotationWindow : UIWindow
         if (dups.Count > 0)
             UIMisc.Banner(FontAwesomeIcon.ExclamationTriangle, $"你启用了同一模块的多个副本（{string.Join(", ", dups.Select(d => d.Name))}）。每种模块只会执行一个，这通常不是你想要的结果。", UIMisc.ColorWarning);
 
-        var activeModule = _mgr.Bossmods.ActiveModule;
+        var activeModule = _mgr.Bossmods.DrawnModule;
         if (activeModule != null)
         {
             DrawPlanSelector(activeModule, player);
@@ -131,8 +126,8 @@ public sealed class UIRotationWindow : UIWindow
         }
 
         var upcoming = new List<(string label, float seconds)>();
-        if (next(AIHints.PredictedDamageType.Raidwide, StateMachine.StateHint.Raidwide) is var (rw, _))
-            upcoming.Add(("全屏伤害", rw));
+        if (next(AIHints.PredictedDamageType.Raidwide, StateMachine.StateHint.Raidwide) is var (rw, rws))
+            upcoming.Add((rws == 1 ? "分散" : "全屏伤害", rw));
         if (next(AIHints.PredictedDamageType.Tankbuster, StateMachine.StateHint.Tankbuster) is var (tb, tanks))
             upcoming.Add((tanks > 1 ? $"坦克死刑 x{tanks}" : "坦克死刑", tb));
         if (next(AIHints.PredictedDamageType.Shared, StateMachine.StateHint.None) is var (st, _))
@@ -307,27 +302,4 @@ public sealed class UIRotationWindow : UIWindow
 
         return modified;
     }
-
-    private void DrawPositional()
-    {
-        var pos = _mgr.Hints.RecommendedPositional;
-        if (_config.ShowPositionals && pos.Target != null && !pos.Target.Omnidirectional)
-        {
-            var color = PositionalColor(pos.Imminent, pos.Correct);
-            switch (pos.Pos)
-            {
-                case Positional.Flank:
-                    Service.Camera.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f, pos.Target.Rotation + 90.Degrees(), 45.Degrees(), color);
-                    Service.Camera.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f, pos.Target.Rotation - 90.Degrees(), 45.Degrees(), color);
-                    break;
-                case Positional.Rear:
-                    Service.Camera.DrawWorldCone(pos.Target.PosRot.XYZ(), pos.Target.HitboxRadius + 3.5f, pos.Target.Rotation + 180.Degrees(), 45.Degrees(), color);
-                    break;
-            }
-        }
-    }
-
-    private uint PositionalColor(bool imminent, bool correct) => imminent
-        ? (correct ? 0xff00ff00 : 0xff0000ff)
-        : (correct ? 0xffffffff : 0xff00ffff);
 }

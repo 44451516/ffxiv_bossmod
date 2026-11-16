@@ -1,41 +1,43 @@
-﻿using BossMod.WHM;
+using BossMod.WHM;
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.kage;
 
-public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageRotation<KageWHM.Strategy>(manager, player)
+public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageShared<KageWHM.Strategy>(manager, player)
 {
     public struct Strategy
     {
+        [Track(UiPriority = 500)]
         public Track<Targeting> Targeting;
+        [Track(UiPriority = 499)]
         public Track<AOEStrategy> AOE;
 
-        [Track("天辉", MinLevel = 4, Actions = [AID.Dia, AID.AeroII, AID.Aero])]
-        public Track<DotStrategy> Dot;
-
-        [Track("爆发（神速咏唱、法令、苦难之心）", InternalName = "Burst", MinLevel = 30)]
-        public Track<OffensiveStrategy> Burst;
-
-        [Track("神速咏唱", MinLevel = 30, Action = AID.PresenceOfMind)]
+        [Track("神速咏唱", MinLevel = 30, Action = AID.PresenceOfMind, UiPriority = 100)]
         public Track<OffensiveStrategy> PresenceOfMind;
 
-        [Track("闪飒", MinLevel = 92, Action = AID.GlareIV)]
+        [Track("天辉", MinLevel = 4, Actions = [AID.Dia, AID.AeroII, AID.Aero], UiPriority = 99)]
+        public Track<DotStrategy> Dot;
+
+        [Track("闪飒", MinLevel = 92, Action = AID.GlareIV, UiPriority = 98)]
         public Track<OffensiveStrategy> GlareIV;
 
-        [Track("法令", MinLevel = 56, Action = AID.Assize)]
+        [Track("法令", MinLevel = 56, Action = AID.Assize, UiPriority = 97)]
         public Track<OffensiveStrategy> Assize;
 
-        [Track("苦难之心", MinLevel = 74, Action = AID.AfflatusMisery)]
-        public Track<MiseryStrategy> Misery;
+        [Track("苦难之心", MinLevel = 74, Action = AID.AfflatusMisery, UiPriority = 96)]
+        public Track<OffensiveStrategy> Misery;
 
-        [Track("百合（溢出 / 空档 / 顺劈）", MinLevel = 74, Actions = [AID.AfflatusRapture, AID.AfflatusSolace])]
+        [Track("百合（溢出 / 空档 / 顺劈）", MinLevel = 74, Actions = [AID.AfflatusRapture, AID.AfflatusSolace], UiPriority = 95)]
         public Track<OffensiveStrategy> Lilies;
 
-        [Track("醒梦", MinLevel = 14, Action = ClassShared.AID.LucidDreaming)]
+        [Track("空档期消耗百合", MinLevel = 74, UiPriority = 94.5f)]
+        public Track<LilyDowntimeStrategy> LilyDowntime;
+
+        [Track("醒梦", MinLevel = 14, Action = ClassShared.AID.LucidDreaming, UiPriority = 94)]
         public Track<OffensiveStrategy> Lucid;
 
-        [Track("爆发药")]
+        [Track("爆发药", Item = 1049238, UiPriority = 93)]
         public Track<PotionStrategy> Potion;
 
         [Track("起手", UiPriority = -10)]
@@ -44,39 +46,39 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
 
     public enum OpenerStrategy
     {
-        [Option("早期天辉刷新起手（-2.3 秒使用闪灼）")]
+        [Option("提前刷新天辉起手")]
         Standard,
-        [Option("双苦难之心起手（首轮增益中使用 3 次狂喜之心，以获得第二次苦难之心）", MinLevel = 76)]
+        [Option("双苦难之心起手", MinLevel = 76)]
         DoubleMisery,
-        [Option("开怪前不施法")]
+        [Option("不执行开怪前及起手专用规则")]
         None
     }
 
     public enum DotStrategy
     {
-        [Option("最多保持两个目标的覆盖")]
+        [Option("保持所有敌人的持续伤害效果")]
         Automatic,
         [Option("仅对当前目标使用")]
         TargetOnly,
+        [Option("立即刷新当前目标的持续伤害效果", Context = StrategyContext.Plan)]
+        Force,
         [Option("不使用")]
         Delay
     }
 
-    public enum MiseryStrategy
+    public enum LilyDowntimeStrategy
     {
-        [Option("配合团队增益使用；在 2 个及以上目标时立即使用，或用于避免溢出")]
-        Automatic,
-        [Option("尽快使用", Targets = ActionTargets.Hostile)]
-        ASAP,
-        [Option("不使用")]
-        Delay
+        [Option("消耗百合以积攒血百合")]
+        Spend,
+        [Option("空档期不使用")]
+        Never
     }
 
     public enum PotionStrategy
     {
         [Option("不自动使用")]
         Manual,
-        [Option("开怪前并与团队增益一同使用")]
+        [Option("最优：开怪前使用，之后配合团队增益")]
         AlignWithRaidBuffs,
         [Option("尽快使用")]
         Immediate
@@ -94,23 +96,22 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
     private int SacredSight;
 
     private bool AOEMode;
-    private bool ForceST;
+    private int HolyTargets;
 
     protected override bool UsesSpellSpeed => true;
-    private bool CanCast => Hints.MaxCastTime >= SlideCast(CastTime(AID.Stone));
+    private bool CanCast => CastFits(HardcastTime(AID.Stone));
     private float LilyCapIn => Lily >= 3 ? 0 : NextLily + (2 - Lily) * 20;
 
     private OffensiveStrategy PresenceOfMindStrat;
     private OffensiveStrategy AssizeStrat;
-    private MiseryStrategy MiseryStrat;
+    private OffensiveStrategy MiseryStrat;
 
     public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
-        var target = SelectTarget(strategy.Targeting.Value, ref primaryTarget, estimatedAnimLockDelay, 25, strategy.AOE.Value);
-        PresenceOfMindStrat = WithBurst(strategy.Burst.Value, strategy.PresenceOfMind.Value);
-        AssizeStrat = WithBurst(strategy.Burst.Value, strategy.Assize.Value);
-        MiseryStrat = strategy.Burst.Value switch { OffensiveStrategy.Delay => MiseryStrategy.Delay, OffensiveStrategy.Force => MiseryStrategy.ASAP, _ => strategy.Misery.Value };
-        ForceST = strategy.AOE.Value == AOEStrategy.ForceST;
+        var target = SelectTarget(strategy, strategy.Targeting.Value, ref primaryTarget, estimatedAnimLockDelay, 25, strategy.AOE.Value);
+        PresenceOfMindStrat = strategy.PresenceOfMind.Value;
+        AssizeStrat = strategy.Assize.Value;
+        MiseryStrat = strategy.Misery.Value;
 
         var gauge = World.Client.GetGauge<WhiteMageGauge>();
         Lily = gauge.Lily;
@@ -121,27 +122,28 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
         SacredSightLeft = sight is { } s ? StatusDuration(s.ExpireAt) : 0;
 
         var minAoETargets = Player.Level < 82 ? 2 : 3;
-        AOEMode = Unlocked(AID.Holy) && UseAOE(strategy.AOE.Value, Hints.NumPriorityTargetsInAOECircle(Player.Position, 8), minAoETargets);
+        HolyTargets = Hints.NumPriorityTargetsInAOECircle(Player.Position, 8);
+        AOEMode = Unlocked(AID.Holy) && UseAOE(strategy.AOE.Value, HolyTargets, minAoETargets);
 
         if (UsePotion(strategy))
-            Hints.ActionsToExecute.Push(ActionDefinitions.IDPotionMnd, Player, ActionQueue.Priority.Medium);
+            PushPotion(ActionDefinitions.IDPotionMnd);
 
         if (World.Client.CountdownRemaining is > 0 and var countdown)
         {
-            if (target != null && strategy.Opener.Value != OpenerStrategy.None && countdown < CastTime(AID.Stone) + 0.8f)
+            if (target != null && strategy.Opener.Value != OpenerStrategy.None && countdown < HardcastTime(AID.Stone) + 0.8f)
                 PushGCD(AID.Stone, target.Actor, 10);
             return;
         }
 
         if (target == null)
         {
-            if (Player.InCombat && CanSpendLily(strategy))
+            if (Player.InCombat && strategy.LilyDowntime.Value == LilyDowntimeStrategy.Spend && CanSpendLily(strategy))
                 PushGCD(LilySpell, Player, 10);
             return;
         }
 
         var goal = Hints.GoalSingleTarget(target.Actor, Player, World.Actors, 25);
-        Hints.GoalZones.Add(strategy.AOE.Value is AOEStrategy.ST or AOEStrategy.ForceST || !Unlocked(AID.Holy) ? goal : GoalCombined(goal, Hints.GoalAOECircle(8), minAoETargets));
+        Hints.GoalZones.Add(!AllowAoE || !Unlocked(AID.Holy) ? goal : GoalCombined(goal, Hints.GoalAOECircle(8), minAoETargets));
 
         GCDs(strategy, target);
         if (Player.InCombat)
@@ -158,20 +160,24 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
         if (Player.InCombat && strategy.Dot.Value != DotStrategy.Delay && DotTarget(strategy, target) is { } dotTarget)
             PushGCD(AID.Aero, dotTarget, 50);
 
-        if (ShouldMisery(strategy, target, misery))
+        if (ShouldMisery(target, misery))
             PushGCD(AID.AfflatusMisery, misery, 45);
 
         if (SacredSight > 0 && strategy.GlareIV.Value != OffensiveStrategy.Delay
             && (strategy.GlareIV.Value == OffensiveStrategy.Force || !CanCast || RaidBuffsLeft > GCD || !HasRaidBuffJobs || SacredSightLeft < GCD + GCDLength * SacredSight + 1 || DowntimeIn < GCDLength * (SacredSight + 1)))
             PushGCD(AID.GlareIV, splash.Actor, 40);
 
-        if (Player.InCombat && CanSpendLily(strategy)
-            && (strategy.Lilies.Value == OffensiveStrategy.Force || LilyCapIn < GCD + 8 || !ForceST && Hints.NumPriorityTargetsInAOECircle(misery.Position, 5) >= 2))
-            PushGCD(LilySpell, Player, 35);
-
-        if (strategy.Opener.Value == OpenerStrategy.DoubleMisery && Player.InCombat && CombatTime < 30 && Unlocked(AID.AfflatusRapture) && CanSpendLily(strategy)
-            && Lily >= 3 - BloodLily && RaidBuffsLeft > GCD + GCDLength * (3 - BloodLily))
-            PushGCD(AID.AfflatusRapture, Player, 38);
+        var setReachesMisery = TimeToKill.WillLive(target.Actor, GCD + GCDLength * (3 - BloodLily) + 1);
+        if (Player.InCombat && CanSpendLily(strategy))
+        {
+            if (strategy.Lilies.Value == OffensiveStrategy.Force || setReachesMisery && (LilyCapIn < GCD + 8 || !ForceST && Hints.NumPriorityTargetsInAOECircle(misery.Position, 5) >= 2))
+                PushGCD(LilySpell, Player, 35);
+            if (BloodLily > 0 && Lily >= 3 - BloodLily && setReachesMisery && !TimeToKill.WillLive(target.Actor, 20))
+                PushGCD(LilySpell, Player, 36);
+            if (strategy.Opener.Value == OpenerStrategy.DoubleMisery && CombatTime < 30 && Unlocked(AID.AfflatusRapture)
+                && Lily >= 3 - BloodLily && RaidBuffsLeft > GCD + GCDLength * (3 - BloodLily))
+                PushGCD(AID.AfflatusRapture, Player, 38);
+        }
 
         if (AOEMode)
             PushGCD(AID.Holy, Player, 20);
@@ -182,13 +188,15 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
         {
             if (CanSpendLily(strategy))
                 PushGCD(LilySpell, Player, 9);
-            if (BloodLily >= 3 && MiseryStrat != MiseryStrategy.Delay)
+            if (BloodLily >= 3 && MiseryStrat != OffensiveStrategy.Delay)
                 PushGCD(AID.AfflatusMisery, misery, 8);
             if (SacredSight > 0)
                 PushGCD(AID.GlareIV, splash.Actor, 7);
-            if (Hints.PriorityTargets.Where(e => Player.DistanceToHitbox(e.Actor) <= 25 && DotWorthIt(e) && DotLeft(e.Actor) == 0).MaxBy(e => e.Actor.HPMP.CurHP) is { } spread)
+            if (!ForceST && strategy.Dot.Value == DotStrategy.Automatic
+                && Hints.PriorityTargets.Where(e => Player.DistanceToHitbox(e.Actor) <= 25 && DotWorthIt(e) && DotLeft(e.Actor) == 0).MaxBy(e => e.Actor.HPMP.CurHP) is { } spread)
                 PushGCD(AID.Aero, spread.Actor, 6);
-            PushGCD(AID.Aero, target.Actor, 5);
+            if (!target.ForbidDOTs || strategy.Dot.Value == DotStrategy.Force)
+                PushGCD(AID.Aero, target.Actor, 5);
         }
     }
 
@@ -196,17 +204,14 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
 
     private bool CanSpendLily(in Strategy strategy) => strategy.Lilies.Value != OffensiveStrategy.Delay && Lily > 0 && BloodLily < 3 && Unlocked(AID.AfflatusMisery);
 
-    private bool ShouldMisery(in Strategy strategy, Enemy target, Actor misery)
+    private bool ShouldMisery(Enemy target, Actor misery)
     {
-        if (BloodLily < 3 || MiseryStrat == MiseryStrategy.Delay)
+        if (BloodLily < 3 || MiseryStrat == OffensiveStrategy.Delay)
             return false;
-        if (MiseryStrat == MiseryStrategy.ASAP || !HasRaidBuffJobs || RaidBuffsLeft > GCD)
-            return true;
-        if (!ForceST && Hints.NumPriorityTargetsInAOECircle(misery.Position, 5) >= 2)
-            return true;
-        if (DowntimeIn < GCDLength * 2 || target.Priority == Enemy.PriorityPointless || !TimeToKill.WillLive(target.Actor, 5))
-            return true;
-        return LilyCapIn < RaidBuffsIn;
+        return MiseryStrat == OffensiveStrategy.Force || !HasRaidBuffJobs || RaidBuffsLeft > GCD
+            || !ForceST && Hints.NumPriorityTargetsInAOECircle(misery.Position, 5) >= 2
+            || DowntimeIn < GCDLength * 2 || target.Priority == Enemy.PriorityPointless || !TimeToKill.WillLive(target.Actor, 5)
+            || LilyCapIn < RaidBuffsIn;
     }
 
     private Enemy BestSplashTarget(Enemy target)
@@ -216,13 +221,14 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
 
     private float DotRefresh => GCD + GCDLength;
 
+    private float DiaOverHolyAfter => (150f * HolyTargets / 85 - 1) * 3;
+
     private Actor? DotTarget(in Strategy strategy, Enemy target)
     {
-        if (DotWorthIt(target) && (DotLeft(target.Actor) < DotRefresh || RaidBuffsLeft > GCD && RaidBuffsLeft < GCD + GCDLength && DotLeft(target.Actor) < 8))
-            return target.Actor;
-        if (strategy.Dot.Value != DotStrategy.Automatic || AOEMode || Hints.PriorityTargets.Count(e => DotLeft(e.Actor) >= DotRefresh) >= 2)
-            return null;
-        return Hints.PriorityTargets.Where(e => e != target && Player.DistanceToHitbox(e.Actor) <= 25 && DotWorthIt(e) && DotLeft(e.Actor) < DotRefresh).MaxBy(e => e.Actor.HPMP.CurHP)?.Actor;
+        if (strategy.Dot.Value == DotStrategy.Force)
+            return JustUsed(AID.Dia, 5) || JustUsed(AID.AeroII, 5) || JustUsed(AID.Aero, 5) ? null : target.Actor;
+        var dot = DotTargetFor(target, DotLeft, DotRefresh, 8, !ForceST && strategy.Dot.Value == DotStrategy.Automatic);
+        return dot == null || !AOEMode || dot == target.Actor || DiaOverHolyAfter <= 30 && TimeToKill.Estimate(dot) >= DiaOverHolyAfter ? dot : null;
     }
 
     #endregion
@@ -236,12 +242,11 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
             PushOGCD(AID.PresenceOfMind, Player, 50);
 
         if (AssizeStrat != OffensiveStrategy.Delay && CanWeave(AID.Assize)
-            && (AssizeStrat == OffensiveStrategy.Force || AssizeHits(target)))
+            && (AssizeStrat == OffensiveStrategy.Force || AssizeHits(target) && !(CombatTime < 30 && HasRaidBuffJobs && RaidBuffsLeft == 0 && RaidBuffsIn < 12)))
             PushOGCD(AID.Assize, Player, 40);
 
-        if (strategy.Lucid.Value == OffensiveStrategy.Force || strategy.Lucid.Value == OffensiveStrategy.Automatic && MP <= 9000)
-            if (CanWeave(ClassShared.AID.LucidDreaming))
-                PushOGCD(ClassShared.AID.LucidDreaming, Player, 20);
+        if ((strategy.Lucid.Value == OffensiveStrategy.Force || strategy.Lucid.Value == OffensiveStrategy.Automatic && MP <= 8000) && CanWeave(ClassShared.AID.LucidDreaming))
+            PushOGCD(ClassShared.AID.LucidDreaming, Player, 20);
     }
 
     private bool AssizeHits(Enemy target) => ForceST
@@ -254,14 +259,12 @@ public sealed class KageWHM(RotationModuleManager manager, Actor player) : KageR
 
     private bool UsePotion(in Strategy strategy) => strategy.Potion.Value switch
     {
-        PotionStrategy.AlignWithRaidBuffs => PotionWithRaidBuffs,
+        PotionStrategy.AlignWithRaidBuffs => PotionWithRaidBuffs(PotionPrepull) || PotionBeforeKill,
         PotionStrategy.Immediate => true,
         _ => false
     };
 
-    private float CastTime(AID aid) => SelfStatusLeft(ClassShared.SID.Swiftcast) > 0 ? 0 : ScaledCastTime(aid);
-
-    private void PushGCD(AID aid, Actor? target, int priority) => base.PushGCD(aid, target, priority, CastTime(aid));
+    private void PushGCD(AID aid, Actor? target, int priority) => base.PushGCD(aid, target, priority, HardcastTime(aid));
 
     #endregion
 }

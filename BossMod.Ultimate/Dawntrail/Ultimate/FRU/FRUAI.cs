@@ -1,4 +1,4 @@
-﻿using BossMod.AI;
+using BossMod.AI;
 using BossMod.Autorotation;
 using BossMod.Pathfinding;
 
@@ -13,11 +13,11 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
     public static RotationModuleDefinition Definition()
     {
         var res = new RotationModuleDefinition("AI Experiment", "Experimental encounter-specific rotation", "Encounter AI", "veyn", RotationModuleQuality.WIP, new(~1ul), 100, 1, RotationModuleOrder.Movement, typeof(FRU));
-        res.Define(Track.Movement).As<MovementStrategy>("Movement", "Movement")
-            .AddOption(MovementStrategy.None, "No automatic movement")
+        res.Define(Track.Movement).As<MovementStrategy>("Movement", "移动")
+            .AddOption(MovementStrategy.None, "不自动移动")
             .AddOption(MovementStrategy.Pathfind, "Use standard pathfinding to move")
             .AddOption(MovementStrategy.PathfindMeleeGreed, "Melee greed: find closest safespot, then move to maxmelee closest to it")
-            .AddOption(MovementStrategy.Explicit, "Move to specific point", supportedTargets: ActionTargets.Area)
+            .AddOption(MovementStrategy.Explicit, "移动到指定地点", supportedTargets: ActionTargets.Area)
             .AddOption(MovementStrategy.ExplicitMelee, "Move to the point in maxmelee that is closest to specific point", supportedTargets: ActionTargets.Area)
             .AddOption(MovementStrategy.Prepull, "Pre-pull position: as close to the clock-spot as possible")
             .AddOption(MovementStrategy.DragToCenter, "Drag boss to the arena center");
@@ -48,7 +48,7 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
     // TODO: account for leeway for casters
     private WPos PathfindPosition(Actor? meleeGreedTarget)
     {
-        var res = NavigationDecision.Build(NavigationContext, World.CurrentTime, Hints, Player.Position, Speed(), World.Network.LastRTT, 0);
+        var res = NavigationDecision.Build(NavigationContext, World.CurrentTime, Hints, Player.Position, Speed(), World.Network.LastRTT, 0, useOldRasterizer: true);
         return meleeGreedTarget != null && res.Destination != null ? ClosestInMelee(res.Destination.Value, meleeGreedTarget) : (res.Destination ?? Player.Position);
     }
 

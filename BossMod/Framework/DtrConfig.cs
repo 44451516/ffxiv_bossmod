@@ -1,4 +1,4 @@
-﻿using BossMod.AI;
+using BossMod.AI;
 using BossMod.Autorotation;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
@@ -6,11 +6,19 @@ using Dalamud.Interface.Utility.Raii;
 
 namespace BossMod;
 
+// includes a bunch of random general config options, the name of the class is vestigial
 [ConfigDisplay(Name = "界面", Order = -10, Group = "通用")]
 public sealed class DtrConfig : ConfigNode
 {
     [PropertyDisplay("游戏界面隐藏时隐藏窗口")]
     public bool HideWithGameUi = true;
+
+    [PropertyDisplay("场景指引受物体遮挡", tooltip: "启用后，BossMod 在场景中绘制的移动指引、深层迷宫陷阱标记等图形，会像游戏原生范围提示一样被前方物体遮挡。", since: "7.5.7.15")]
+    public bool Occlude = false;
+
+    [PropertyDisplay("被遮挡元素的透明度", depends: nameof(Occlude))]
+    [PropertySlider(0, 1)]
+    public float OcclusionAlpha = 0.1f;
 
     public enum DtrStatus
     {

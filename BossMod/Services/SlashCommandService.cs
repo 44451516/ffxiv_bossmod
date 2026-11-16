@@ -1,4 +1,4 @@
-﻿using BossMod.AI;
+using BossMod.AI;
 using BossMod.Autorotation;
 using BossMod.Pathfinding;
 using DalaMock.Host.Mediator;
@@ -15,6 +15,7 @@ namespace BossMod.Services;
 internal sealed class SlashCommandService(
     ICommandManager commandManager,
     MediatorService mediator,
+    AutoBitmapService bitmaps,
     ObstacleMapManager obstacles,
     AIHints hintsGlobal,
     IAmex amex,
@@ -46,7 +47,11 @@ internal sealed class SlashCommandService(
             GC.Collect();
         });
 
-        _slashCmd.AddSubcommand("clear-maps").SetSimpleHandler("清除所有生成的位图（用于寻路）", obstacles.ClearGenerated);
+        _slashCmd.AddSubcommand("clear-maps").SetSimpleHandler("清除所有生成的位图（用于寻路）", () =>
+        {
+            obstacles.ClearGenerated();
+            bitmaps.Paused = false;
+        });
 
         _slashCmd.AddSubcommand("macro").SetSimpleHandler("在宏中启用 VBM 技能队列（默认情况下，宏中使用的技能会绕过队列）", () =>
         {
@@ -67,6 +72,44 @@ internal sealed class SlashCommandService(
                 else
                     Service.ChatMessage("只有在宏中使用此命令才会生效。");
             }
+        });
+
+        _slashCmd.AddSubcommand("follow").SetComplexHandler("<name>/slot<N>", "将指定玩家或队伍位置设为跟随模块的目标", masterString =>
+        {
+            var ms = masterString.ToString();
+            var masterSlot = masterString.StartsWith("slot", StringComparison.OrdinalIgnoreCase) ? int.Parse(masterString[4..]) - 1 : Array.FindIndex(worldstateGlobal.Party.Members, m => worldstateGlobal.Actors.Find(m.InstanceId)?.Name == ms);
+            if (worldstateGlobal.Party[masterSlot] == null)
+            {
+                Service.ChatError($"错误：在队伍中找不到 {masterString}");
+                return true;
+            }
+
+            var m = rotation.Presets.FirstOrDefault(p => p.Modules.Any(m => m.Type.FullName == "BossMod.Autorotation.MiscAI.FollowSlot"));
+            if (m == null)
+            {
+                Service.ChatMessage("跟随模块未启用，无需操作。");
+                return true;
+            }
+
+            var mod = m.Modules.First(m => m.Type.FullName == "BossMod.Autorotation.MiscAI.FollowSlot");
+            mod.TransientSettings.Clear();
+            mod.TransientSettings.Add(new(default, 0, new StrategyValueInt() { Value = masterSlot }));
+            Service.ChatMessage($"正在跟随队伍位置 {masterSlot + 1}。");
+
+            return true;
+        });
+        _slashCmd.AddSubcommand("unfollow").SetSimpleHandler("将跟随模块恢复为默认行为", () =>
+        {
+            var m = rotation.Presets.FirstOrDefault(p => p.Modules.Any(m => m.Type.FullName == "BossMod.Autorotation.MiscAI.FollowSlot"));
+            if (m == null)
+            {
+                Service.ChatMessage("跟随模块未启用，无需操作。");
+                return;
+            }
+
+            var mod = m.Modules.First(m => m.Type.FullName == "BossMod.Autorotation.MiscAI.FollowSlot");
+            mod.TransientSettings.Clear();
+            Service.ChatMessage("已停止跟随。");
         });
 
         _slashCmd.AddSubcommand("helpme").SetSimpleHandler("收集诊断信息", HelpMe);

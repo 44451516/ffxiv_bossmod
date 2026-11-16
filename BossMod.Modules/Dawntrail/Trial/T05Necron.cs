@@ -92,7 +92,7 @@ class ExistentialDread(BossModule module) : Components.GenericAOEs(module, AID.E
     {
         base.AddAIHints(slot, actor, assignment, hints);
         if (_safeSide != Side.Unknown && !_risky && _activation != default)
-            hints.AddForbiddenZone(ShapeDistance.InvertedRect(PreposOrigin(), new WDir(0, 1), 30, 0, 2), _activation);
+            hints.AddForbiddenZone(ShapeDistance.InvertedRect(PreposOrigin(), new WDir(0, 1), 30, 0, 1), _activation);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
@@ -150,7 +150,7 @@ class ExistentialDread(BossModule module) : Components.GenericAOEs(module, AID.E
 
     private WPos PreposOrigin()
     {
-        var x = _safeSide == Side.Left ? Arena.Center.X - 5 : Arena.Center.X + 5;
+        var x = _safeSide == Side.Left ? Arena.Center.X - 4.5f : Arena.Center.X + 4.5f;
         return new(x, Arena.Center.Z - 15);
     }
 
@@ -694,13 +694,13 @@ class T05NecronStates : StateMachineBuilder
             .ActivateOnEnter<SpreadingFear>();
     }
 
-    private void P2(uint id) => ActivateCommon(SimpleState(id, 10000, "狂暴"));
+    private void P2(uint id) => ActivateCommon(SimpleState(id, 10000, "狂暴"), false);
 
     private void NothingTargetable(uint id, bool nothing, float delay, string name)
         => Condition(id, delay, () => Module.WorldState.Actors.Any(a => a.Type == ActorType.Enemy && a.IsTargetable && !a.IsAlly && !a.IsDead) != nothing, name, 5)
             .SetHint(nothing ? StateMachine.StateHint.DowntimeStart : StateMachine.StateHint.DowntimeEnd);
 
-    private void ActivateCommon(State state)
+    private void ActivateCommon(State state, bool jail = true)
     {
         state
             .ActivateOnEnter<FearOfDeath>()
@@ -723,7 +723,7 @@ class T05NecronStates : StateMachineBuilder
             .ActivateOnEnter<BlueShockwave>()
             .ActivateOnEnter<IcyHandsAdds>()
             .ActivateOnEnter<SpreadingFear>()
-            .ActivateOnEnter<Jail>();
+            .ActivateOnEnter<Jail>(jail);
     }
 }
 

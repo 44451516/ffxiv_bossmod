@@ -1,14 +1,19 @@
-﻿namespace BossMod.Endwalker.Extreme.Ex2Hydaelyn;
+namespace BossMod.Endwalker.Extreme.Ex2Hydaelyn;
 
 class Ex2HydaelynStates : StateMachineBuilder
 {
     public Ex2HydaelynStates(BossModule module) : base(module)
     {
-        DeathPhase(0, SinglePhase)
-            .ActivateOnEnter<WeaponTracker>();
+        SimplePhase(0, Phase1, "小怪阶段前")
+            .ActivateOnEnter<WeaponTracker>()
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.HPMP.CurHP == 0 || !Module.PrimaryActor.IsTargetable;
+        SimplePhase(0x10, Intermission, "中场")
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.HPMP.CurHP == 0 || Module.PrimaryActor.IsTargetable;
+        DeathPhase(0x11, Phase2)
+            .DeactivateOnExit<WeaponTracker>();
     }
 
-    private void SinglePhase(uint id)
+    private void Phase1(uint id)
     {
         HerosRadiance(id, 10.2f);
         ShiningSaber(id + 0x10000, 5.2f);
@@ -34,7 +39,7 @@ class Ex2HydaelynStates : StateMachineBuilder
         MousaScorn(id + 0x30000, 3.2f);
         Aureole(id + 0x40000, 5.2f);
         CrystallizeSwitchWeapon(id + 0x50000, 4.6f, true);
-        ForkFirstMerge(id, 2.2f);
+        Targetable(id + 0x100000, false, 2.2f, "转场开始");
     }
 
     private void ForkFirstChakram(uint id)
@@ -45,12 +50,11 @@ class Ex2HydaelynStates : StateMachineBuilder
         MagosRadiance(id + 0x30000, 2.7f);
         Aureole(id + 0x40000, 5.2f);
         CrystallizeSwitchWeapon(id + 0x50000, 4.6f, true);
-        ForkFirstMerge(id, 2.2f);
+        Targetable(id + 0x100000, false, 2.2f, "转场开始");
     }
 
-    private void ForkFirstMerge(uint id, float delay)
+    private void Phase2(uint id)
     {
-        Intermission(id + 0x100000, delay);
         Halo(id + 0x200000, 10.2f);
         Lightwave1(id + 0x210000, 4.1f);
         Lightwave2(id + 0x220000, 2.1f);
@@ -94,24 +98,25 @@ class Ex2HydaelynStates : StateMachineBuilder
         SwitchWeapon(id + 0x160000, 1.3f, false);
         CrystallizeAureole(id + 0x170000, 7.3f, false);
         SwitchWeapon(id + 0x180000, 1.3f, true);
-        Cast(id + 0x190000, AID.Enrage, 9.5f, 10, "Enrage");
+        Cast(id + 0x190000, AID.Enrage, 9.5f, 10, "狂暴");
     }
 
-    private void Intermission(uint id, float delay)
+    private void Intermission(uint id)
     {
         var echoes = Module.Enemies(OID.Echo);
+        var crystals = Module.Enemies(OID.CrystalOfLight);
 
-        Targetable(id, false, delay, "Intermission start");
+        Targetable(id, false, 0, "转场开始");
         ComponentCondition<PureCrystal>(id + 0x10000, 12.5f, comp => comp.NumCasts > 0, "Raidwide + adds appear")
             .ActivateOnEnter<PureCrystal>()
             .DeactivateOnExit<PureCrystal>()
             .SetHint(StateMachine.StateHint.DowntimeEnd); // crystals become targetable ~0.1s before, echoes ~0.1s after
-        Condition(id + 0x20000, 60, () => !echoes.Any(e => e.IsTargetable && !e.IsDead), "Adds down", 10000, 1) // note that time is arbitrary
+        Condition(id + 0x20000, 60, () => !echoes.Any(e => e.IsTargetable && !e.IsDead) && !crystals.Any(c => c.IsTargetable && !c.IsDead), "小怪击杀", 10000, 1) // crystals can outlive echoes when unsynced
             .ActivateOnEnter<IntermissionAdds>()
             .DeactivateOnExit<IntermissionAdds>()
             .SetHint(StateMachine.StateHint.DowntimeStart);
         // +2.1s: boss casts 26043 'Exodus'
-        ComponentCondition<Exodus>(id + 0x30000, 16.9f, comp => comp.NumCasts > 0, "Raidwide")
+        ComponentCondition<Exodus>(id + 0x30000, 16.9f, comp => comp.NumCasts > 0, "全屏伤害", float.MaxValue)
             .ActivateOnEnter<Exodus>()
             .DeactivateOnExit<Exodus>();
         Targetable(id + 0x40000, true, 5.2f, "Intermission end");
@@ -157,7 +162,7 @@ class Ex2HydaelynStates : StateMachineBuilder
         CastStartMulti(id + 0x1000, [AID.EchoesSword, AID.EchoesStaff, AID.EchoesChakram], 15.2f)
             .ActivateOnEnter<Lightwave3>()
             .ActivateOnEnter<Echoes>(); // note that icon appears slightly before cast start...
-        CastEnd(id + 0x1001, 5, "Stack");
+        CastEnd(id + 0x1001, 5, "分摊");
         // + ~1.0s: new lightwaves
         ComponentCondition<Echoes>(id + 0x2000, 4.5f, comp => comp.NumCasts > 4, "Echoes resolve")
             .DeactivateOnExit<Echoes>()
@@ -170,13 +175,13 @@ class Ex2HydaelynStates : StateMachineBuilder
 
     private void HerosRadiance(uint id, float delay)
     {
-        Cast(id, AID.HerosRadiance, delay, 5, "Raidwide")
+        Cast(id, AID.HerosRadiance, delay, 5, "全屏伤害")
             .SetHint(StateMachine.StateHint.Raidwide);
     }
 
     private void MagosRadiance(uint id, float delay)
     {
-        Cast(id, AID.MagosRadiance, delay, 5, "Raidwide")
+        Cast(id, AID.MagosRadiance, delay, 5, "全屏伤害")
             .SetHint(StateMachine.StateHint.Raidwide);
     }
 
@@ -190,13 +195,13 @@ class Ex2HydaelynStates : StateMachineBuilder
 
     private void Halo(uint id, float delay)
     {
-        Cast(id, AID.Halo, delay, 5, "Raidwide")
+        Cast(id, AID.Halo, delay, 5, "全屏伤害")
             .SetHint(StateMachine.StateHint.Raidwide);
     }
 
     private void RadiantHalo(uint id, float delay)
     {
-        Cast(id, AID.RadiantHalo, delay, 5, "Raidwide")
+        Cast(id, AID.RadiantHalo, delay, 5, "全屏伤害")
             .SetHint(StateMachine.StateHint.Raidwide);
     }
 
@@ -211,7 +216,7 @@ class Ex2HydaelynStates : StateMachineBuilder
     private void ShiningSaber(uint id, float delay)
     {
         // note: resolve happens slightly after cast, but variance is too large (0.2-0.5s), so just ignore it...
-        Cast(id, AID.ShiningSaber, delay, 4.9f, "Stack")
+        Cast(id, AID.ShiningSaber, delay, 4.9f, "分摊")
             .ActivateOnEnter<ShiningSaber>()
             .DeactivateOnExit<ShiningSaber>()
             .SetHint(StateMachine.StateHint.Raidwide);

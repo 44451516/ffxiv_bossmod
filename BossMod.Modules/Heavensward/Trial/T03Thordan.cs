@@ -96,16 +96,9 @@ class TheDragonsGaze(BossModule module) : Components.CastGaze(module, AID.TheDra
 class SacredCross(BossModule module) : Components.RaidwideCast(module, AID.SacredCross);
 class DimensionalCollapse(BossModule module) : Components.StandardAOEs(module, AID.DimensionalCollapse, 10);
 class Conviction(BossModule module) : Components.CastTowers(module, AID.Conviction, 2);
-class HeavyImpact(BossModule module) : Components.ConcentricAOEs(module, [
-    new AOEShapeCone(6, 135.Degrees()),
-    new AOEShapeDonutSector(6, 12, 135.Degrees()),
-    new AOEShapeDonutSector(12, 18, 135.Degrees()),
-    new AOEShapeDonutSector(18, 27, 135.Degrees())])
+class HeavyImpact(BossModule module) : Components.ConcentricAOEs(module, [new AOEShapeCone(6, 135.Degrees()), new AOEShapeDonutSector(6, 12, 135.Degrees()), new AOEShapeDonutSector(12, 18, 135.Degrees()), new AOEShapeDonutSector(18, 27, 135.Degrees())])
 {
-    public override void Update()
-    {
-        Sequences.RemoveAll(s => s.NextActivation != default && s.NextActivation < WorldState.CurrentTime.AddSeconds(-1));
-    }
+    public override void Update() => Sequences.RemoveAll(s => s.NextActivation != default && s.NextActivation < WorldState.CurrentTime.AddSeconds(-1));
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -123,7 +116,8 @@ class HeavyImpact(BossModule module) : Components.ConcentricAOEs(module, [
             AID.HeavyImpact4 => 3,
             _ => -1
         };
-        AdvanceSequence(order, caster.Position, WorldState.FutureTime(1.9f), spell.Rotation);
+        if (!AdvanceSequence(order, caster.Position, WorldState.FutureTime(1.9f), spell.Rotation))
+            ReportError($"Unexpected ring {order}");
     }
 }
 class SpiralThrust(BossModule module) : Components.StandardAOEs(module, AID.SpiralThrust, new AOEShapeRect(54.2f, 6));
@@ -158,6 +152,20 @@ class BrightFlare(BossModule module) : Components.GenericAOEs(module, AID.Bright
             ++NumCasts;
             _spheres.RemoveAll(s => s.Sphere == caster);
         }
+    }
+}
+
+class LightOfAscalonHits(BossModule module) : Components.RaidwideMultiHit(module, AID.LightOfAscalonStart, [AID.TheLightOfAscalon], 10.8f, 1.38f, 6)
+{
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action == WatchedAction)
+        {
+            Remaining = 6;
+            NextHit = WorldState.FutureTime(10.8f);
+            LastHit = NextHit.AddSeconds(1.38f * 5);
+        }
+        base.OnEventCast(caster, spell);
     }
 }
 
@@ -226,6 +234,7 @@ class T03ThordanStates : StateMachineBuilder
             .ActivateOnEnter<LightningStorm>()
             .ActivateOnEnter<BrightFlare>()
             .ActivateOnEnter<LightOfAscalon>()
+            .ActivateOnEnter<LightOfAscalonHits>()
             .ActivateOnEnter<Knights>()
             .ActivateOnEnter<Meteors>();
     }

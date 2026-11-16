@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.OccultKnight;
+namespace BossMod.Dawntrail.Foray.CriticalEngagement.OccultKnight;
 
 public enum OID : uint
 {
@@ -126,31 +126,9 @@ class BlastKnuckles(BossModule module) : Components.KnockbackFromCastTarget(modu
 
     private readonly CageOfFire _cage = module.FindComponent<CageOfFire>()!;
 
-    private Func<WPos, float> HitByRect() => ShapeDistance.Union([.. _cage.ActiveCasters.Select(c => ShapeDistance.Rect(c.Position, c.Rotation, 60, 0, 4))]);
+    private DistFn HitByRect() => ShapeDistance.Union([.. _cage.ActiveCasters.Select(c => ShapeDistance.Rect(c.Position, c.Rotation, 60, 0, 4))]);
 
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => !pos.InCircle(Arena.Center, 20) || HitByRect()(pos) < 0;
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (Casters.FirstOrDefault() is { } caster)
-        {
-            var activation = Module.CastFinishAt(caster.CastInfo);
-            if (IsImmune(slot, activation))
-                return;
-
-            hints.AddForbiddenZone(ShapeDistance.Donut(caster.Position, 5, 40), Module.CastFinishAt(caster.CastInfo));
-
-            var hitRectShape = HitByRect();
-            var center = Arena.Center;
-            var dist = Distance;
-
-            hints.AddForbiddenZone(Sdf.Discrete(p =>
-            {
-                var dir = (p - center).Normalized() * dist;
-                return hitRectShape(p + dir) < 0;
-            }), Module.CastFinishAt(caster.CastInfo));
-        }
-    }
+    public override Func<WVec, VBool> DestinationUnsafe(int slot, Actor actor) => HitByRect().Discretize();
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
@@ -226,7 +204,7 @@ class OccultKnightStates : StateMachineBuilder
             .ActivateOnEnter<SpiritSling>();
 
         ActorCastStart(id + 0x90100, _module.Megaloknight, AID.BarefistedDeath, 50);
-        ActorCastEnd(id + 0x90200, _module.Megaloknight, 90, name: "Enrage");
+        ActorCastEnd(id + 0x90200, _module.Megaloknight, 90, name: "狂暴");
     }
 
     // next wave can spawn on the same frame that the last targetable mob is killed, so we have to check that 1. at least one dead knight exists and 2. no living knight is targetable
@@ -270,7 +248,7 @@ class OccultKnightStates : StateMachineBuilder
 
     private void BlastKnuckles(uint id, float delay)
     {
-        ComponentCondition<BlastKnuckles>(id, delay, b => b.NumRealCasts > 0, "Knockback")
+        ComponentCondition<BlastKnuckles>(id, delay, b => b.NumRealCasts > 0, "击退")
             .ActivateOnEnter<CageOfFire>()
             .ActivateOnEnter<BlastKnuckles>();
         ComponentCondition<CageOfFire>(id + 0x10, 1, c => c.NumCasts > 0, "Lines 1")

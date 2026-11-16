@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Alliance.A36ShinryuParadox;
+namespace BossMod.Dawntrail.Alliance.A36ShinryuParadox;
 
 public enum OID : uint
 {
@@ -410,7 +410,6 @@ class CosmicFlame(BossModule module) : Components.Exaflare(module, new AOEShapeC
 // [850, -832.5] dir [0, 0.1]  => [850, -820]
 class AtomicRay(BossModule module) : Components.GenericAOEs(module, AID.AtomicRay)
 {
-    readonly List<(Actor Caster, WPos StartPos, WDir StartMove)> _recorded = [];
     readonly List<(Actor Caster, WPos Predicted, DateTime Activation)> _predicted = [];
 
     public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -423,21 +422,16 @@ class AtomicRay(BossModule module) : Components.GenericAOEs(module, AID.AtomicRa
     {
         if (spell.Action == WatchedAction)
         {
+            var ix = _predicted.FindIndex(p => p.Caster == caster);
+            if (ix >= 0 && !_predicted[ix].Predicted.AlmostEqual(caster.Position, 1))
+                ReportError($"Orb {caster} casting at {caster.Position}, predicted {_predicted[ix].Predicted}");
             _predicted.RemoveAll(p => p.Caster == caster);
-            var ix = _recorded.FindIndex(p => p.Caster == caster);
-            if (ix >= 0)
-            {
-                var (p, s, m) = _recorded[ix];
-                _recorded.RemoveAt(ix);
-                ReportError($"{p} casting at {caster.Position}, starting was {s} going {m}");
-            }
         }
     }
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if ((IconID)iconID == IconID.Countdown)
         {
-            _recorded.Add((actor, actor.Position, actor.LastFrameMovement));
             var dt = WorldState.FutureTime(5.3f);
 
             // pepeW
@@ -610,13 +604,13 @@ class A36ShinryuParadoxStates : StateMachineBuilder
     {
         CastStart(id, AID.DarkNovaVisual1, delay)
             .ActivateOnEnter<DarkNova>();
-        ComponentCondition<DarkNova>(id + 0x10, 6.2f, d => d.NumCasts > 0, "Tankbusters")
+        ComponentCondition<DarkNova>(id + 0x10, 6.2f, d => d.NumCasts > 0, "坦克死刑")
             .DeactivateOnExit<DarkNova>();
     }
 
     void P2(uint id, float delay)
     {
-        ActorTargetable(id, _module.BossP2, true, delay, "Boss reappears")
+        ActorTargetable(id, _module.BossP2, true, delay, "首领重新出现")
             .DeactivateOnExit<AtomicTail>()
             .DeactivateOnExit<AtomicTailArena>()
             .DeactivateOnExit<GyreCharge>()
@@ -659,7 +653,7 @@ class A36ShinryuParadoxStates : StateMachineBuilder
 
     void EmptyProclamation(uint id, float delay)
     {
-        ActorCast(id, _module.BossP2, AID.EmptyProclamation, delay, 4, true, "Raidwide")
+        ActorCast(id, _module.BossP2, AID.EmptyProclamation, delay, 4, true, "全屏伤害")
             .ActivateOnEnter<EmptyProclamation>()
             .DeactivateOnExit<EmptyProclamation>();
     }
@@ -681,7 +675,7 @@ class A36ShinryuParadoxStates : StateMachineBuilder
             .ActivateOnEnter<TwinBlaze1>()
             .ActivateOnEnter<TwinBlaze2>();
 
-        return ComponentCondition<TwinBlaze1>(id + 0x10, 1, t => t.NumCasts > 0, "In/out")
+        return ComponentCondition<TwinBlaze1>(id + 0x10, 1, t => t.NumCasts > 0, "靠近 / 远离")
             .DeactivateOnExit<TwinBlaze1>()
             .DeactivateOnExit<TwinBlaze2>();
     }

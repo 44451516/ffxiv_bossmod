@@ -72,7 +72,7 @@ class HoundOutOfHeavenGood(BossModule module) : Components.BaitAwayTethers(modul
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         if (target == actor.InstanceID && CurrentBaits.Count > 0)
-            hints.Add("Tether is stretched!", false);
+            hints.Add("连线已拉长！", false);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -167,17 +167,8 @@ class ViperPoisonBait(BossModule module) : Components.GenericBaitAway(module)
     }
 }
 
-class Inhale(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Inhale, 50, kind: Kind.TowardsOrigin)
-{
-    //TODO: consider testing if path is unsafe in addition to destination
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<ViperPoisonPatterns>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
-}
-
-class HeavingBreath(BossModule module) : Components.KnockbackFromCastTarget(module, AID.HeavingBreath, 35, kind: Kind.DirForward, stopAtWall: true)
-{
-    //TODO: consider testing if path is unsafe in addition to destination
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<ViperPoisonPatterns>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
-}
+class Inhale(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Inhale, 50, kind: Kind.TowardsOrigin);
+class HeavingBreath(BossModule module) : Components.KnockbackFromCastTarget(module, AID.HeavingBreath, 35, kind: Kind.DirForward, stopAtWall: true);
 
 class Glossolalia(BossModule module) : Components.RaidwideCast(module, AID.Glossolalia);
 class Rend(BossModule module) : Components.SingleTargetDelayableCast(module, AID.Rend);

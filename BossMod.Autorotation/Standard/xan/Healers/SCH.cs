@@ -12,6 +12,8 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
         public Track<AOEStrategy> AOE;
         [Track("连环计", Actions = [AID.ChainStratagem, AID.Dissipation], Targets = ActionTargets.Hostile)]
         public Track<OffensiveStrategy> Buffs;
+        [Track("仙女管理")]
+        public Track<SummonBehavior> Summon;
         [Track("Fairy placement")]
         public Track<FairyPlacement> FairyPlace;
 
@@ -31,9 +33,19 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
         Specific
     }
 
+    public enum SummonBehavior
+    {
+        [Option("仙女不存在时召唤")]
+        Summon,
+        [Option("仙女存在时遣散")]
+        Dismiss,
+        [Option("不执行操作")]
+        Disabled,
+    }
+
     public static RotationModuleDefinition Definition()
     {
-        return new RotationModuleDefinition("xan SCH", "Scholar", "Standard rotation (xan)|Healers", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.SCH), 100).WithStrategies<Strategy>();
+        return new RotationModuleDefinition("xan SCH", "学者", "标准循环（xan）|治疗", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.SCH), 100).WithStrategies<Strategy>();
     }
 
     public enum GCDPriority
@@ -93,7 +105,7 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
         if (Eos != null || FairyGone)
             _summonWait = World.CurrentTime.AddSeconds(1);
 
-        if (Eos == null && !FairyGone && World.CurrentTime > _summonWait)
+        if (Eos == null && !FairyGone && World.CurrentTime > _summonWait && strategy.Summon.Value == SummonBehavior.Summon)
             PushGCD(AID.SummonEos, Player);
 
         OGCD(strategy, primaryTarget);
@@ -105,7 +117,7 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (CountdownRemaining > 0)
         {
-            if (CountdownRemaining <= GetCastTime(AID.Broil1))
+            if (CountdownRemaining <= GetCastTime(AID.Broil1) + ApplicationDelay.Get(AID.Broil4))
                 PushGCD(AID.Broil1, primaryTarget);
 
             return;
@@ -135,7 +147,13 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
 
     private void OGCD(Strategy strategy, Enemy? primaryTarget)
     {
-        if (primaryTarget == null || !Player.InCombat)
+        if (!Player.InCombat)
+            return;
+
+        if (Aetherflow == 0)
+            PushOGCD(AID.Aetherflow, Player);
+
+        if (primaryTarget == null)
             return;
 
         switch (strategy.Buffs.Value)
@@ -148,9 +166,6 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
                 UsePlanned(strategy.Buffs, AID.ChainStratagem, primaryTarget);
                 break;
         }
-
-        if (Aetherflow == 0)
-            PushOGCD(AID.Aetherflow, Player);
 
         if (Aetherflow > 0 && CanWeave(AID.Aetherflow, Aetherflow))
             PushOGCD(AID.EnergyDrain, primaryTarget);
@@ -166,6 +181,12 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
 
     private void OrderFairy(Strategy strategy)
     {
+        if (strategy.Summon.Value == SummonBehavior.Dismiss && Eos != null)
+        {
+            Hints.ActionsToExecute.Push(new ActionID(ActionType.PetAction, 1), null, ActionQueue.Priority.VeryHigh);
+            return;
+        }
+
         if (Eos == null)
             return;
 
@@ -179,7 +200,7 @@ public sealed class SCH(RotationModuleManager manager, Actor player) : Castxan<A
         {
             if (FairyOrder != PetOrder.Place && (Player.InCombat || CountdownRemaining > 0))
             {
-                if (Bossmods.ActiveModule?.Arena.Center is WPos p)
+                if (Bossmods.ActiveModule is { Arena.Center: var p })
                     Hints.ActionsToExecute.Push(new ActionID(ActionType.PetAction, 3), null, ActionQueue.Priority.VeryHigh, targetPos: p.ToVec3(Player.PosRot.Y));
             }
         }

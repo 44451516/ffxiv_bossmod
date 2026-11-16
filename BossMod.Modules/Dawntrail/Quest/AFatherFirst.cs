@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Quest.AFatherFirst;
+namespace BossMod.Dawntrail.Quest.AFatherFirst;
 
 public enum OID : uint
 {
@@ -244,11 +244,11 @@ class GuloolJaJaStates : StateMachineBuilder
 
     private void BurningSun(uint id, float delay, bool exit = true)
     {
-        Cast(id, AID.BurningSunCast, delay, 6.2f, "Puddles")
+        Cast(id, AID.BurningSunCast, delay, 6.2f, "水圈")
             .ActivateOnEnter<BurningSun>()
             .ActivateOnEnter<BurningSunPuddle>();
         Cast(id + 0x10, AID.BrawlEnderCast, 7.3f, 5).ActivateOnEnter<BrawlEnder>();
-        ComponentCondition<BrawlEnder>(id + 0x12, 2.6f, b => b.NumKBs > 0, "Knockback")
+        ComponentCondition<BrawlEnder>(id + 0x12, 2.6f, b => b.NumKBs > 0, "击退")
             .DeactivateOnExit<BrawlEnder>()
             .SetHint(StateMachine.StateHint.Knockback);
         if (exit)
@@ -264,7 +264,7 @@ class GuloolJaJaStates : StateMachineBuilder
 
     private void P1(uint id)
     {
-        Cast(id, AID.FancyBladework, 8.2f, 5, "Raidwide").ActivateOnEnter<FancyBladework>();
+        Cast(id, AID.FancyBladework, 8.2f, 5, "全屏伤害").ActivateOnEnter<FancyBladework>();
         DualBlows(id + 0x10, 6.2f);
         SteeledStrike(id + 0x10000, 7.5f);
         CoiledStrike(id + 0x20000, 12);
@@ -294,7 +294,7 @@ class GuloolJaJaStates : StateMachineBuilder
             .DeactivateOnExit<Thrill>();
 
         id += 0x10000;
-        Cast(id + 0x80, AID.FancyBladework, 7, 5, "Raidwide");
+        Cast(id + 0x80, AID.FancyBladework, 7, 5, "全屏伤害");
 
         id += 0x10000;
         Cast(id + 0x90, AID.Doubling2, 9.4f, 3)
@@ -307,24 +307,37 @@ class GuloolJaJaStates : StateMachineBuilder
             .DeactivateOnExit<SteeledStrike>();
 
         id += 0x10000;
-        BurningSun(id, 9.3f, false);
+        Dictionary<AID, (uint seqID, Action<uint> buildState)> fork = new()
+        {
+            [AID.BurningSunCast] = ((id >> 24) + 1, ForkBurningSun),
+            [AID.Doubling1] = ((id >> 24) + 2, id => FinalBlock(id, 0))
+        };
+        CastStartFork(id, fork, 9.3f, "水圈或分身");
+    }
+
+    private void ForkBurningSun(uint id)
+    {
+        BurningSun(id, 0, false);
 
         id += 0x10000;
         DualBlows(id, 2.4f)
             .DeactivateOnExit<BurningSun>()
             .DeactivateOnExit<BurningSunPuddle>();
 
-        id += 0x10000;
-        Cast(id, AID.Doubling1, 8.7f, 3)
+        FinalBlock(id + 0x10000, 8.7f);
+    }
+
+    private void FinalBlock(uint id, float delay)
+    {
+        Cast(id, AID.Doubling1, delay, 3)
             .ActivateOnEnter<GloryBlaze>()
             .ActivateOnEnter<SteeledStrikeShade>();
         CoiledStrike(id + 0x10, 17.6f, bothCasts: false);
         ComponentCondition<SteeledStrikeShade>(id + 0x20, 4.9f, s => s.NumCasts > 0, "Cross 1")
+            .ActivateOnEnter<Thrill>()
             .DeactivateOnExit<SteeledStrikeShade>();
 
-        id += 0x10000;
-        Timeout(id, 9000f, "Towers + victory")
-            .ActivateOnEnter<Thrill>();
+        Timeout(id + 0x10000, 9000f, "踩塔与胜利");
     }
 }
 

@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Utility;
@@ -89,6 +89,27 @@ public static class UIMisc
             ImGui.NewLine();
     }
 
+    // SameLineOrWrap line count, assuming we start at the beginning of a line
+    public static int CountWrappedLines(IEnumerable<float> itemWidths, float availableWidth)
+    {
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+        var lines = 0;
+        var x = 0f;
+        foreach (var width in itemWidths)
+        {
+            if (lines == 0 || availableWidth - x - spacing < width)
+            {
+                ++lines;
+                x = width;
+            }
+            else
+            {
+                x += spacing + width;
+            }
+        }
+        return lines;
+    }
+
     public static bool Button(string label, float width, params (bool disabled, string reason)[] disabled)
     {
         var isDisabled = disabled.Any(d => d.disabled);
@@ -106,7 +127,7 @@ public static class UIMisc
     public static bool Button(string label, bool disabled, string reason, float width = 0) => Button(label, width, (disabled, reason));
 
     // button that is disabled unless shift is held, useful for 'dangerous' operations like deletion
-    public static bool DangerousButton(string label, float width = 0) => Button(label, !ImGui.IsKeyDown(ImGuiKey.ModShift), "Hold shift", width);
+    public static bool DangerousButton(string label, float width = 0) => Button(label, !ImGui.IsKeyDown(ImGuiKey.ModShift), "按住 Shift", width);
 
     public static void TextUnderlined(Vector4 colour, string text)
     {

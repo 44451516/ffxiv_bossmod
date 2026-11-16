@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
+namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
 class Ex4ZeleniaStates : StateMachineBuilder
 {
@@ -8,7 +8,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
             .ActivateOnEnter<ThornedCatharsis>()
             .Raw.Update = () => !Module.PrimaryActor.IsTargetable || Module.PrimaryActor.IsDeadOrDestroyed;
 
-        SimplePhase(1, AddsPhase, "Adds")
+        SimplePhase(1, AddsPhase, "小怪")
             .SetHint(StateMachine.PhaseHint.StartWithDowntime)
             .Raw.Update = () =>
             {
@@ -44,7 +44,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
             .ActivateOnEnter<ShockAOEs>();
 
         ComponentCondition<ShockAOEs>(id + 0x10, 11.8f, e => e.NumCasts > 0, "AOEs 1");
-        ComponentCondition<P1Explosion>(id + 0x12, 1.3f, e => e.NumCasts > 0, "Towers");
+        ComponentCondition<P1Explosion>(id + 0x12, 1.3f, e => e.NumCasts > 0, "塔");
         ComponentCondition<ShockAOEs>(id + 0x14, 4.3f, e => e.NumCasts >= 96, "AOEs 11")
             .DeactivateOnExit<P1Explosion>()
             .DeactivateOnExit<ShockDonutBait>()
@@ -57,7 +57,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
 
         CastStart(id + 0x20100, AID.BlessedBarricade, 3);
 
-        Targetable(id + 0x20102, false, 3.9f, "Boss disappears");
+        Targetable(id + 0x20102, false, 3.9f, "首领消失");
     }
 
     private void AddsPhase(uint id)
@@ -73,22 +73,22 @@ class Ex4ZeleniaStates : StateMachineBuilder
         ComponentCondition<AddsExplosion>(id + 0x10, 10.8f, e => e.NumCasts >= 2, "Towers 1");
         ComponentCondition<AddsExplosion>(id + 0x12, 12, e => e.NumCasts >= 4, "Towers 2");
         ComponentCondition<AddsExplosion>(id + 0x14, 12, e => e.NumCasts >= 6, "Towers 3");
-        ComponentCondition<SpearpointAOE>(id + 0x16, 11.9f, e => e.NumCasts >= 8, "Baits 4");
+        ComponentCondition<SpearpointAOE>(id + 0x16, 11.9f, e => e.NumCasts >= 8, "引导 4");
 
         ComponentCondition<AddsEnrage>(id + 0x20, 8.4f, e => e.Active, "Adds disappear")
             .SetHint(StateMachine.StateHint.DowntimeStart);
 
         CastStart(id + 0xFF0000, AID.PerfumedQuietusEnrageVisual, 2.2f);
-        Timeout(id + 0xFF0001, 9.2f, "Enrage");
+        Timeout(id + 0xFF0001, 9.2f, "狂暴");
     }
 
     private void Phase2(uint id)
     {
-        Targetable(id, true, 5.1f, "Boss appears")
+        Targetable(id, true, 5.1f, "首领出现")
             .ActivateOnEnter<PerfumedQuietus>()
             .ActivateOnEnter<Voidzone>();
         CastStart(id + 0x10, AID.PerfumedQuietusVisual, 0.1f);
-        ComponentCondition<PerfumedQuietus>(id + 0x12, 9.2f, p => p.NumCasts > 0, "Raidwide")
+        ComponentCondition<PerfumedQuietus>(id + 0x12, 9.2f, p => p.NumCasts > 0, "全屏伤害")
             .DeactivateOnExit<PerfumedQuietus>();
 
         Bloom1(id + 0x10000, 12.3f);
@@ -107,12 +107,12 @@ class Ex4ZeleniaStates : StateMachineBuilder
         StockBreak(id + 0xA0200, 1.7f);
         StockBreak(id + 0xA0300, 1.8f);
 
-        Timeout(id + 0x100000, 9999, "Enrage");
+        Timeout(id + 0x100000, 9999, "狂暴");
     }
 
     private void ThornedCatharsis(uint id, float delay)
     {
-        Cast(id, AID.ThornedCatharsis, delay, 5, "Raidwide");
+        Cast(id, AID.ThornedCatharsis, delay, 5, "全屏伤害");
     }
 
     private void EscelonsFall1(uint id, float delay)
@@ -120,10 +120,10 @@ class Ex4ZeleniaStates : StateMachineBuilder
         CastStart(id, AID.EscelonsFallVisual, delay, "EF1 start")
             .ActivateOnEnter<EscelonsFall>();
 
-        ComponentCondition<EscelonsFall>(id + 2, 13.9f, e => e.NumCasts >= 4, "Baits 1");
-        ComponentCondition<EscelonsFall>(id + 4, 3.1f, e => e.NumCasts >= 8, "Baits 2");
-        ComponentCondition<EscelonsFall>(id + 6, 3.1f, e => e.NumCasts >= 12, "Baits 3");
-        ComponentCondition<EscelonsFall>(id + 8, 3.1f, e => e.NumCasts >= 16, "Baits 4")
+        ComponentCondition<EscelonsFall>(id + 2, 13.9f, e => e.NumVolleys >= 1, "引导 1");
+        ComponentCondition<EscelonsFall>(id + 4, 3.1f, e => e.NumVolleys >= 2, "引导 2");
+        ComponentCondition<EscelonsFall>(id + 6, 3.1f, e => e.NumVolleys >= 3, "引导 3");
+        ComponentCondition<EscelonsFall>(id + 8, 3.1f, e => e.NumVolleys >= 4, "引导 4")
             .DeactivateOnExit<EscelonsFall>();
     }
 
@@ -148,7 +148,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
         ComponentCondition<AlexandrianThunderII>(id + 0x11, 5.7f, e => e.NumCasts > 0, "Rotating AOEs start");
         ComponentCondition<AlexandrianThunderII>(id + 0x12, 14.2f, e => e.NumCasts >= 90, "Rotating AOEs end")
             .DeactivateOnExit<AlexandrianThunderII>();
-        ComponentCondition<Bloom1AlexandrianThunderIII>(id + 0x13, 5.7f, e => e.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<Bloom1AlexandrianThunderIII>(id + 0x13, 5.7f, e => e.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<Bloom1AlexandrianThunderIII>();
 
         ThornedCatharsis(id + 0x20, 2.4f);
@@ -161,7 +161,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
             .ActivateOnEnter<ThunderSlash>()
             .ActivateOnEnter<AlexandrianThunderIV>();
 
-        ComponentCondition<AlexandrianThunderIV>(id + 0x10, 10.3f, t => t.NumCasts > 0, "In/out");
+        ComponentCondition<AlexandrianThunderIV>(id + 0x10, 10.3f, t => t.NumCasts > 0, "靠近 / 远离");
         ComponentCondition<AlexandrianThunderIV>(id + 0x11, 3, t => t.NumCasts > 1, "Out/in").DeactivateOnExit<AlexandrianThunderIV>();
         ComponentCondition<ThunderSlash>(id + 0x12, 2, t => t.NumCasts >= 6, "Cones end")
             .DeactivateOnExit<ThunderSlash>()
@@ -184,7 +184,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
         ComponentCondition<Bloom3Emblazon>(id + 0x22, 0.8f, b => b.Baiters.Any(), "Roses appear");
         ComponentCondition<Bloom3Emblazon>(id + 0x30, 6.7f, b => b.NumCasts > 0, "Tiles activate")
             .DeactivateOnExit<Bloom3Emblazon>();
-        ComponentCondition<TileExplosion>(id + 0x40, 4.4f, b => b.NumCasts > 0, "Towers")
+        ComponentCondition<TileExplosion>(id + 0x40, 4.4f, b => b.NumCasts > 0, "塔")
             .DeactivateOnExit<TileExplosion>();
 
         ThornedCatharsis(id + 0x50, 3.3f);
@@ -205,17 +205,17 @@ class Ex4ZeleniaStates : StateMachineBuilder
         ComponentCondition<ShockDonutBait>(id + 0x12, 6.7f, s => s.NumCasts > 0, "Donuts start")
             .DeactivateOnExit<ShockDonutBait>();
 
-        ComponentCondition<AlexandrianBanishII>(id + 0x14, 1.1f, b => b.NumFinishedStacks > 0, "Stacks")
+        ComponentCondition<AlexandrianBanishII>(id + 0x14, 1.1f, b => b.NumFinishedStacks > 0, "分摊")
             .DeactivateOnExit<AlexandrianBanishII>();
 
         ComponentCondition<ShockAOEs>(id + 0x20, 4.5f, s => s.NumCasts >= 36, "Donuts end")
             .DeactivateOnExit<ShockAOEs>()
             .ExecOnEnter<EscelonsFall>(e => e.EnableHints = true);
 
-        ComponentCondition<EscelonsFall>(id + 0x22, 1.6f, e => e.NumCasts >= 4, "Baits 1");
-        ComponentCondition<EscelonsFall>(id + 0x24, 3.1f, e => e.NumCasts >= 8, "Baits 2");
-        ComponentCondition<EscelonsFall>(id + 0x26, 3.1f, e => e.NumCasts >= 12, "Baits 3");
-        ComponentCondition<EscelonsFall>(id + 0x28, 3.1f, e => e.NumCasts >= 16, "Baits 4")
+        ComponentCondition<EscelonsFall>(id + 0x22, 1.6f, e => e.NumVolleys >= 1, "引导 1");
+        ComponentCondition<EscelonsFall>(id + 0x24, 3.1f, e => e.NumVolleys >= 2, "引导 2");
+        ComponentCondition<EscelonsFall>(id + 0x26, 3.1f, e => e.NumVolleys >= 3, "引导 3");
+        ComponentCondition<EscelonsFall>(id + 0x28, 3.1f, e => e.NumVolleys >= 4, "引导 4")
             .DeactivateOnExit<EscelonsFall>();
 
         StockBreak(id + 0x30, 2.2f);
@@ -231,7 +231,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
         ComponentCondition<Bloom4Emblazon>(id + 0x10, 7.5f, b => b.Baiters.Any(), "Roses appear");
         ComponentCondition<Bloom4Emblazon>(id + 0x20, 6.6f, b => b.NumCasts > 0, "Tiles activate")
             .DeactivateOnExit<Bloom4Emblazon>();
-        ComponentCondition<Bloom4AlexandrianThunderIII>(id + 0x30, 0.6f, b => b.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<Bloom4AlexandrianThunderIII>(id + 0x30, 0.6f, b => b.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<Bloom4AlexandrianThunderIII>()
             .DeactivateOnExit<Bloom4AlexandrianThunderIIIAOE>();
 
@@ -239,7 +239,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
             .ActivateOnEnter<EncirclingThorns>()
             .ExecOnEnter<Tiles>(t => t.ShouldDraw = true);
 
-        ComponentCondition<BanishIII>(id + 0x40, 5, b => b.NumCasts > 0, "Stack")
+        ComponentCondition<BanishIII>(id + 0x40, 5, b => b.NumCasts > 0, "分摊")
             .ActivateOnEnter<BanishIII>()
             .DeactivateOnExit<BanishIII>()
             .DeactivateOnExit<EncirclingThorns>()
@@ -261,11 +261,11 @@ class Ex4ZeleniaStates : StateMachineBuilder
         ComponentCondition<PowerBreak>(id + 0x20, 10, p => p.NumCasts > 0, "Half-room cleave 1")
             .ExecOnExit<EscelonsFall>(e => e.EnableHints = true);
 
-        ComponentCondition<EscelonsFall>(id + 0x22, 3.9f, e => e.NumCasts >= 4, "Baits 1");
-        ComponentCondition<EscelonsFall>(id + 0x24, 3.1f, e => e.NumCasts >= 8, "Baits 2");
-        ComponentCondition<EscelonsFall>(id + 0x26, 3.1f, e => e.NumCasts >= 12, "Baits 3")
+        ComponentCondition<EscelonsFall>(id + 0x22, 3.9f, e => e.NumVolleys >= 1, "引导 1");
+        ComponentCondition<EscelonsFall>(id + 0x24, 3.1f, e => e.NumVolleys >= 2, "引导 2");
+        ComponentCondition<EscelonsFall>(id + 0x26, 3.1f, e => e.NumVolleys >= 3, "引导 3")
             .ExecOnEnter<PowerBreak>(p => p.Risky = false);
-        ComponentCondition<EscelonsFall>(id + 0x28, 3.1f, e => e.NumCasts >= 16, "Baits 4")
+        ComponentCondition<EscelonsFall>(id + 0x28, 3.1f, e => e.NumVolleys >= 4, "引导 4")
             .DeactivateOnExit<EscelonsFall>()
             .ExecOnExit<PowerBreak>(p => p.Risky = true);
 
@@ -302,7 +302,7 @@ class Ex4ZeleniaStates : StateMachineBuilder
             .ActivateOnEnter<SpecterOfTheLost>()
             .ActivateOnEnter<SpecterOfTheLostAOE>();
 
-        ComponentCondition<SpecterOfTheLostAOE>(id + 2, 7.7f, e => e.NumCasts >= 2, "Tankbusters")
+        ComponentCondition<SpecterOfTheLostAOE>(id + 2, 7.7f, e => e.NumCasts >= 2, "坦克死刑")
             .DeactivateOnExit<SpecterOfTheLost>()
             .DeactivateOnExit<SpecterOfTheLostAOE>();
     }
@@ -320,9 +320,9 @@ class Ex4ZeleniaStates : StateMachineBuilder
         ComponentCondition<Bloom6Emblazon>(id + 0x22, 6.6f, b => b.NumCasts > 0, "Tiles activate")
             .DeactivateOnExit<Bloom6Emblazon>();
 
-        ComponentCondition<HolyHazard>(id + 0x30, 3.3f, h => h.NumCasts >= 2, "Cones 1");
-        ComponentCondition<HolyHazard>(id + 0x32, 3.1f, h => h.NumCasts >= 4, "Cones 2");
-        ComponentCondition<TileExplosion>(id + 0x34, 0.1f, t => t.NumCasts > 0, "Towers")
+        ComponentCondition<HolyHazard>(id + 0x30, 3.3f, h => h.NumCasts >= 2, "扇形 1");
+        ComponentCondition<HolyHazard>(id + 0x32, 3.1f, h => h.NumCasts >= 4, "扇形 2");
+        ComponentCondition<TileExplosion>(id + 0x34, 0.1f, t => t.NumCasts > 0, "塔")
             .DeactivateOnExit<HolyHazard>()
             .DeactivateOnExit<TileExplosion>();
     }

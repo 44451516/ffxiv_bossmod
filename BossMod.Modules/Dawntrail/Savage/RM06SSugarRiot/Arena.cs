@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Savage.RM06SSugarRiot;
+namespace BossMod.Dawntrail.Savage.RM06SSugarRiot;
 
 class RiverPhaseArena(BossModule module) : BossComponent(module)
 {
@@ -33,10 +33,12 @@ class RiverPhaseArena(BossModule module) : BossComponent(module)
         if (Activation == default)
             return;
 
+        var inRiver = RiverPoly.Contains(actor.Position - Arena.Center);
+
         if (RiverSafe)
-            hints.Add("Stand in water!", !RiverPoly.Contains(actor.Position - Arena.Center));
+            hints.Add("站进水中！", !inRiver);
         else
-            hints.Add("Avoid water!", RiverPoly.Contains(actor.Position - Arena.Center));
+            hints.Add("避开水面！", inRiver);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -44,8 +46,7 @@ class RiverPhaseArena(BossModule module) : BossComponent(module)
         if (Activation == default)
             return;
 
-        var chk = new AOEShapeCustom(RiverPoly).GetSdf(Arena.Center, default);
-        hints.AddForbiddenZone(RiverSafe ? chk.Inverted() : chk, Activation);
+        hints.AddForbiddenZone(ShapeDistance.Polygon(Arena.Center, default, RiverPoly).Inverted(RiverSafe), Activation);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
@@ -91,7 +92,7 @@ class DoubleStyleFireLightning(BossModule module) : Components.GenericStackSprea
     }
 }
 
-class StormPhaseArena(BossModule module) : Components.GenericAOEs(module, warningText: "GTFO from voidzone!")
+class StormPhaseArena(BossModule module) : Components.GenericAOEs(module, warningText: "远离虚空地带！")
 {
     private DateTime Activation;
 

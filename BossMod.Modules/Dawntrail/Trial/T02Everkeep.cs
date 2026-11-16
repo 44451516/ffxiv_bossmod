@@ -153,12 +153,16 @@ class DutysEdge(BossModule module) : Components.GenericWildCharge(module, 4, AID
             case AID.DutysEdgeTarget:
                 Source = caster;
                 NumCasts = 0;
+                Hits = TotalHits;
+                Activation = WorldState.FutureTime(5.4f);
                 foreach (var (i, p) in Raid.WithSlot(true))
                     PlayerRoles[i] = p.InstanceID == spell.MainTargetID ? PlayerRole.Target : PlayerRole.Share;
                 break;
             case AID.DutysEdgeAOE:
                 if (++NumCasts >= TotalHits)
                     Source = null;
+                Hits = TotalHits - NumCasts;
+                Activation = WorldState.FutureTime(2.1f);
                 break;
         }
     }
@@ -245,11 +249,9 @@ class ForgedTrack(BossModule module) : Components.GenericAOEs(module)
     {
         if ((AID)spell.Action.ID != AID.ForgedTrackAOE)
             return;
-        var id = _aoes.FirstOrDefault(kv => kv.Value.Rotation.AlmostEqual(caster.Rotation, 0.1f)).Key;
+        var id = _aoes.FirstOrDefault(kv => kv.Value.Origin.AlmostEqual(caster.Position, 1) && kv.Value.Rotation.AlmostEqual(caster.Rotation, 0.1f)).Key;
         if (id != 0)
             _aoes.Remove(id);
-        else if (_aoes.Count > 0)
-            _aoes.Remove(_aoes.Keys.First());
     }
 }
 
@@ -278,9 +280,7 @@ class VorpalTrail(BossModule module) : Components.GenericAOEs(module)
         var now = WorldState.CurrentTime;
         var mechanicActive = _fangAOE.Count > 0 || _mechanicActiveUntil > now;
         if (!mechanicActive)
-        {
             return;
-        }
         foreach (var aoe in ActiveAOEs(slot, actor))
         {
             if (!aoe.Risky)
@@ -293,11 +293,10 @@ class VorpalTrail(BossModule module) : Components.GenericAOEs(module)
             }
             else
             {
-                hints.AddForbiddenZone(aoe.Distance, aoe.Activation);
+                hints.AddForbiddenZone(aoe.DistV, aoe.Activation);
             }
         }
         hints.GoalZones.Add(AIHints.GoalSingleTarget(Module.Center, CenterAttractRadius, CenterAttractWeight));
-
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -307,7 +306,7 @@ class VorpalTrail(BossModule module) : Components.GenericAOEs(module)
         var aid = (AID)spell.Action.ID;
         if (aid == AID.VorpalTrailInitial)
         {
-            SetRect(caster.InstanceID, caster.Position, spell.TargetXZ, 4f, 0f, 3f, WorldState.FutureTime(1.5f));
+            SetRect(_fangAOE, caster.InstanceID, caster.Position, spell.TargetXZ, 4f, 0f, 3f, WorldState.FutureTime(1.5f));
             return;
         }
         if (aid == AID.VorpalTrailSprint)
@@ -317,7 +316,7 @@ class VorpalTrail(BossModule module) : Components.GenericAOEs(module)
                 return;
             var b = spell.TargetXZ;
             var c = b + dirAB.OrthoR();
-            SetRectInto(_predictedNext, caster.InstanceID, b, c, 2.5f, 2.5f, 3.0f, WorldState.FutureTime(NextSprintExpirationSec));
+            SetRect(_predictedNext, caster.InstanceID, b, c, 2.5f, 2.5f, 3.0f, WorldState.FutureTime(NextSprintExpirationSec));
         }
     }
 
@@ -328,13 +327,10 @@ class VorpalTrail(BossModule module) : Components.GenericAOEs(module)
         if ((AID)spell.Action.ID != AID.VorpalTrailSprint)
             return;
         _predictedNext.Remove(caster.InstanceID);
-        SetRect(caster.InstanceID, caster.Position, spell.LocXZ, 2.5f, 2.5f, 3.0f, Module.CastFinishAt(spell, 1.0f));
+        SetRect(_fangAOE, caster.InstanceID, caster.Position, spell.LocXZ, 2.5f, 2.5f, 3.0f, Module.CastFinishAt(spell, 1.0f));
     }
 
-    private void SetRect(ulong fangId, WPos from, WPos to, float halfWidth, float frontExt, float backExt, DateTime expiration)
-        => SetRectInto(_fangAOE, fangId, from, to, halfWidth, frontExt, backExt, expiration);
-
-    private void SetRectInto(Dictionary<ulong, AOEInstance> dict, ulong fangId, WPos from, WPos to, float halfWidth, float frontExt, float backExt, DateTime expiration)
+    private void SetRect(Dictionary<ulong, AOEInstance> dict, ulong fangId, WPos from, WPos to, float halfWidth, float frontExt, float backExt, DateTime expiration)
     {
         var diff = to - from;
         var length = diff.Length();

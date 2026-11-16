@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using System.Text;
@@ -118,7 +118,7 @@ class DebugGraphics
         foreach (var v in _watchedRenderObjects)
         {
             var obj = (FFXIVClientStructs.FFXIV.Client.Graphics.Scene.Object*)v.Key;
-            Service.Camera.DrawWorldLine(Service.ObjectTable.LocalPlayer!.Position, obj->Position, 0xff0000ff);
+            Service.Camera.AddLine(Service.ObjectTable.LocalPlayer!.Position, obj->Position, 0xff0000ff);
         }
     }
 
@@ -240,7 +240,7 @@ class DebugGraphics
         if (!table)
             return;
 
-        ImGui.TableSetupColumn("Name");
+        ImGui.TableSetupColumn("名称");
         ImGui.TableSetupColumn("Value");
         ImGui.TableHeadersRow();
 
@@ -290,7 +290,7 @@ class DebugGraphics
 
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        ImGui.TextUnformatted("Origin");
+        ImGui.TextUnformatted("原点");
         ImGui.TableNextColumn();
         ImGui.TextUnformatted(Utils.Vec3String(camera->RenderCamera->Origin));
 
@@ -368,12 +368,12 @@ class DebugGraphics
             var center = new Vector3(_overlayCenter.X, y, _overlayCenter.Y);
             for (var ir = 0; ir <= mx; ++ir)
             {
-                Service.Camera.DrawWorldCircle(center, ir * _overlayStep.X, ArenaColor.PC);
+                Service.Camera.AddCircle(center, ir * _overlayStep.X, ArenaColor.PC, occluded: false);
             }
             for (var ia = 0; ia < 8; ++ia)
             {
                 var offset = ((ia * 22.5f.Degrees()).ToDirection() * _overlayMaxOffset.X).ToVec3();
-                Service.Camera.DrawWorldLine(center - offset, center + offset, ArenaColor.PC);
+                Service.Camera.AddLine(center - offset, center + offset, ArenaColor.PC, occluded: false);
             }
         }
         else
@@ -381,12 +381,12 @@ class DebugGraphics
             for (var ix = -mx; ix <= mx; ++ix)
             {
                 var x = _overlayCenter.X + ix * _overlayStep.X;
-                Service.Camera.DrawWorldLine(new(x, y, _overlayCenter.Y - _overlayMaxOffset.Y), new(x, y, _overlayCenter.Y + _overlayMaxOffset.Y), ArenaColor.PC);
+                Service.Camera.AddLine(new(x, y, _overlayCenter.Y - _overlayMaxOffset.Y), new(x, y, _overlayCenter.Y + _overlayMaxOffset.Y), ArenaColor.PC, occluded: false);
             }
             for (var iz = -mz; iz <= mz; ++iz)
             {
                 var z = _overlayCenter.Y + iz * _overlayStep.Y;
-                Service.Camera.DrawWorldLine(new(_overlayCenter.X - _overlayMaxOffset.X, y, z), new(_overlayCenter.X + _overlayMaxOffset.X, y, z), ArenaColor.PC);
+                Service.Camera.AddLine(new(_overlayCenter.X - _overlayMaxOffset.X, y, z), new(_overlayCenter.X + _overlayMaxOffset.X, y, z), ArenaColor.PC, occluded: false);
             }
         }
     }

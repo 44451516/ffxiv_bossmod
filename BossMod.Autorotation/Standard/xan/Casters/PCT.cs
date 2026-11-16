@@ -1,4 +1,4 @@
-﻿using BossMod.PCT;
+using BossMod.PCT;
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
 
@@ -10,7 +10,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
     {
         public Track<Targeting> Targeting;
         public Track<AOEStrategy> AOE;
-        [Track("Starry Muse", Actions = [AID.StarryMuse, AID.StarrySkyMotif])]
+        [Track("星空构想", Actions = [AID.StarryMuse, AID.StarrySkyMotif])]
         public Track<OffensiveStrategy> Buffs;
 
         [Track(Actions = [AID.MawMotif, AID.PomMotif, AID.ClawMotif, AID.WingMotif, AID.HammerMotif, AID.StarrySkyMotif])]
@@ -46,7 +46,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
     {
         [Option("Use for movement or for multiple targets; always use Comet in burst", Targets = ActionTargets.Hostile)]
         Automatic,
-        [Option("Do not use")]
+        [Option("不使用")]
         Delay,
         [Option("Use on primary target ASAP", Targets = ActionTargets.Hostile)]
         Force
@@ -56,7 +56,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
     {
         [Option("Use for movement, to weave in burst, or to hit multiple targets", Targets = ActionTargets.Hostile)]
         Automatic,
-        [Option("Do not use")]
+        [Option("不使用")]
         Delay,
         [Option("Use on primary target ASAP", Targets = ActionTargets.Hostile)]
         Force
@@ -66,7 +66,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
     {
         [Option("Use when available; save a charge for burst window", Targets = ActionTargets.Hostile)]
         Automatic,
-        [Option("Do not use")]
+        [Option("不使用")]
         Delay,
         [Option("Use on primary target ASAP (do not hold any charges)", Targets = ActionTargets.Hostile)]
         Force
@@ -84,7 +84,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
 
     public static RotationModuleDefinition Definition()
     {
-        return new RotationModuleDefinition("xan PCT", "Pictomancer", "Standard rotation (xan)|Casters", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.PCT), 100).WithStrategies<Strategy>();
+        return new RotationModuleDefinition("xan PCT", "绘灵法师", "标准循环（xan）|施法者", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.PCT), 100).WithStrategies<Strategy>();
     }
 
     public int Palette; // 0-100
@@ -231,7 +231,7 @@ public sealed class PCT(RotationModuleManager manager, Actor player) : Castxan<A
         GoalZoneSingle(25);
 
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID is LeylinesOID && x.OwnerID == Player.InstanceID) is Actor ll)
-            Hints.GoalZones.Add(p => p.InCircle(ll.Position, 8) ? 0.5f : 0);
+            Hints.GoalZones.AddSimple(p => p.InCircle(ll.Position, 8), 0.5f);
 
         if (Player.InCombat && primaryTarget != null)
         {

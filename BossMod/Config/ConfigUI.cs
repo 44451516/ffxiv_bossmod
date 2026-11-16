@@ -1,4 +1,4 @@
-﻿using BossMod.Autorotation;
+using BossMod.Autorotation;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
@@ -164,7 +164,7 @@ public sealed partial class ConfigUI : IDisposable
 
         ImGui.SameLine();
         using (ImRaii.Disabled(_searchText.Length == 0))
-            if (ImGui.Button("Clear"))
+            if (ImGui.Button("清空"))
                 ClearSearch();
 
         using (var categories = ImRaii.Child("##categories", new(230 * ImGuiHelpers.GlobalScale, -1), true))
@@ -402,6 +402,7 @@ public sealed partial class ConfigUI : IDisposable
                 var dependsEnabled = node.GetType().GetField(prop)?.GetValue(node) switch
                 {
                     bool v => v,
+                    Enum e => (int)(object)e > 0,
                     _ => throw new InvalidDataException($"Internal error: cannot use dependsOn with a non-bool field")
                 };
                 disabled = !dependsEnabled;

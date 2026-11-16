@@ -1,4 +1,4 @@
-﻿namespace BossMod.RealmReborn.Raid.T05Twintania;
+namespace BossMod.RealmReborn.Raid.T05Twintania;
 
 // what happens here is marker appears -> 5 liquid hells drop at (0.6 + 1.7*N)s; each liquid hell cast does small damage and spawns voidzone 1.2s later
 class P5LiquidHell(BossModule module) : Components.VoidzoneAtCastTarget(module, 6, AID.LiquidHellBoss, OID.LiquidHell, 1.5f)
@@ -30,7 +30,7 @@ class P5Hatch(BossModule module) : BossComponent(module)
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         if (actor == Target)
-            hints.Add("Go to neurolink!", !Neurolinks.InRadius(actor.Position, T05Twintania.NeurolinkRadius).Any());
+            hints.Add("前往 neurolink！", !Neurolinks.InRadius(actor.Position, T05Twintania.NeurolinkRadius).Any());
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
@@ -83,8 +83,8 @@ class P5AI(BossModule module) : BossComponent(module)
                 //if (!orbIntercepted)
                 {
                     forbidNeurolinks = false;
-                    var forbidden = _hatch.Neurolinks.Exclude(neurolinkUnderBoss).Select(n => ShapeDistance.Circle(n.Position, T05Twintania.NeurolinkRadius));
-                    hints.AddForbiddenZone(p => -forbidden.Min(f => f(p)));
+                    var forbidden = ShapeDistance.Union([.. _hatch.Neurolinks.Exclude(neurolinkUnderBoss).Select(n => ShapeDistance.Circle(n.Position, T05Twintania.NeurolinkRadius))]);
+                    hints.AddForbiddenZone(-forbidden);
                 }
             }
             else if (assignment == ((_deathSentence?.TankedByOT ?? false) ? PartyRolesConfig.Assignment.MT : PartyRolesConfig.Assignment.OT) && neurolinkUnderBoss != null && actor != _liquidHell?.Target)

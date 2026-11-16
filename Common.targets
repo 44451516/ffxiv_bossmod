@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
+  <PropertyGroup>
+    <Version>7.5.8.4</Version>
+  </PropertyGroup>
+
   <ItemGroup>
     <Using Include="System" />
     <Using Include="System.Collections" />
@@ -14,7 +18,7 @@
     <AnalysisMode>All</AnalysisMode>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- Pictomancy -> KamiToolKit pulls SixLabors.ImageSharp 3.1.12, which has no patched 3.1.x release; keep these audit warnings non-blocking -->
+    <!-- FIXME when Pictomancy -> KTK -> ImageSharp is updated -->
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1902;NU1903</WarningsNotAsErrors>
   </PropertyGroup>
 

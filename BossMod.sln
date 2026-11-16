@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.1.11312.151
@@ -10,9 +10,11 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{83DEBDD2-29E9-4087-8FBD-092B458D2F7D}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		.github\workflows\build_pr.yml = .github\workflows\build_pr.yml
 		Common.targets = Common.targets
 		BossMod\DalamudPackager.targets = BossMod\DalamudPackager.targets
 		Module.targets = Module.targets
+		.github\workflows\build.yml = .github\workflows\build.yml
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "benchmarks", "benchmarks\benchmarks.csproj", "{A8D1E505-DA3A-4F19-9831-F745718AD97C}"
@@ -32,6 +34,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InteropGenerator", "FFXIVClientStructs\InteropGenerator\InteropGenerator.csproj", "{96FE8AD0-9ACE-3BDC-416C-180B356C3A7C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DalaMock.Core", "DalaMock\DalaMock\DalaMock.Core.csproj", "{A375F7F4-95A0-5147-9414-D16830571229}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BossMod.Tests", "BossMod.Tests\BossMod.Tests.csproj", "{D056F243-79A6-079B-3641-FA76CAF328F3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeFix", "CodeFix\CodeFix.csproj", "{E48CED54-9D9E-4264-B3F4-79AB3C615CA5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -72,6 +78,14 @@ Global
 		{96FE8AD0-9ACE-3BDC-416C-180B356C3A7C}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{A375F7F4-95A0-5147-9414-D16830571229}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
 		{A375F7F4-95A0-5147-9414-D16830571229}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{D056F243-79A6-079B-3641-FA76CAF328F3}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{D056F243-79A6-079B-3641-FA76CAF328F3}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{D056F243-79A6-079B-3641-FA76CAF328F3}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{D056F243-79A6-079B-3641-FA76CAF328F3}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{E48CED54-9D9E-4264-B3F4-79AB3C615CA5}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{E48CED54-9D9E-4264-B3F4-79AB3C615CA5}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{E48CED54-9D9E-4264-B3F4-79AB3C615CA5}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{E48CED54-9D9E-4264-B3F4-79AB3C615CA5}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

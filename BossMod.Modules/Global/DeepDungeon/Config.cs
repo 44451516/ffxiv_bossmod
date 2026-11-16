@@ -33,8 +33,9 @@ public class AutoDDConfig : ConfigNode
 
     [PropertyDisplay("在游戏世界中绘制潜在陷阱位置")]
     public bool DrawTraps = false;
+
     [PropertyDisplay("自动导航到通道祭坛")]
-    public bool AutoPassage = true;
+    public bool OpenTreasure = true;
 
     [PropertyDisplay("自动怪物目标行为")]
     public ClearBehavior AutoClear = ClearBehavior.Leveling;
@@ -47,17 +48,6 @@ public class AutoDDConfig : ConfigNode
     public int MaxPull = 0;
     [PropertyDisplay("尝试利用地形躲避攻击", tooltip: "此功能目前非常不稳定，很可能导致角色死亡，不建议启用。")]
     public bool AutoLOS = false;
-
-    [PropertyDisplay("自动导航到宝箱")]
-    public bool AutoMoveTreasure = true;
-    [PropertyDisplay("优先开启宝箱而非通路祭坛")]
-    public bool OpenChestsFirst = false;
-    [PropertyDisplay("开启金宝箱")]
-    public bool GoldCoffer = true;
-    [PropertyDisplay("开启银宝箱")]
-    public bool SilverCoffer = true;
-    [PropertyDisplay("开启铜宝箱")]
-    public bool BronzeCoffer = true;
 
     [PropertyDisplay("在进入下一层前探索所有房间")]
     public bool FullClear = false;

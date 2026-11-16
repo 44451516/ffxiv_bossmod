@@ -62,7 +62,7 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
 
     public static RotationModuleDefinition Definition()
     {
-        return new RotationModuleDefinition("xan SMN", "Summoner", "Standard rotation (xan)|Casters", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.SMN, Class.ACN), 100).WithStrategies<Strategy>();
+        return new RotationModuleDefinition("xan SMN", "召唤师", "标准循环（xan）|施法者", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.SMN, Class.ACN), 100).WithStrategies<Strategy>();
     }
 
     public SmnFlags TranceFlags;
@@ -245,7 +245,7 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (CountdownRemaining > 0)
         {
-            if (CountdownRemaining <= GetCastTime(AID.Ruin1))
+            if (CountdownRemaining <= GetCastTime(AID.Ruin1) + ApplicationDelay.Get(AID.Ruin3))
                 PushGCD(AID.Ruin1, primaryTarget);
 
             return;

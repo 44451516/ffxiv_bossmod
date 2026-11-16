@@ -1,4 +1,4 @@
-﻿using BossMod.Autorotation;
+using BossMod.Autorotation;
 using Dalamud.Utility;
 
 namespace BossMod;
@@ -25,7 +25,7 @@ public class ZoneModuleWindow : UIWindow
         {
             var title = d.Name;
             if (title.IsNullOrEmpty())
-                title = "Zone module###Zone module";
+                title = "区域模块###Zone module";
             WindowName = title;
             Flags = d.Flags;
         }
@@ -40,6 +40,14 @@ public class ZoneModuleWindow : UIWindow
 
     public override void Draw()
     {
-        _zmm.ActiveModule?.DrawWindow(_rmm);
+        try
+        {
+            _zmm.ActiveModule?.DrawWindow(_rmm);
+        }
+        catch (Exception ex)
+        {
+            Service.PluginLog.Verbose($"[ZMW] {ex} thrown from {_zmm.ActiveModule!.GetType().Assembly}");
+            throw;
+        }
     }
 }

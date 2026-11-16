@@ -1,4 +1,4 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 
 namespace BossMod.Autorotation.MiscAI;
 
@@ -13,7 +13,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
     {
         RotationModuleDefinition res = new("自动选择目标", "根据不同条件自动选择目标和拉怪的工具集合。", "AI", "veyn", RotationModuleQuality.Basic, new(~0ul), 1000, 1, RotationModuleOrder.HighLevel, CanUseWhileRoleplaying: true, PvP: PvPCompatibility.Any);
 
-        res.Define(Track.General).As<GeneralStrategy>("General", "通用")
+        res.Define(Track.General).As<GeneralStrategy>("通用", "通用")
             .AddOption(GeneralStrategy.Aggressive, "自动优先选择目标", supportedTargets: ActionTargets.Hostile)
             .AddOption(GeneralStrategy.Passive, "不执行操作");
 
@@ -66,7 +66,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
     // all targets closer than this many units to the player are considered to have the same priority
     // we use "is this the player's current target?" as a tiebreaker
     // due to the way goalzones work for jobs with weirdly shaped AOEs (cone, rect, etc), AI tends to move closer to a mob that isn't its primary target, and without a threshold, that results in switching target rapidly (sometimes every frame)
-    public const float MinPriorityDistance = 3;
+    public static float MinPriorityDistance(Actor player) => 3; // player.Role is Role.Tank or Role.Melee ? 3 : 25;
 
     record struct TargetKey(bool ShouldTarget, int Priority, float InvDistance, bool IsCurrentTarget) : IComparable<TargetKey>
     {
@@ -74,7 +74,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
         {
             if (ShouldTarget.CompareTo(other.ShouldTarget) is var i && i != 0)
                 return i;
-            if (Priority.CompareTo(other.Priority) is var j && j != 0)
+            if (Math.Max(0, Priority).CompareTo(Math.Max(0, other.Priority)) is var j && j != 0)
                 return j;
             if (InvDistance.CompareTo(other.InvDistance) is var k && k != 0)
                 return k;
@@ -83,7 +83,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
 
         public static TargetKey Create(AIHints.Enemy enemy, Actor player)
         {
-            return new(enemy.ShouldBeTargeted, enemy.Priority, -Math.Max(MinPriorityDistance, player.DistanceToHitbox(enemy.Actor)), player.TargetID == enemy.Actor.InstanceID);
+            return new(enemy.ShouldBeTargeted, enemy.Priority, -Math.Max(MinPriorityDistance(player), player.DistanceToHitbox(enemy.Actor)), player.TargetID == enemy.Actor.InstanceID);
         }
 
         public static bool operator <(TargetKey left, TargetKey right) => left.CompareTo(right) < 0;
@@ -95,7 +95,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
     public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         if (strategy.Option(Track.Treasure).As<Flag>() == Flag.Enabled)
-            Hints.InteractWithTarget ??= World.Actors.Where(a => a.Type == ActorType.Treasure && a.IsTargetable && !a.IsOpenTreasure).OrderBy(a => (a.Position - Player.Position).LengthSq()).FirstOrDefault();
+            Hints.InteractWithTarget ??= World.Actors.Where(a => a.Type == ActorType.Treasure && a.IsTargetable && !a.IsOpenTreasure).Closest(Player.Position);
 
         var generalOpt = strategy.Option(Track.General);
         var generalStrategy = generalOpt.As<GeneralStrategy>();
@@ -139,7 +139,6 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
                 Info.Category: BossModuleInfo.Category.Hunt,
                 PrimaryActor:
                 {
-                    InCombat: true,
                     HPRatio: <= 0.95f,
                     InstanceID: var i
                 }

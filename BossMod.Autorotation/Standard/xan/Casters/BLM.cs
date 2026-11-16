@@ -1,4 +1,4 @@
-﻿using BossMod.BLM;
+using BossMod.BLM;
 using BossMod.Data;
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
@@ -67,9 +67,9 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
     {
         [Option("Use Leylines in opener, otherwise do not use automatically")]
         OpenerOnly,
-        [Option("Do not use")]
+        [Option("不使用")]
         Delay,
-        [Option("Use ASAP", Effect = 20, DefaultPriority = DefaultOGCDPriority)]
+        [Option("尽快使用", Effect = 20, DefaultPriority = DefaultOGCDPriority)]
         Force
     }
 
@@ -77,15 +77,15 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
     {
         [Option("Only automatically use for instant fire/ice swaps")]
         Automatic,
-        [Option("Don't use")]
+        [Option("不使用")]
         Delay,
-        [Option("Use ASAP", Effect = 15, DefaultPriority = DefaultOGCDPriority)]
+        [Option("尽快使用", Effect = 15, DefaultPriority = DefaultOGCDPriority)]
         Force
     }
 
     public static RotationModuleDefinition Definition()
     {
-        return new RotationModuleDefinition("xan BLM", "Black Mage", "Standard rotation (xan)|Casters", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.BLM, Class.THM), 100).WithStrategies<Strategy>();
+        return new RotationModuleDefinition("xan BLM", "黑魔法师", "标准循环（xan）|施法者", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.BLM, Class.THM), 100).WithStrategies<Strategy>();
     }
 
     public int Element; // -3 (ice) <=> 3 (fire), 0 for none
@@ -301,7 +301,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             return;
 
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID == 0x179 && x.OwnerID == Player.InstanceID) is Actor ll)
-            Hints.GoalZones.Add(p => p.InCircle(ll.Position, 3) ? 0.5f : 0);
+            Hints.GoalZones.AddSimple(p => p.InCircle(ll.Position, 3), 0.5f);
 
         if (strategy.Zeninage.IsEnabled() && RaidBuffsLeft > GCD && DutyActionGCDReady(PhantomID.Zeninage))
             PushGCD((AID)PhantomID.Zeninage, primaryTarget, GCDPriority.Max);

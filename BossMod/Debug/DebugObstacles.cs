@@ -45,12 +45,12 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
                 ++ZoomLevel;
             }
 
-            if (ImGui.Button("Save"))
+            if (ImGui.Button("保存"))
             {
                 Bitmap.Save(owner.Obstacles.SourceFilename(e.Filename));
             }
             ImGui.SameLine();
-            if (ImGui.Button("Reload"))
+            if (ImGui.Button("重新加载"))
             {
                 using var stream = File.OpenRead(owner.Obstacles.SourceFilename(e.Filename));
                 CheckpointNoClone(new(stream));
@@ -112,10 +112,10 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
                 var y = player?.PosRot.Y ?? 0;
                 var tl = e.Origin + new WDir(HoveredPixel.x, HoveredPixel.y) * Bitmap.PixelSize;
                 var br = tl + new WDir(Bitmap.PixelSize, Bitmap.PixelSize);
-                Service.Camera.DrawWorldLine(new(tl.X, y, tl.Z), new(tl.X, y, br.Z), 0xff00ffff);
-                Service.Camera.DrawWorldLine(new(tl.X, y, br.Z), new(br.X, y, br.Z), 0xff00ffff);
-                Service.Camera.DrawWorldLine(new(br.X, y, br.Z), new(br.X, y, tl.Z), 0xff00ffff);
-                Service.Camera.DrawWorldLine(new(br.X, y, tl.Z), new(tl.X, y, tl.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(tl.X, y, tl.Z), new(tl.X, y, br.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(tl.X, y, br.Z), new(br.X, y, br.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(br.X, y, br.Z), new(br.X, y, tl.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(br.X, y, tl.Z), new(tl.X, y, tl.Z), 0xff00ffff);
             }
         }
 
@@ -163,10 +163,10 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
                 var y = player?.PosRot.Y ?? 0;
                 var tl = _e.Origin + new WDir(HoveredPixel.x, HoveredPixel.y) * Bitmap.PixelSize;
                 var br = tl + new WDir(Bitmap.PixelSize, Bitmap.PixelSize);
-                Service.Camera.DrawWorldLine(new(tl.X, y, tl.Z), new(tl.X, y, br.Z), 0xff00ffff);
-                Service.Camera.DrawWorldLine(new(tl.X, y, br.Z), new(br.X, y, br.Z), 0xff00ffff);
-                Service.Camera.DrawWorldLine(new(br.X, y, br.Z), new(br.X, y, tl.Z), 0xff00ffff);
-                Service.Camera.DrawWorldLine(new(br.X, y, tl.Z), new(tl.X, y, tl.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(tl.X, y, tl.Z), new(tl.X, y, br.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(tl.X, y, br.Z), new(br.X, y, br.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(br.X, y, br.Z), new(br.X, y, tl.Z), 0xff00ffff);
+                Service.Camera.AddLine(new(br.X, y, tl.Z), new(tl.X, y, tl.Z), 0xff00ffff);
             }
         }
 
@@ -219,10 +219,10 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
             CreateRegion();
         ImGui.SameLine();
         using (ImRaii.Disabled(!_dbModified))
-            if (ImGui.Button("Save"))
+            if (ImGui.Button("保存"))
                 SaveDatabase();
         ImGui.SameLine();
-        if (ImGui.Button(_dbModified ? "Revert" : "Reload"))
+        if (ImGui.Button(_dbModified ? "还原" : "重新加载"))
             ReloadDatabase();
 
         ImGui.DragFloat3("Map min bounds", ref _minBounds, 1, -1024, 1024);
@@ -263,10 +263,10 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
                 if (ImGui.Button("Move down"))
                     modifications += () => (entries[index], entries[index + 1]) = (entries[index + 1], entries[index]);
             ImGui.SameLine();
-            if (ImGui.Button("Delete"))
+            if (ImGui.Button("删除"))
                 modifications += () => DeleteMap(entries, index);
             ImGui.SameLine();
-            if (ImGui.Button("Edit"))
+            if (ImGui.Button("编辑"))
                 OpenEditor(entries[index]);
             var emb = entries[i].Embedded ? "[embedded] " : "";
             ImGui.SameLine();

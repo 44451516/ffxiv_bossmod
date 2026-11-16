@@ -1,6 +1,6 @@
 namespace BossMod;
 
-[ConfigDisplay(Name = "配色方案", Order = -1, Group = "通用")]
+[ConfigDisplay(Name = "配色方案", Order = -5, Group = "通用")]
 public sealed class ColorConfig : ConfigNode
 {
     [PageStart("竞技场")]

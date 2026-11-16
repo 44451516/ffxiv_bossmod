@@ -1,4 +1,4 @@
-﻿using BossMod.Data;
+using BossMod.Data;
 using System.Diagnostics.CodeAnalysis;
 using static BossMod.AIHints;
 
@@ -368,7 +368,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
             Hints.GoalZones.Add(Hints.GoalSingleTarget(PlayerTarget.Actor, Player, World.Actors, range));
     }
 
-    protected void GoalZoneCombined(in IStrategyCommon strategy, float range, Func<WPos, float> fAoe, AID firstUnlockedAoeAction, int minAoe, float? maximumActionRange = null)
+    protected void GoalZoneCombined(in IStrategyCommon strategy, float range, GoalFn fAoe, AID firstUnlockedAoeAction, int minAoe, float? maximumActionRange = null)
     {
         var a = strategy.AOE;
         var (_, positional, imminent, _) = Hints.RecommendedPositional;
@@ -616,9 +616,9 @@ static class Extendxan
             .AddOption(Autorotation.Targeting.AutoTryPri, "AOE 操作自动选择最佳目标；若玩家有目标，则确保命中该目标");
 
         def.Define(SharedTrack.AOE).As<AOEStrategy>("AOE", uiPriority: 499)
-            .AddOption(AOEStrategy.AOE, "Use AOE rotation if beneficial")
-            .AddOption(AOEStrategy.ST, "Use single-target rotation")
-            .AddOption(AOEStrategy.ForceAOE, "Always use AOE rotation, even on one target")
+            .AddOption(AOEStrategy.AOE, "有利时使用AOE循环")
+            .AddOption(AOEStrategy.ST, "使用单体循环")
+            .AddOption(AOEStrategy.ForceAOE, "始终使用AOE循环，即使只有一个目标")
             .AddOption(AOEStrategy.ForceST, "Use single-target rotation; do not use ANY actions that hit multiple targets");
 
         return def;
@@ -628,8 +628,8 @@ static class Extendxan
     {
         return def.Define(track).As<OffensiveStrategy>(name, displayName, uiPriority: uiPriority, renderer: renderer ?? typeof(OffensiveStrategyRenderer))
             .AddOption(OffensiveStrategy.Automatic, "Use when optimal", minLevel: minLevel)
-            .AddOption(OffensiveStrategy.Delay, "Don't use", minLevel: minLevel)
-            .AddOption(OffensiveStrategy.Force, "Use ASAP", minLevel: minLevel);
+            .AddOption(OffensiveStrategy.Delay, "不使用", minLevel: minLevel)
+            .AddOption(OffensiveStrategy.Force, "不使用", minLevel: minLevel);
     }
 
     public static AOEStrategy AOE(this StrategyValues strategy) => strategy.Option(SharedTrack.AOE).As<AOEStrategy>();

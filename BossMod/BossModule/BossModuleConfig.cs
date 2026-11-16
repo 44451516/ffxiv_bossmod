@@ -1,4 +1,4 @@
-﻿using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility;
 
 namespace BossMod;
 
@@ -136,6 +136,17 @@ public class BossModuleConfig : ConfigNode
 
     [PropertyDisplay("显示机制序列与计时提示")]
     public bool ShowMechanicTimers = true;
+
+    [PropertyDisplay("将后续机制换行显示", tooltip: "关闭时，后续机制显示在同一行。\r\n空间不足时始终显示下一个机制，并优先隐藏普通机制，保留死刑、全屏伤害和击退。\r\n换行后的行数仍受下方预留文字行数限制。", depends: nameof(ShowMechanicTimers), since: "7.5.7.4")]
+    public bool WrapMechanicSequence = false;
+
+    [PropertyDisplay("最多显示的后续机制数量", depends: nameof(ShowMechanicTimers), since: "7.5.7.4")]
+    [PropertySlider(1, 10)]
+    public int MaxUpcomingMechanics = 5;
+
+    [PropertyDisplay("雷达上方预留的文字行数", tooltip: "在雷达上方为文字提示预留指定行数，使雷达位置保持固定。\r\n空间不足时会先缩短机制序列，以保证玩家提示和全局提示可见。\r\n设为 0 时文字可自由增加，并将雷达向下推移。独立提示窗口不受此设置影响。", since: "7.5.7.4")]
+    [PropertySlider(0, 20)]
+    public int TextHintLines = 4;
 
     [PropertyDisplay("显示团队全局提示")]
     public bool ShowGlobalHints = true;

@@ -1,66 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.CN.NET.Sdk/15.0.0">
-    <!--<Project Sdk="Dalamud.NET.Sdk/15.0.0">-->
+  <Import Project="..\Common.targets" />
 
-    <PropertyGroup>
-        <Version>7.5.7.5</Version>
-        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    </PropertyGroup>
+  <PropertyGroup>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
 
-    <Import Project="..\Common.targets" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <OutputType>Exe</OutputType>
+    <OutputPath>C:\Games\FF14\Dalamud\XIVLauncher\devPlugins\BossMod\</OutputPath>
+  </PropertyGroup>
 
-    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-        <OutputType>Exe</OutputType>
-        <OutputPath>C:\Games\FF14\Dalamud\XIVLauncher\devPlugins\BossMod\</OutputPath>
-    </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <OutputPath>$(MSBuildProjectDirectory)\..\release\</OutputPath>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
 
-    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-        <OutputPath>$(MSBuildProjectDirectory)\..\release\</OutputPath>
-        <!-- Common.targets enables AnalysisMode All in Release; keep these diagnostics non-blocking for CI -->
-        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <AssemblyAttribute Include="DalamudLibPath">
+      <_Parameter1>$(DalamudLibPath)</_Parameter1>
+    </AssemblyAttribute>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)\..\DalaMock\DalaMock\DalaMock.Core.csproj" Condition="'$(LocalDalamock)' == 'true'" />
+    <PackageReference Include="DalaMock.Core" Version="6.2.2" Condition="'$(LocalDalamock)' != 'true'" />
+  </ItemGroup>
 
-    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
-        <AssemblyAttribute Include="DalamudLibPath">
-            <_Parameter1>$(DalamudLibPath)</_Parameter1>
-        </AssemblyAttribute>
+  <ItemGroup>
+    <Reference Include="Dalamud.Common" Private="false" />
+    <Reference Include="TerraFX.Interop.Windows" Private="false" />
+    <PackageReference Include="DalaMock.Host" Version="6.2.2" />
+    <PackageReference Include="DalaMock.Shared" Version="6.2.2" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
+    <PackageReference Include="Pictomancy" Version="1.0.10" />
+    <ProjectReference Include="..\CodeAnalysis\CodeAnalysis.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Analyzer</OutputItemType>
+      <PrivateAssets>All</PrivateAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\CodeFix\CodeFix.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Analyzer</OutputItemType>
+      <PrivateAssets>All</PrivateAssets>
+    </ProjectReference>
+  </ItemGroup>
 
-        <ProjectReference Include="$(MSBuildThisFileDirectory)\..\DalaMock\DalaMock\DalaMock.Core.csproj" Condition="'$(LocalDalamock)' == 'true'" />
+  <ItemGroup>
+    <EmbeddedResource Include="Autorotation\OptionRenames.json" />
+    <EmbeddedResource Include="Data\EnemyBehavior.tsv" />
+    <EmbeddedResource Include="Pathfinding\ObstacleMaps\*" />
+    <EmbeddedResource Include="Dev\Shadowcast\*.json" />
+  </ItemGroup>
 
-        <PackageReference Include="DalaMock.Core" Version="6.2.1" Condition="'$(LocalDalamock)' != 'true'" />
-    </ItemGroup>
+  <ItemGroup>
+    <None Include="DefaultRotationPresets.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 
-    <ItemGroup>
-        <Reference Include="Dalamud.Common" Private="false" />
-        <Reference Include="TerraFX.Interop.Windows" Private="false" />
-        <PackageReference Include="DalaMock.Host" Version="6.2.1" />
-        <PackageReference Include="DalaMock.Shared" Version="6.2.1" />
-        <PackageReference Include="System.Data.Sqlite" Version="2.0.4" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
-        <PackageReference Include="CsvHelper" Version="33.1.0" />
-        <PackageReference Include="Pictomancy" Version="1.0.10" />
-
-        <ProjectReference Include="..\CodeAnalysis\CodeAnalysis.csproj">
-            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-            <OutputItemType>Analyzer</OutputItemType>
-            <PrivateAssets>All</PrivateAssets>
-        </ProjectReference>
-    </ItemGroup>
-
-    <ItemGroup>
-        <EmbeddedResource Include="Autorotation\OptionRenames.json" />
-        <EmbeddedResource Include="Data\EnemyBehavior.csv" />
-        <EmbeddedResource Include="Pathfinding\ObstacleMaps\*" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Include="DefaultRotationPresets.json">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
-
-    <!-- build: remove non-win runtime folders -->
-    <Target Name="RemoveNonWindowsRuntimes" AfterTargets="Build">
-        <RemoveDir Directories="$(OutputPath)runtimes\linux-x64;$(OutputPath)runtimes\osx-x64;$(OutputPath)runtimes\win-x64;$(OutputPath)runtimes\win-x86" />
-    </Target>
+  <Target Name="RemoveNonWindowsRuntimes" AfterTargets="Build">
+    <RemoveDir Directories="$(OutputPath)runtimes\linux-x64;$(OutputPath)runtimes\osx-x64;$(OutputPath)runtimes\win-x64;$(OutputPath)runtimes\win-x86" />
+  </Target>
 </Project>

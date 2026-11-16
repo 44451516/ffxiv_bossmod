@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Alliance.A35Promathia;
+namespace BossMod.Dawntrail.Alliance.A35Promathia;
 
 public enum OID : uint
 {
@@ -185,7 +185,7 @@ class FalseGenesis(BossModule module) : BossComponent(module)
 
         var center = Arena.Center;
         // TODO(SDF)
-        hints.AddForbiddenZone(Sdf.Discrete(p => !(p.InRect(center + new WDir(0, 13), default(Angle), 6.5f, 6.5f, 6.5f) || p.InRect(center + new WDir(0, 13).Rotate(120.Degrees()), 120.Degrees(), 6.5f, 6.5f, 6.5f) || p.InRect(center + new WDir(0, 13).Rotate(-120.Degrees()), -120.Degrees(), 6.5f, 6.5f, 6.5f))), _activation);
+        hints.AddForbiddenZone(Sdf.Discrete(p => ~(p.InRect(center + new WDir(0, 13), default(Angle), 6.5f, 6.5f, 6.5f) | p.InRect(center + new WDir(0, 13).Rotate(120.Degrees()), 120.Degrees(), 6.5f, 6.5f, 6.5f) | p.InRect(center + new WDir(0, 13).Rotate(-120.Degrees()), -120.Degrees(), 6.5f, 6.5f, 6.5f))), _activation);
     }
 
     public override void OnMapEffect(byte index, uint state)
@@ -339,19 +339,19 @@ class EmptySeed(BossModule module) : Components.KnockbackFromCastTarget(module, 
         foreach (var src in Sources(slot, actor))
         {
             var center = src.Origin;
-            var safeCorner = 45.Degrees() + PlatformOrientation(center);
+            var rotationBase = PlatformOrientation(center);
             hints.AddForbiddenZone(Sdf.Discrete(p =>
             {
-                if (!p.AlmostEqual(center, 10))
-                    return false;
-                var ad = p - center;
+                var safeCorner = 45.Degrees() + rotationBase;
+                var onPlat = p.AlmostEqual(center, 10);
+                var inCorner = VBool.Zero;
                 for (var i = 0; i < 4; i++)
                 {
-                    if (ad.ToAngle().AlmostEqual(safeCorner, SafeConeHalfWidth))
-                        return false;
-                    ad = ad.OrthoR();
+                    inCorner |= p.InCone(center, safeCorner, SafeConeHalfWidth.Radians());
+                    safeCorner += 90.Degrees();
                 }
-                return true;
+
+                return onPlat & ~inCorner;
             }), src.Activation);
         }
     }
@@ -418,7 +418,7 @@ class A35PromathiaStates : StateMachineBuilder
 
     void EmptySalvation(uint id, float delay)
     {
-        Cast(id, AID.EmptySalvation, delay, 5, "Raidwide")
+        Cast(id, AID.EmptySalvation, delay, 5, "全屏伤害")
             .ActivateOnEnter<EmptySalvation>()
             .DeactivateOnExit<EmptySalvation>();
     }
@@ -428,7 +428,7 @@ class A35PromathiaStates : StateMachineBuilder
         CastMulti(id, [AID.FleetingEternity1, AID.FleetingEternity2], delay, 3.5f)
             .ActivateOnEnter<Explosion>();
 
-        ComponentCondition<Explosion>(id + 0x10, 8.8f, e => e.NumCasts > 0, "Puddles")
+        ComponentCondition<Explosion>(id + 0x10, 8.8f, e => e.NumCasts > 0, "水圈")
             .DeactivateOnExit<Explosion>();
     }
 
@@ -437,7 +437,7 @@ class A35PromathiaStates : StateMachineBuilder
         CastMulti(id, [AID.FleetingEternity1, AID.FleetingEternity2], delay, 3.5f)
             .ActivateOnEnter<Explosion>();
 
-        ComponentCondition<Explosion>(id + 0x10, 5.8f, e => e.NumCasts > 0, "Puddles")
+        ComponentCondition<Explosion>(id + 0x10, 5.8f, e => e.NumCasts > 0, "水圈")
             .DeactivateOnExit<Explosion>();
     }
 
@@ -452,7 +452,7 @@ class A35PromathiaStates : StateMachineBuilder
         ComponentCondition<Explosion>(id + 0x30, 3.1f, e => e.NumCasts > 4, "Puddles 3")
             .DeactivateOnExit<Explosion>();
 
-        ComponentCondition<Comet>(id + 0x100, 3.5f, c => c.NumCasts > 0, "Tankbusters")
+        ComponentCondition<Comet>(id + 0x100, 3.5f, c => c.NumCasts > 0, "坦克死刑")
             .DeactivateOnExit<Comet>();
     }
 
@@ -461,7 +461,7 @@ class A35PromathiaStates : StateMachineBuilder
         Cast(id, AID.WheelOfImpregnabilityCast, delay, 2)
             .ActivateOnEnter<WheelOfImpregnability>();
 
-        ComponentCondition<WheelOfImpregnability>(id + 0x10, 10.7f, w => w.NumCasts > 0, "Out")
+        ComponentCondition<WheelOfImpregnability>(id + 0x10, 10.7f, w => w.NumCasts > 0, "远离")
             .DeactivateOnExit<WheelOfImpregnability>();
     }
 
@@ -475,13 +475,13 @@ class A35PromathiaStates : StateMachineBuilder
             .ActivateOnEnter<PestilentPenance>()
             .DeactivateOnExit<PestilentPenance>();
 
-        ComponentCondition<BastionOfTwilight>(id + 0x20, 0.6f, b => b.NumCasts > 0, "Donut")
+        ComponentCondition<BastionOfTwilight>(id + 0x20, 0.6f, b => b.NumCasts > 0, "月环")
             .DeactivateOnExit<BastionOfTwilight>();
     }
 
     void Intermission(uint id, float delay)
     {
-        Targetable(id, false, delay, "Boss disappears")
+        Targetable(id, false, delay, "首领消失")
             .ActivateOnEnter<FalseGenesis>()
             .ActivateOnEnter<MemoryReceptacle>()
             .ActivateOnEnter<AuroralDrape>()
@@ -518,7 +518,7 @@ class A35PromathiaStates : StateMachineBuilder
     void AddsEnrage(uint id)
     {
         Cast(id, AID.DeadlyRebirthEnrageCast, 0.1f, 5.7f);
-        Timeout(id + 0x10, 1.3f, "Enrage");
+        Timeout(id + 0x10, 1.3f, "狂暴");
     }
 
     void PostAdds(uint id)
@@ -566,7 +566,7 @@ class A35PromathiaStates : StateMachineBuilder
         Cast(id, AID.EarthboundHeaven, delay, 2)
             .ActivateOnEnter<Explosion>();
 
-        ComponentCondition<Explosion>(id + 0x10, 8.9f, e => e.NumCasts > 0, "Puddles")
+        ComponentCondition<Explosion>(id + 0x10, 8.9f, e => e.NumCasts > 0, "水圈")
             .DeactivateOnExit<Explosion>();
     }
 
@@ -591,14 +591,14 @@ class A35PromathiaStates : StateMachineBuilder
             .ActivateOnEnter<PestilentPenance>()
             .ActivateOnEnter<PestilentPenanceSkinny>();
 
-        ComponentCondition<Explosion>(id + 0x100, 4.8f, e => e.NumCasts > 0, "Puddles")
+        ComponentCondition<Explosion>(id + 0x100, 4.8f, e => e.NumCasts > 0, "水圈")
             .DeactivateOnExit<Explosion>();
 
         ComponentCondition<PestilentPenance>(id + 0x200, 5.4f, p => p.NumCasts > 0, "Big rect")
             .DeactivateOnExit<PestilentPenance>();
-        ComponentCondition<BastionOfTwilight>(id + 0x210, 0.5f, b => b.NumCasts > 0, "Donut")
+        ComponentCondition<BastionOfTwilight>(id + 0x210, 0.5f, b => b.NumCasts > 0, "月环")
             .DeactivateOnExit<BastionOfTwilight>();
-        ComponentCondition<PestilentPenanceSkinny>(id + 0x220, 2.3f, p => p.NumCasts > 0, "Lasers")
+        ComponentCondition<PestilentPenanceSkinny>(id + 0x220, 2.3f, p => p.NumCasts > 0, "激光")
             .DeactivateOnExit<PestilentPenanceSkinny>();
     }
 
@@ -608,9 +608,9 @@ class A35PromathiaStates : StateMachineBuilder
             .ActivateOnEnter<InfernalDeliverancePuddle>()
             .ActivateOnEnter<InfernalDeliveranceTower>();
 
-        ComponentCondition<InfernalDeliveranceTower>(id + 0x10, 1.5f, t => t.NumCasts > 0, "Towers")
+        ComponentCondition<InfernalDeliveranceTower>(id + 0x10, 1.5f, t => t.NumCasts > 0, "塔")
             .DeactivateOnExit<InfernalDeliveranceTower>();
-        ComponentCondition<InfernalDeliverancePuddle>(id + 0x20, 5.2f, t => t.NumCasts > 0, "Puddles")
+        ComponentCondition<InfernalDeliverancePuddle>(id + 0x20, 5.2f, t => t.NumCasts > 0, "水圈")
             .DeactivateOnExit<InfernalDeliverancePuddle>();
     }
 
@@ -626,9 +626,9 @@ class A35PromathiaStates : StateMachineBuilder
         ComponentCondition<Explosion>(id + 0x30, 3.1f, e => e.NumCasts > 4, "Puddles 3")
             .DeactivateOnExit<Explosion>();
 
-        ComponentCondition<MeteorTank>(id + 0x100, 4.5f, t => t.NumCasts > 0, "Tankbusters")
+        ComponentCondition<MeteorTank>(id + 0x100, 4.5f, t => t.NumCasts > 0, "坦克死刑")
             .DeactivateOnExit<MeteorTank>();
-        ComponentCondition<MeteorSpread>(id + 0x110, 1.9f, c => c.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<MeteorSpread>(id + 0x110, 1.9f, c => c.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<MeteorSpread>();
     }
 }

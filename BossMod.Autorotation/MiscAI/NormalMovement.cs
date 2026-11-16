@@ -1,4 +1,4 @@
-﻿using BossMod.Pathfinding;
+using BossMod.Pathfinding;
 using System.Threading.Tasks;
 
 namespace BossMod.Autorotation.MiscAI;
@@ -130,7 +130,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
         // forcing the player to move directly toward the arena center works fine in this basic case, but would be terrible for other content
         //   - hunt marks can be hundreds of units away
         //   - araid/foray bosses are often located on an isolated platform with a clientpath leading to it, so VBM would just run directly forward into the abyss
-        if (Bossmods.ActiveModule is { Info.Category: BossModuleInfo.Category.Dungeon or BossModuleInfo.Category.Variant, StateMachine.ActivePhase: not null } module && !module.Arena.InBounds(Player.Position))
+        if (Bossmods.ActiveModule is { Info.Category: BossModuleInfo.Category.Dungeon or BossModuleInfo.Category.Variant } module && !module.Arena.InBounds(Player.Position))
         {
             Hints.ForcedMovement = Player.DirectionTo(module.Arena.Center).ToVec3();
             return;
@@ -174,7 +174,15 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                 // 99% of eventobjects have an interact range of 3.5y, while the rest have a range of 2.09y
                 // checking only for the shorter range here would be fine in the vast majority of cases, but it can break interact pathfinding in the case that the target object is partially covered by a forbidden zone with a radius between 2.1 and 3.5
                 // this is specifically an issue in the metal gear thancred solo duty in endwalker
-                return length <= 2.09f ? 101 : length <= 3.5f ? 100 : 0;
+                return Vector.ConditionalSelect(
+                    length <= 2.09f,
+                    Vector.Create(101f),
+                    Vector.ConditionalSelect(
+                        length <= 3.5f,
+                        Vector.Create(100f),
+                        VFloat.Zero
+                    )
+                );
             });
         }
 
@@ -186,7 +194,6 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
         // simulate forward forced movement; this is kind of a hack, but it definitely doesn't belong in modules because it's part of the movement constraint
         if (isSpinning)
         {
-            // rect is offset by -1 unit player-relative. we know very well that player-centered shapes make the pathfinder freak the fuck out
             Hints.AddForbiddenZone(ShapeDistance.Rect(Player.Position, Player.Rotation, SpinningLookahead, SpinningLookahead + 2, SpinningLookahead + 2), World.FutureTime(2));
             Hints.AddForbiddenZone(ShapeDistance.Cone(Player.Position, 100, Player.Rotation + 180.Degrees(), 45.Degrees()), DateTime.MaxValue);
         }
@@ -207,7 +214,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                 var dist = (enemy.Actor.Position - Player.Position).Length();
                 var goal = enemy.Actor.Position + rot.ToDirection() * enemy.Actor.HitboxRadius;
                 var sh = ShapeDistance.PrecisePosition(goal, new(0, 1), Hints.PathfindMapBounds.MapResolution, Player.Position, 0.1f);
-                Hints.GoalZones.Add(p => sh(p) >= 0 ? 10 : 0);
+                Hints.GoalZones.AddSimple(p => sh(p) >= VFloat.Zero, 10);
             }
         }
 
@@ -306,7 +313,6 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                                 navi.Destination = uptimePosition;
                             break;
 
-                        // TODO: don't use a _navCtx that's being modified in a background thread; we should hold onto two of them and swap them when the task completes
                         case RangeStrategy.GreedAutomatic:
                             var uptimeCell = CtxInactive.Map.GridToIndex(CtxInactive.Map.WorldToGrid(uptimePosition));
                             var curCell = CtxInactive.ThetaStar.StartNodeIndex;
@@ -321,30 +327,6 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
                     }
                 }
                 // else: destination is already in our effective range, nothing to adjust here
-            }
-        }
-
-        var map = CtxInactive.Map;
-        var (pX, pY) = map.WorldToGrid(Player.Position);
-        var playerCell = map.GridToIndex(pX, pY);
-        if (map.PixelMaxG[playerCell] >= 0 && map.PixelMaxG[playerCell] < map.MaxG)
-        {
-            var pW = map.GridToIndex(pX - 1, pY);
-            var pE = map.GridToIndex(pX + 1, pY);
-            var pN = map.GridToIndex(pX, pY - 1);
-            var pS = map.GridToIndex(pX, pY + 1);
-
-            if (map.PixelMaxG[pW] < 0 && map.PixelMaxG[pE] < 0 && map.PixelMaxG[pN] < 0 && map.PixelMaxG[pS] < 0)
-            {
-                (int, int)[] corners = [(-1, -1), (-1, +1), (+1, +1), (+1, -1)];
-                foreach (var (dx, dy) in corners)
-                {
-                    if (map.PixelMaxG[map.GridToIndex(pX + dx, pY + dy)] >= 0)
-                    {
-                        Hints.ForcedMovement = new(dx, 0, dy);
-                        return;
-                    }
-                }
             }
         }
 
@@ -412,7 +394,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
         if (castStrategy is CastStrategy.Leeway && Player.CastInfo is { } castInfo)
         {
             var effectiveCastRemaining = Math.Max(0, castInfo.RemainingTime - 0.5f);
-            if (Hints.MaxCastTime < effectiveCastRemaining)
+            if (Hints.EffectiveMaxCastTime < effectiveCastRemaining)
             {
                 Hints.ForceCancelCast = true;
                 // no leeway, cast might have been initiated by user, keep moving

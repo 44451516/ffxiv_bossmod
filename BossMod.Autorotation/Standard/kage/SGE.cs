@@ -1,50 +1,52 @@
-﻿using BossMod.SGE;
+using BossMod.SGE;
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.kage;
 
-public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageRotation<KageSGE.Strategy>(manager, player)
+public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageShared<KageSGE.Strategy>(manager, player)
 {
     public struct Strategy
     {
+        [Track(UiPriority = 500)]
         public Track<Targeting> Targeting;
+        [Track(UiPriority = 499)]
         public Track<AOEStrategy> AOE;
 
-        [Track("均衡注药", MinLevel = 30, Actions = [AID.Eukrasia, AID.EukrasianDosis, AID.EukrasianDosisII, AID.EukrasianDosisIII, AID.EukrasianDyskrasia])]
+        [Track("均衡注药", MinLevel = 30, Actions = [AID.Eukrasia, AID.EukrasianDosis, AID.EukrasianDosisII, AID.EukrasianDosisIII, AID.EukrasianDyskrasia], UiPriority = 100)]
         public Track<DotStrategy> Dot;
 
-        [Track("爆发（发炎、心神风息）", InternalName = "Burst", MinLevel = 26)]
-        public Track<OffensiveStrategy> Burst;
-
-        [Track("发炎", MinLevel = 26, Actions = [AID.Phlegma, AID.PhlegmaII, AID.PhlegmaIII])]
+        [Track("发炎", MinLevel = 26, Actions = [AID.Phlegma, AID.PhlegmaII, AID.PhlegmaIII], UiPriority = 99)]
         public Track<OffensiveStrategy> Phlegma;
 
-        [Track("心神风息", MinLevel = 92, Action = AID.Psyche)]
+        [Track("心神风息", MinLevel = 92, Action = AID.Psyche, UiPriority = 98)]
         public Track<OffensiveStrategy> Psyche;
 
-        [Track("箭毒", MinLevel = 66, Actions = [AID.Toxikon, AID.ToxikonII])]
+        [Track("箭毒", MinLevel = 66, Actions = [AID.Toxikon, AID.ToxikonII], UiPriority = 97)]
         public Track<ToxikonStrategy> Toxikon;
 
-        [Track("魂灵风息（伤害）", MinLevel = 90, Action = AID.Pneuma)]
-        public Track<PneumaStrategy> Pneuma;
+        [Track("魂灵风息（伤害）", MinLevel = 90, Action = AID.Pneuma, UiPriority = 96)]
+        public Track<OffensiveStrategy> Pneuma;
 
-        [Track("心关", MinLevel = 4, Action = AID.Kardia)]
+        [Track("心关", MinLevel = 4, Action = AID.Kardia, UiPriority = 95)]
         public Track<KardiaStrategy> Kardia;
 
-        [Track("拯救", MinLevel = 35, Action = AID.Soteria)]
+        [Track("拯救", MinLevel = 35, Action = AID.Soteria, UiPriority = 94)]
         public Track<OffensiveStrategy> Soteria;
 
-        [Track("根素", MinLevel = 74, Action = AID.Rhizomata)]
+        [Track("根素", MinLevel = 74, Action = AID.Rhizomata, UiPriority = 93)]
         public Track<OffensiveStrategy> Rhizomata;
 
-        [Track("灵橡清汁（蛇胆溢出）", MinLevel = 45, Action = AID.Druochole)]
+        [Track("灵橡清汁（蛇胆溢出）", MinLevel = 45, Action = AID.Druochole, UiPriority = 92)]
         public Track<DruocholeStrategy> Druochole;
 
-        [Track("醒梦", MinLevel = 14, Action = ClassShared.AID.LucidDreaming)]
+        [Track("醒梦", MinLevel = 14, Action = ClassShared.AID.LucidDreaming, UiPriority = 91)]
         public Track<OffensiveStrategy> Lucid;
 
-        [Track("爆发药")]
+        [Track("神翼", MinLevel = 40, Action = AID.Icarus, UiPriority = 90.5f)]
+        public Track<IcarusStrategy> Icarus;
+
+        [Track("爆发药", Item = 1049238, UiPriority = 90)]
         public Track<PotionStrategy> Potion;
 
         [Track("起手", MinLevel = 30, UiPriority = -10)]
@@ -53,10 +55,12 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
 
     public enum DotStrategy
     {
-        [Option("最多两个目标上保持均衡注药；3 个及以上目标时使用均衡失衡")]
+        [Option("保持所有敌人的持续伤害效果")]
         Automatic,
         [Option("仅对当前目标使用")]
         TargetOnly,
+        [Option("立即刷新当前目标的持续伤害效果", Context = StrategyContext.Plan)]
+        Force,
         [Option("不使用")]
         Delay
     }
@@ -67,14 +71,8 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
         Automatic,
         [Option("仅在移动时使用")]
         Movement,
-        [Option("不使用")]
-        Delay
-    }
-
-    public enum PneumaStrategy
-    {
-        [Option("在 2 个及以上目标上使用，除非即将有全屏伤害")]
-        Automatic,
+        [Option("尽快使用")]
+        ASAP,
         [Option("不使用")]
         Delay
     }
@@ -91,17 +89,25 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
 
     public enum DruocholeStrategy
     {
-        [Option("对血量最低的队友使用以避免溢出")]
+        [Option("满层时对生命值最低的队友使用")]
         Automatic,
         [Option("不使用")]
         Delay
+    }
+
+    public enum IcarusStrategy
+    {
+        [Option("不使用")]
+        None,
+        [Option("用于抵消击退", Targets = ActionTargets.Party | ActionTargets.Hostile)]
+        Knockback
     }
 
     public enum PotionStrategy
     {
         [Option("不自动使用")]
         Manual,
-        [Option("开怪前并与团队增益一同使用")]
+        [Option("最优：开怪前使用，之后配合团队增益")]
         AlignWithRaidBuffs,
         [Option("尽快使用")]
         Immediate
@@ -109,11 +115,11 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
 
     public enum OpenerStrategy
     {
-        [Option("箭毒起手（-5 秒使用均衡，-1.5 秒使用箭毒）")]
+        [Option("箭毒起手")]
         Toxikon,
-        [Option("魂灵风息起手（-5 秒使用均衡，-1.5 秒使用魂灵风息）", MinLevel = 90)]
+        [Option("魂灵风息起手", MinLevel = 90)]
         Pneuma,
-        [Option("-1.5 秒使用注药，不使用均衡")]
+        [Option("不执行开怪前及起手专用规则")]
         None
     }
 
@@ -127,20 +133,18 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
     private bool Eukrasia;
 
     private bool AOEMode;
-    private bool ForceST;
 
     protected override bool UsesSpellSpeed => true;
-    private bool CanCast => Hints.MaxCastTime >= SlideCast(ScaledCastTime(AID.Dosis));
+    private bool CanCast => CastFits(ScaledCastTime(AID.Dosis));
 
     private OffensiveStrategy PhlegmaStrat;
     private OffensiveStrategy PsycheStrat;
 
     public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
-        var target = SelectTarget(strategy.Targeting.Value, ref primaryTarget, estimatedAnimLockDelay, 25, strategy.AOE.Value);
-        PhlegmaStrat = WithBurst(strategy.Burst.Value, strategy.Phlegma.Value);
-        PsycheStrat = WithBurst(strategy.Burst.Value, strategy.Psyche.Value);
-        ForceST = strategy.AOE.Value == AOEStrategy.ForceST;
+        var target = SelectTarget(strategy, strategy.Targeting.Value, ref primaryTarget, estimatedAnimLockDelay, 25, strategy.AOE.Value);
+        PhlegmaStrat = strategy.Phlegma.Value;
+        PsycheStrat = strategy.Psyche.Value;
 
         var gauge = World.Client.GetGauge<SageGauge>();
         Gall = gauge.Addersgall;
@@ -153,7 +157,7 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
         Kardia(strategy);
 
         if (UsePotion(strategy))
-            Hints.ActionsToExecute.Push(ActionDefinitions.IDPotionMnd, Player, ActionQueue.Priority.Medium);
+            PushPotion(ActionDefinitions.IDPotionMnd);
 
         if (World.Client.CountdownRemaining is > 0 and var countdown)
         {
@@ -170,7 +174,7 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
                 else if (countdown < 1.5f)
                     PushGCD(precast, target.Actor, 10);
             }
-            else if (target != null && countdown < CastTime(AID.Dosis) + 0.2f)
+            else if (target != null && strategy.Opener.Value != OpenerStrategy.None && countdown < CastTime(AID.Dosis) + 0.2f)
                 PushGCD(AID.Dosis, target.Actor, 10);
             return;
         }
@@ -179,7 +183,7 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
             return;
 
         var goal = Hints.GoalSingleTarget(target.Actor, Player, World.Actors, 25);
-        Hints.GoalZones.Add(strategy.AOE.Value is AOEStrategy.ST or AOEStrategy.ForceST || !Unlocked(AID.Dyskrasia) ? goal : GoalCombined(goal, Hints.GoalAOECircle(5), 3));
+        Hints.GoalZones.Add(!AllowAoE || !Unlocked(AID.Dyskrasia) ? goal : GoalCombined(goal, Hints.GoalAOECircle(5), 3));
 
         GCDs(strategy, target, numAround);
         if (Player.InCombat)
@@ -206,18 +210,19 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
                 PushGCD(AID.Eukrasia, Player, 50);
         }
 
-        if (ShouldPhlegma(strategy, target))
+        if (ShouldPhlegma(target))
         {
             Hints.GoalZones.Add(Hints.GoalSingleTarget(target.Actor, Player, World.Actors, 6));
             if (Player.DistanceToHitbox(target.Actor) <= 6)
                 PushGCD(AID.Phlegma, target.Actor, 40);
         }
 
-        if (strategy.Pneuma.Value == PneumaStrategy.Automatic && CanCast && Player.InCombat && GCDReady(AID.Pneuma) && !RaidwideWithin(20)
-            && !ForceST && Hints.NumPriorityTargetsInAOERect(Player.Position, Player.DirectionTo(target.Actor), 25, 2) >= 2)
+        if (CanCast && Player.InCombat && GCDReady(AID.Pneuma) && (strategy.Pneuma.Value == OffensiveStrategy.Force
+            || strategy.Pneuma.Value == OffensiveStrategy.Automatic && !RaidwideWithin(20) && !ForceST && Hints.NumPriorityTargetsInAOERect(Player.Position, Player.DirectionTo(target.Actor), 25, 2) >= 2))
             PushGCD(AID.Pneuma, target.Actor, 35);
 
-        if (Sting > 0 && strategy.Toxikon.Value == ToxikonStrategy.Automatic && numAround < 3 && !ForceST && Hints.NumPriorityTargetsInAOECircle(target.Actor.Position, 5) >= 2)
+        if (Sting > 0 && (strategy.Toxikon.Value == ToxikonStrategy.ASAP
+            || strategy.Toxikon.Value == ToxikonStrategy.Automatic && numAround < 3 && !ForceST && Hints.NumPriorityTargetsInAOECircle(target.Actor.Position, 5) >= 2))
             PushGCD(AID.Toxikon, target.Actor, 30);
 
         if (AOEMode)
@@ -242,14 +247,12 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
 
     private Actor? DotTarget(in Strategy strategy, Enemy target)
     {
-        if (NeedsDot(target))
-            return target.Actor;
-        if (strategy.Dot.Value != DotStrategy.Automatic || Hints.PriorityTargets.Count(e => DotLeft(e.Actor) >= DotRefresh) >= 2)
-            return null;
-        return Hints.PriorityTargets.Where(e => e != target && Player.DistanceToHitbox(e.Actor) <= 25 && NeedsDot(e)).MaxBy(e => e.Actor.HPMP.CurHP)?.Actor;
+        if (strategy.Dot.Value == DotStrategy.Force)
+            return JustUsed(AID.EukrasianDosisIII, 5) || JustUsed(AID.EukrasianDosisII, 5) || JustUsed(AID.EukrasianDosis, 5) ? null : target.Actor;
+        return DotTargetFor(target, DotLeft, DotRefresh, CombatTime < 40 ? 12 : 8, strategy.Dot.Value == DotStrategy.Automatic);
     }
 
-    private bool ShouldPhlegma(in Strategy strategy, Enemy target)
+    private bool ShouldPhlegma(Enemy target)
     {
         if (ReadyIn(AID.Phlegma) > GCD)
             return false;
@@ -263,6 +266,8 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
         var buffsSoon = Player.InCombat && InBossFight && RaidBuffsLeft <= GCD && RaidBuffsIn < 10;
         if (MaxChargesIn(AID.Phlegma) <= GCD + GCDLength)
             return !buffsSoon;
+        if (DowntimeIn < GCD + GCDLength && MaxChargesIn(AID.Phlegma) < 30)
+            return true;
         if (!Player.InCombat || target.Priority == Enemy.PriorityPointless && !TimeToKill.IsBossTier(Bossmods.ActiveModule, Hints, target.Actor))
             return false;
         if (RaidBuffsLeft > GCD || RaidBuffsIn > 9000 || !InBossFight || !ForceST && Hints.NumPriorityTargetsInAOECircle(target.Actor.Position, 5) >= 3)
@@ -279,14 +284,16 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
 
     private void OGCDs(in Strategy strategy, Enemy target)
     {
+        if (strategy.Icarus.Value == IcarusStrategy.Knockback)
+            CancelKnockback(AID.Icarus, ResolveTarget(strategy.Icarus) ?? target.Actor);
+
         if (PsycheStrat != OffensiveStrategy.Delay && CanWeave(AID.Psyche)
             && (PsycheStrat == OffensiveStrategy.Force || DowntimeIn > 2 && (target.Priority != Enemy.PriorityPointless || TimeToKill.IsBossTier(Bossmods.ActiveModule, Hints, target.Actor))
                 && (RaidBuffsLeft > 0 || RaidBuffsIn > 10 || !InBossFight)))
             PushOGCD(AID.Psyche, target.Actor, 50);
 
-        if (strategy.Rhizomata.Value == OffensiveStrategy.Force || strategy.Rhizomata.Value == OffensiveStrategy.Automatic && Gall <= 1)
-            if (CanWeave(AID.Rhizomata))
-                PushOGCD(AID.Rhizomata, Player, 40);
+        if ((strategy.Rhizomata.Value == OffensiveStrategy.Force || strategy.Rhizomata.Value == OffensiveStrategy.Automatic && Gall <= 1) && CanWeave(AID.Rhizomata))
+            PushOGCD(AID.Rhizomata, Player, 40);
 
         // the gall timer stops at 3, so every second at cap is wasted
         if (strategy.Druochole.Value == DruocholeStrategy.Automatic && Gall >= 3 && CanWeave(AID.Druochole)
@@ -296,13 +303,11 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
             PushOGCD(AID.Druochole, healTarget, 35);
         }
 
-        if (strategy.Soteria.Value == OffensiveStrategy.Force || strategy.Soteria.Value == OffensiveStrategy.Automatic && Player.FindStatus(SID.Kardia) != null)
-            if (CanWeave(AID.Soteria))
-                PushOGCD(AID.Soteria, Player, 30);
+        if ((strategy.Soteria.Value == OffensiveStrategy.Force || strategy.Soteria.Value == OffensiveStrategy.Automatic && Player.FindStatus(SID.Kardia) != null) && CanWeave(AID.Soteria))
+            PushOGCD(AID.Soteria, Player, 30);
 
-        if (strategy.Lucid.Value == OffensiveStrategy.Force || strategy.Lucid.Value == OffensiveStrategy.Automatic && (MP <= 6500 || MP <= 8500 && MPCheckSoon))
-            if (CanWeave(ClassShared.AID.LucidDreaming))
-                PushOGCD(ClassShared.AID.LucidDreaming, Player, 20);
+        if ((strategy.Lucid.Value == OffensiveStrategy.Force || strategy.Lucid.Value == OffensiveStrategy.Automatic && (MP <= 6500 || MP <= 8500 && MPCheckSoon)) && CanWeave(ClassShared.AID.LucidDreaming))
+            PushOGCD(ClassShared.AID.LucidDreaming, Player, 20);
     }
 
     private void Kardia(in Strategy strategy)
@@ -340,12 +345,12 @@ public sealed class KageSGE(RotationModuleManager manager, Actor player) : KageR
 
     private bool UsePotion(in Strategy strategy) => strategy.Potion.Value switch
     {
-        PotionStrategy.AlignWithRaidBuffs => PotionWithRaidBuffs,
+        PotionStrategy.AlignWithRaidBuffs => PotionWithRaidBuffs(PotionPrepull) || PotionBeforeKill,
         PotionStrategy.Immediate => true,
         _ => false
     };
 
-    private float CastTime(AID aid) => Eukrasia && aid == AID.Dosis || SelfStatusLeft(ClassShared.SID.Swiftcast) > GCD ? 0 : ScaledCastTime(aid);
+    private float CastTime(AID aid) => Eukrasia && aid == AID.Dosis ? 0 : HardcastTime(aid);
 
     private void PushGCD(AID aid, Actor? target, int priority) => base.PushGCD(aid, target, priority, CastTime(aid));
 

@@ -1,10 +1,10 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex7Doomtrain;
+namespace BossMod.Dawntrail.Extreme.Ex7Doomtrain;
 
 class DeadMansExpress(BossModule module) : Components.KnockbackFromCastTarget(module, AID.DeadMansExpress, 30, kind: Kind.DirForward, stopAtWall: true);
 class DeadMansWindpipe(BossModule module) : Components.KnockbackFromCastTarget(module, AID.DeadMansWindpipeBoss, 30, kind: Kind.DirForward, stopAtWall: true)
 {
     public override IEnumerable<Source> Sources(int slot, Actor actor) => base.Sources(slot, actor).Select(src => src with { Direction = src.Direction + 180.Degrees() });
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => pos.InRect(Arena.Center - new WDir(0, 15), new WDir(0, 10), 10);
+    public override PointTest DestinationUnsafe(int slot, Actor actor) => pos => pos.InRect(Arena.Center - new WDir(0, 15), new WDir(0, 10), 10);
 }
 
 class Plasma(BossModule module) : Components.GenericStackSpread(module)
@@ -25,10 +25,10 @@ class Plasma(BossModule module) : Components.GenericStackSpread(module)
         switch ((AID)spell.Action.ID)
         {
             case AID.DeadMansOverdraughtSpread:
-                next = "Spread";
+                next = "分散";
                 break;
             case AID.DeadMansOverdraughtStack:
-                next = "Stack";
+                next = "分摊";
                 break;
             case AID.DeadMansExpress:
             case AID.DeadMansWindpipeBoss:
@@ -63,11 +63,11 @@ class Plasma(BossModule module) : Components.GenericStackSpread(module)
     {
         switch (next)
         {
-            case "Spread":
+            case "分散":
                 foreach (var player in Raid.WithoutSlot())
                     Spreads.Add(new(player, 5));
                 break;
-            case "Stack":
+            case "分摊":
                 foreach (var player in Raid.WithoutSlot().OrderByDescending(r => r.Class.IsSupport()).Take(4))
                     Stacks.Add(new(player, 5, maxSize: 2));
                 break;

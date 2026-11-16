@@ -1,4 +1,4 @@
-﻿using BossMod.WHM;
+using BossMod.WHM;
 using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
 using static BossMod.AIHints;
 
@@ -10,7 +10,7 @@ public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<A
     {
         public Track<Targeting> Targeting;
         public Track<AOEStrategy> AOE;
-        [Track("Presence of Mind", Action = AID.PresenceOfMind)]
+        [Track("神速咏唱", Action = AID.PresenceOfMind)]
         public Track<OffensiveStrategy> Buffs;
         [Track(Action = AID.Assize)]
         public Track<AssizeStrategy> Assize;
@@ -28,22 +28,22 @@ public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<A
         HitSomething,
         [Option("Use if it would hit all targets")]
         HitEverything,
-        [Option("Don't use")]
+        [Option("不使用")]
         None
     }
     public enum MiseryStrategy
     {
-        [Option("Use ASAP", Targets = ActionTargets.Hostile)]
+        [Option("尽快使用", Targets = ActionTargets.Hostile)]
         ASAP,
         [Option("Only use during raid buffs", Targets = ActionTargets.Hostile)]
         BuffedOnly,
-        [Option("Don't use")]
+        [Option("不使用")]
         Delay
     }
 
     public static RotationModuleDefinition Definition()
     {
-        return new RotationModuleDefinition("xan WHM", "White Mage", "Standard rotation (xan)|Healers", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.WHM, Class.CNJ), 100)
+        return new RotationModuleDefinition("xan WHM", "白魔法师", "标准循环（xan）|治疗", "xan", RotationModuleQuality.Basic, BitMask.Build(Class.WHM, Class.CNJ), 100)
             .WithStrategies<Strategy>();
     }
 
@@ -86,7 +86,7 @@ public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (CountdownRemaining > 0)
         {
-            if (CountdownRemaining < GetCastTime(AID.Stone))
+            if (CountdownRemaining < GetCastTime(AID.Stone) + ApplicationDelay.Get(AID.GlareIV))
                 PushGCD(AID.Stone, primaryTarget);
 
             return;

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Shadowbringers.Dungeon.D02DohnMheg.D022Griaule;
+namespace BossMod.Shadowbringers.Dungeon.D02DohnMheg.D022Griaule;
 
 public enum OID : uint
 {
@@ -76,12 +76,12 @@ class FeedingTime(BossModule module) : BossComponent(module)
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         if (_tethers.Any(t => !t.Target.IsAlly) && !_tethers.Any(t => t.Target == actor))
-            hints.Add("Grab a tether!");
+            hints.Add("抓取连线！");
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        List<Func<WPos, float>> zones = [];
+        List<DistFn> zones = [];
 
         foreach (var (src, target) in _tethers)
         {

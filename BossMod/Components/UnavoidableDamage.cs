@@ -1,7 +1,7 @@
-﻿namespace BossMod.Components;
+namespace BossMod.Components;
 
 // generic unavoidable raidwide, started and finished by a single cast
-public class RaidwideCast(BossModule module, Enum aid, string hint = "Raidwide") : CastHint(module, aid, hint)
+public class RaidwideCast(BossModule module, Enum aid, string hint = "全屏伤害") : CastHint(module, aid, hint)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -11,7 +11,7 @@ public class RaidwideCast(BossModule module, Enum aid, string hint = "Raidwide")
 }
 
 // generic unavoidable raidwide, initiated by a custom condition and applied by an instant cast after a delay
-public class RaidwideInstant(BossModule module, Enum aid, float delay, string hint = "Raidwide") : CastCounter(module, aid)
+public class RaidwideInstant(BossModule module, Enum aid, float delay, string hint = "全屏伤害") : CastCounter(module, aid)
 {
     public float Delay = delay;
     public string Hint = hint;
@@ -40,7 +40,7 @@ public class RaidwideInstant(BossModule module, Enum aid, float delay, string hi
 }
 
 // generic unavoidable instant raidwide initiated by a cast (usually visual-only)
-public class RaidwideCastDelay(BossModule module, Enum actionVisual, Enum actionAOE, float delay, string hint = "Raidwide") : RaidwideInstant(module, actionAOE, delay, hint)
+public class RaidwideCastDelay(BossModule module, Enum actionVisual, Enum actionAOE, float delay, string hint = "全屏伤害") : RaidwideInstant(module, actionAOE, delay, hint)
 {
     public ActionID ActionVisual = ActionID.MakeSpell(actionVisual);
 
@@ -51,8 +51,63 @@ public class RaidwideCastDelay(BossModule module, Enum actionVisual, Enum action
     }
 }
 
+// generic unavoidable multi-hit raidwide: a cast followed by a number of hits at a regular interval; predicted as one entry for the next hit
+public class RaidwideMultiHit(BossModule module, Enum startAction, Enum[] hitActions, float firstDelay, float interval, int hits, string hint = "全屏伤害") : CastCounter(module, startAction)
+{
+    public readonly ActionID[] HitActions = [.. hitActions.Select(a => ActionID.MakeSpell(a))];
+    public string Hint = hint;
+    public int Remaining;
+    public DateTime NextHit;
+    public DateTime LastHit;
+    private float _interval;
+    private DateTime _lastCounted;
+    private int _numSequences;
+
+    // hit count and interval of the n-th sequence (0-based), for fights where they differ between casts
+    protected virtual (int Hits, float Interval) Sequence(int index) => (hits, interval);
+
+    public override void AddGlobalHints(GlobalHints hints)
+    {
+        if (Remaining > 0 && Hint.Length > 0)
+            hints.Add($"{Hint} x{Remaining}");
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Remaining > 0)
+            hints.AddPredictedDamage(Raid.WithSlot().Mask(), NextHit, AIHints.PredictedDamageType.Raidwide, Remaining, LastHit);
+    }
+
+    public override void Update()
+    {
+        if (Remaining > 0 && WorldState.CurrentTime > LastHit.AddSeconds(3))
+            Remaining = 0;
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action != WatchedAction)
+            return;
+        (Remaining, _interval) = Sequence(_numSequences++);
+        NextHit = Module.CastFinishAt(spell, firstDelay);
+        LastHit = NextHit.AddSeconds(_interval * (Remaining - 1));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (Remaining <= 0 || !HitActions.Contains(spell.Action) || WorldState.CurrentTime < _lastCounted.AddSeconds(0.3f))
+            return; // several helpers can resolve the same hit
+        _lastCounted = WorldState.CurrentTime;
+        ++NumCasts;
+        --Remaining;
+        NextHit = WorldState.FutureTime(_interval);
+        if (Remaining > 0)
+            LastHit = NextHit.AddSeconds(_interval * (Remaining - 1));
+    }
+}
+
 // generic unavoidable instant raidwide cast initiated by NPC yell
-public class RaidwideAfterNPCYell(BossModule module, Enum aid, uint npcYellID, float delay, string hint = "Raidwide") : RaidwideInstant(module, aid, delay, hint)
+public class RaidwideAfterNPCYell(BossModule module, Enum aid, uint npcYellID, float delay, string hint = "全屏伤害") : RaidwideInstant(module, aid, delay, hint)
 {
     public uint NPCYellID = npcYellID;
 
@@ -64,7 +119,7 @@ public class RaidwideAfterNPCYell(BossModule module, Enum aid, uint npcYellID, f
 }
 
 // generic unavoidable single-target damage, started and finished by a single cast (typically tankbuster, but not necessary)
-public class SingleTargetCast(BossModule module, Enum aid, string hint = "Tankbuster", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : CastHint(module, aid, hint)
+public class SingleTargetCast(BossModule module, Enum aid, string hint = "坦克死刑", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : CastHint(module, aid, hint)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -80,7 +135,7 @@ public class SingleTargetCast(BossModule module, Enum aid, string hint = "Tankbu
 }
 
 // generic unavoidable single-target damage, initiated by a custom condition and applied by an instant cast after a delay
-public class SingleTargetInstant(BossModule module, Enum aid, float delay, string hint = "Tankbuster", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : CastCounter(module, aid)
+public class SingleTargetInstant(BossModule module, Enum aid, float delay, string hint = "坦克死刑", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : CastCounter(module, aid)
 {
     public float Delay = delay; // delay from visual cast end to cast event
     public string Hint = hint;
@@ -109,7 +164,7 @@ public class SingleTargetInstant(BossModule module, Enum aid, float delay, strin
 }
 
 // generic unavoidable instant single-target damage initiated by a cast (usually visual-only)
-public class SingleTargetCastDelay(BossModule module, Enum actionVisual, Enum actionAOE, float delay, string hint = "Tankbuster", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : SingleTargetInstant(module, actionAOE, delay, hint, damageType)
+public class SingleTargetCastDelay(BossModule module, Enum actionVisual, Enum actionAOE, float delay, string hint = "坦克死刑", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : SingleTargetInstant(module, actionAOE, delay, hint, damageType)
 {
     public ActionID ActionVisual = ActionID.MakeSpell(actionVisual);
 
@@ -124,4 +179,4 @@ public class SingleTargetCastDelay(BossModule module, Enum actionVisual, Enum ac
 }
 
 // generic unavoidable single-target damage, started and finished by a single cast, that can be delayed by moving out of range (typically tankbuster, but not necessary)
-public class SingleTargetDelayableCast(BossModule module, Enum aid, string hint = "Tankbuster", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : SingleTargetCastDelay(module, aid, aid, 0, hint, damageType);
+public class SingleTargetDelayableCast(BossModule module, Enum aid, string hint = "坦克死刑", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster) : SingleTargetCastDelay(module, aid, aid, 0, hint, damageType);

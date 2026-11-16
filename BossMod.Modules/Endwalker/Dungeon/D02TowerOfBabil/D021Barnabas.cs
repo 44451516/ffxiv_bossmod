@@ -93,17 +93,14 @@ class Magnetism(BossModule module) : Components.Knockback(module, ignoreImmunes:
         }
         else if (IsPull(actor, Shape.Rect, MagneticPole.Plus) || IsPull(actor, Shape.Rect, MagneticPole.Minus))
         {
-            yield return new(Module.Center, RectDistance, activation, _shape, rotation + offset, Kind.AwayFromOrigin);
-            yield return new(Module.Center, RectDistance, activation, _shape, rotation - offset, Kind.AwayFromOrigin);
+            yield return new(Module.Center, RectDistance, activation, _shape, rotation + offset, Kind.TowardsOrigin);
+            yield return new(Module.Center, RectDistance, activation, _shape, rotation - offset, Kind.TowardsOrigin);
         }
         else if (IsKnockback(actor, Shape.Circle, MagneticPole.Plus) || IsKnockback(actor, Shape.Circle, MagneticPole.Minus))
             yield return new(Module.Center, CircleDistance, activation);
         else if (IsPull(actor, Shape.Circle, MagneticPole.Plus) || IsPull(actor, Shape.Circle, MagneticPole.Minus))
             yield return new(Module.Center, CircleDistance, activation, default, default, Kind.TowardsOrigin);
     }
-
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => (Module.FindComponent<ElectromagneticRelease1>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false) ||
-        (Module.FindComponent<ElectromagneticRelease2>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false) || !Module.InBounds(pos);
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
@@ -139,7 +136,7 @@ class Magnetism(BossModule module) : Components.Knockback(module, ignoreImmunes:
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.DynamicPoundKB or AID.DynamicPoundPull or AID.DynamicScraplinePull or AID.DynamicScraplinePull)
+        if ((AID)spell.Action.ID is AID.DynamicPoundKB or AID.DynamicPoundPull or AID.DynamicScraplineKB or AID.DynamicScraplinePull)
         {
             CurrentPole = MagneticPole.None;
             CurrentShape = Shape.None;
@@ -149,7 +146,7 @@ class Magnetism(BossModule module) : Components.Knockback(module, ignoreImmunes:
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var forbidden = new List<Func<WPos, float>>();
+        var forbidden = new List<DistFn>();
         if (IsKnockback(actor, Shape.Circle, MagneticPole.Plus) || IsKnockback(actor, Shape.Circle, MagneticPole.Minus))
             forbidden.Add(ShapeDistance.InvertedCircle(Arena.Center, 10));
         else if (IsPull(actor, Shape.Circle, MagneticPole.Plus) || IsPull(actor, Shape.Circle, MagneticPole.Minus))
@@ -159,7 +156,7 @@ class Magnetism(BossModule module) : Components.Knockback(module, ignoreImmunes:
         else if (IsPull(actor, Shape.Rect, MagneticPole.Plus) || IsPull(actor, Shape.Rect, MagneticPole.Minus))
             forbidden.Add(ShapeDistance.Rect(Arena.Center, rotation, 15, 15, 12));
         if (forbidden.Count > 0)
-            hints.AddForbiddenZone(p => forbidden.Min(f => f(p)), activation);
+            hints.AddForbiddenZone(ShapeDistance.Union(forbidden), activation);
     }
 }
 

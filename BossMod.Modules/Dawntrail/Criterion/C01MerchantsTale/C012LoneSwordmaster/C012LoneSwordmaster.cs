@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Criterion.C01MerchantsTale.C012LoneSwordmaster;
+namespace BossMod.Dawntrail.Criterion.C01MerchantsTale.C012LoneSwordmaster;
 
 public enum OID : uint
 {
@@ -721,7 +721,7 @@ class ResoundingSilence(BossModule module) : Components.SpreadFromIcon(module, (
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (IsSpreadTarget(actor))
-            hints.AddForbiddenZone(_ => float.MinValue, DateTime.MaxValue);
+            hints.AllowDash = false;
     }
 }
 class ResoundingSilencePuddle(BossModule module) : Components.VoidzoneAtCastTarget(module, 8, AID.ResoundingSilenceSpread, 0x1EBF73, 2);
@@ -1076,7 +1076,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
 
         Cast(id + 0x50000, AID.MaleficQuartering, 8.8f, 3);
         Cast(id + 0x50010, AID.MortalFateCast, 5.2f, 12);
-        Timeout(id + 0x50020, 1, "Enrage");
+        Timeout(id + 0x50020, 1, "狂暴");
     }
 
     void Malefic1(uint id, float delay)
@@ -1114,7 +1114,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
 
         ComponentCondition<EchoingHush>(id + 0x10, 0.1f, h => h.Casters.Count > 0, "Puddle bait")
             .DeactivateOnExit<EchoesBait>();
-        ComponentCondition<EchoingHush>(id + 0x11, 4, h => h.NumCasts > 0, "Puddles")
+        ComponentCondition<EchoingHush>(id + 0x11, 4, h => h.NumCasts > 0, "水圈")
             .DeactivateOnExit<EchoingHush>();
         ComponentCondition<EchoPredict>(id + 0x12, 3, p => p.NumCasts > 0, "Stored AOEs")
             .DeactivateOnExit<EchoPredict>()
@@ -1131,7 +1131,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
             .ActivateOnEnter<ResoundingSilence>()
             .ActivateOnEnter<EchoingEight>()
             .ActivateOnEnter<MawOfTheWolf>();
-        ComponentCondition<ResoundingSilence>(id + 0x310, 5, s => s.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<ResoundingSilence>(id + 0x310, 5, s => s.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<ResoundingSilence>();
         ComponentCondition<EchoingEight>(id + 0x311, 3.2f, e => e.NumCasts > 0, "Crosses")
             .DeactivateOnExit<EchoingEight>();
@@ -1160,7 +1160,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
 
         ComponentCondition<WillOfTheUnderworldSmallSlow>(id + 0x30, 11.4f, w => w.NumCasts > 0, "Direction AOEs")
             .DeactivateOnExit<WillOfTheUnderworldSmallSlow>();
-        ComponentCondition<ResoundingSilence>(id + 0x31, 0.7f, s => s.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<ResoundingSilence>(id + 0x31, 0.7f, s => s.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<ResoundingSilence>()
             .DeactivateOnExit<ForceOfWill>();
 
@@ -1186,7 +1186,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
         ComponentCondition<WillOfTheUnderworldSmallFast>(id + 0x240, 2.3f, w => w.NumCasts > 0, "Directions 1");
         ComponentCondition<WillOfTheUnderworldSmallFast>(id + 0x241, 5.6f, w => w.NumCasts > 4, "Directions 2");
         ComponentCondition<WillOfTheUnderworldSmallFast>(id + 0x242, 5.6f, w => w.NumCasts > 8, "Directions 3");
-        ComponentCondition<MaleficPortentCounter>(id + 0x243, 3.2f, m => m.NumCasts > 0, "Tethers")
+        ComponentCondition<MaleficPortentCounter>(id + 0x243, 3.2f, m => m.NumCasts > 0, "连线")
             .DeactivateOnExit<MaleficPortent>()
             .DeactivateOnExit<MaleficPortentCounter>();
         ComponentCondition<WillOfTheUnderworldSmallFast>(id + 0x244, 2.4f, w => w.NumCasts > 12, "Directions 4")
@@ -1206,7 +1206,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
 
     void Plummet(uint id, float delay)
     {
-        ComponentCondition<PlummetProximity>(id, delay, p => p.NumCasts > 0, "Proximity")
+        ComponentCondition<PlummetProximity>(id, delay, p => p.NumCasts > 0, "距离衰减")
             .ActivateOnEnter<Plummet>()
             .ActivateOnEnter<PlummetProximity>()
             .DeactivateOnExit<PlummetProximity>()
@@ -1222,7 +1222,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
         ComponentCondition<SteelsbreathBonds>(id + 0x20, 3.5f, s => s.TethersAssigned, "Chains appear");
         ComponentCondition<EchoingHush>(id + 0x21, 5.7f, e => e.Casters.Count > 0, "Puddles baited")
             .DeactivateOnExit<SilentEightRock>();
-        ComponentCondition<EchoingHush>(id + 0x22, 4, e => e.NumCasts > 0, "Puddles")
+        ComponentCondition<EchoingHush>(id + 0x22, 4, e => e.NumCasts > 0, "水圈")
             .DeactivateOnExit<EchoingHush>()
             .DeactivateOnExit<SteelsbreathBonds>()
             .DeactivateOnExit<Plummet>();
@@ -1257,7 +1257,7 @@ class C012LoneSwordmasterStates : StateMachineBuilder
         Fangs(id + 0x300, 3.2f);
     }
 
-    State SteelsbreathRelease(uint id, float delay, string hint = "Raidwide")
+    State SteelsbreathRelease(uint id, float delay, string hint = "全屏伤害")
     {
         return CastMulti(id, [AID.SteelsbreathReleaseCast, AID.SteelsbreathReleaseLavaCast], delay, 5, hint)
            .ActivateOnEnter<SteelsbreathRelease>()

@@ -34,12 +34,16 @@ jobs:
           import xml.etree.ElementTree as ET
 
           project_file = os.environ["PROJECT_FILE"]
-          root = ET.parse(project_file).getroot()
+          roots = [
+              ET.parse(project_file).getroot(),
+              ET.parse("Common.targets").getroot(),
+          ]
 
           def read_property(name):
-              for element in root.iter():
-                  if element.tag.split("}")[-1] == name and element.text:
-                      return element.text.strip()
+              for root in roots:
+                  for element in root.iter():
+                      if element.tag.split("}")[-1] == name and element.text:
+                          return element.text.strip()
               return None
 
           version = read_property("AssemblyVersion") or read_property("Version")

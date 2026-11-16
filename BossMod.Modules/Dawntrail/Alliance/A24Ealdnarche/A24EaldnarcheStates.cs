@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Alliance.A24Ealdnarche;
+namespace BossMod.Dawntrail.Alliance.A24Ealdnarche;
 
 class UranosCascade(BossModule module) : Components.BaitAwayCast(module, AID.UranosCascade, new AOEShapeCircle(6), centerAtTarget: true);
 class CronosSlingOut(BossModule module) : Components.StandardAOEs(module, AID.CronosSlingOut, 9);
@@ -91,10 +91,11 @@ class TornadoAttract(BossModule module) : Components.KnockbackFromCastTarget(mod
     {
         foreach (var s in Sources(slot, actor))
             if (!IsImmune(slot, s.Activation))
+                // FIXME(slow sdf)
                 hints.AddForbiddenZone(Sdf.Discrete(p =>
                 {
                     var dir = p - s.Origin;
-                    return dir.LengthSq() < 441 || !dir.InRect(new(0, 1), 24, 24, 8) && !dir.InRect(new(1, 0), 24, 24, 8);
+                    return (dir.LengthSq() < 441) | ~(dir.InRect(new(0, 1), 24, 24, 8) | dir.InRect(new(1, 0), 24, 24, 8));
                 }), s.Activation);
     }
 }
@@ -190,7 +191,7 @@ class A24EaldnarcheStates : StateMachineBuilder
         Timeout(id + 0x32010, 0.6f, "Stun").SetHint(StateMachine.StateHint.DowntimeStart);
 
         Targetable(id + 0x32100, false, 4.8f);
-        Targetable(id + 0x33000, true, 30.3f, "Boss reappears");
+        Targetable(id + 0x33000, true, 30.3f, "首领重新出现");
 
         Duplicate2(id + 0x40000, 2.1f);
         StellarBurst(id + 0x41000, 1);
@@ -253,7 +254,7 @@ class A24EaldnarcheStates : StateMachineBuilder
         Cast(id, AID.UranosCascadeCast, delay, 4)
             .ActivateOnEnter<UranosCascade>();
 
-        ComponentCondition<UranosCascade>(id + 3, 1, c => c.NumCasts > 0, "Tankbusters")
+        ComponentCondition<UranosCascade>(id + 3, 1, c => c.NumCasts > 0, "坦克死刑")
             .DeactivateOnExit<UranosCascade>();
     }
 
@@ -265,7 +266,7 @@ class A24EaldnarcheStates : StateMachineBuilder
             .ActivateOnEnter<CronosSlingSide>()
             .ActivateOnEnter<CronosSlingCounter>();
 
-        ComponentCondition<CronosSlingCounter>(id + 0x10, 0.5f, c => c.NumCasts > 0, "In/out");
+        ComponentCondition<CronosSlingCounter>(id + 0x10, 0.5f, c => c.NumCasts > 0, "靠近 / 远离");
         ComponentCondition<CronosSlingSide>(id + 0x20, 5.8f, c => c.NumCasts > 0, "Side")
             .DeactivateOnExit<CronosSlingIn>()
             .DeactivateOnExit<CronosSlingOut>()
@@ -280,11 +281,11 @@ class A24EaldnarcheStates : StateMachineBuilder
             .ActivateOnEnter<EmpyrealVortexSpread>()
             .ActivateOnEnter<EmpyrealVortexRaidwide>();
 
-        ComponentCondition<EmpyrealVortexRaidwide>(id + 0x10, 1, r => r.NumCasts > 0, "Raidwides start");
-        ComponentCondition<EmpyrealVortexRaidwide>(id + 0x11, 4.3f, r => r.NumCasts == 0, "Raidwides end")
+        ComponentCondition<EmpyrealVortexRaidwide>(id + 0x10, 1, r => r.NumCasts > 0, "连续全屏伤害开始");
+        ComponentCondition<EmpyrealVortexRaidwide>(id + 0x11, 4.3f, r => r.NumCasts == 0, "连续全屏伤害结束")
             .DeactivateOnExit<EmpyrealVortexRaidwide>();
 
-        ComponentCondition<EmpyrealVortexSpread>(id + 0x20, 5, s => s.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<EmpyrealVortexSpread>(id + 0x20, 5, s => s.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<EmpyrealVortexPuddle>()
             .DeactivateOnExit<EmpyrealVortexSpread>();
     }
@@ -304,9 +305,9 @@ class A24EaldnarcheStates : StateMachineBuilder
             .ActivateOnEnter<OmegaJavelin>()
             .ActivateOnEnter<OmegaJavelin2>();
 
-        ComponentCondition<OmegaJavelin>(id + 0x10, 5.1f, j => j.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<OmegaJavelin>(id + 0x10, 5.1f, j => j.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<OmegaJavelin>();
-        ComponentCondition<OmegaJavelin2>(id + 0x20, 4.5f, j => j.NumCasts > 0, "Puddles")
+        ComponentCondition<OmegaJavelin2>(id + 0x20, 4.5f, j => j.NumCasts > 0, "水圈")
             .DeactivateOnExit<OmegaJavelin2>();
     }
 
@@ -326,7 +327,7 @@ class A24EaldnarcheStates : StateMachineBuilder
         Cast(id, AID.StellarBurstCast, delay, 4)
             .ActivateOnEnter<StellarBurst>();
 
-        ComponentCondition<StellarBurst>(id + 0x10, 7.6f, s => s.NumCasts > 0, "Stack")
+        ComponentCondition<StellarBurst>(id + 0x10, 7.6f, s => s.NumCasts > 0, "分摊")
             .DeactivateOnExit<StellarBurst>();
     }
 }

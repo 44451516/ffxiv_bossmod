@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Alliance.A31Shantotto;
+namespace BossMod.Dawntrail.Alliance.A31Shantotto;
 
 public enum OID : uint
 {
@@ -165,7 +165,7 @@ class Winds : Components.Knockback
         if (dir.Activation > WorldState.CurrentTime)
         {
             var dist = 50f;
-            if (HitsWall(_safeWalls, dir.Direction, actor.Position))
+            if (HitsWall(_safeWalls, dir.Direction).CallOnce(actor.Position))
                 dist = Arena.Bounds.IntersectRay(actor.Position - Arena.Center, dir.Direction);
 
             yield return new(actor.Position, dist - 0.1f, dir.Activation, null, dir.Direction.ToAngle(), Kind.DirForward);
@@ -177,16 +177,19 @@ class Winds : Components.Knockback
         foreach (var src in Sources(slot, actor))
             if (!IsImmune(slot, src.Activation))
             {
-                var d = _directions[slot].Direction;
                 var walls = _safeWalls.ToList();
-                hints.AddForbiddenZone(Sdf.Discrete(p => !HitsWall(walls, d, p)), src.Activation);
+                hints.AddForbiddenZone(Sdf.Discrete(HitsWall(walls, _directions[slot].Direction).Inverted()), src.Activation);
             }
     }
 
-    static bool HitsWall(List<(WDir WindDir, WPos Center, float HalfWidth)> walls, WDir windDir, WPos pos)
+    static Func<WVec, VBool> HitsWall(List<(WDir WindDir, WPos Center, float HalfWidth)> walls, WDir windDir) => pos =>
     {
-        return walls.Any(w => w.WindDir == windDir && pos.InRect(w.Center, w.WindDir * -50, w.HalfWidth));
-    }
+        var any = VBool.Zero;
+        foreach (var w in walls)
+            if (w.WindDir == windDir)
+                any |= pos.InRect(w.Center, w.WindDir * -50, w.HalfWidth);
+        return any;
+    };
 
     public override void OnStatusGain(Actor actor, in ActorStatus status)
     {
@@ -275,7 +278,11 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
             .ActivateOnEnter<FallingRubble2>()
             .ActivateOnEnter<FallingRubble3>()
             .ActivateOnEnter<FallingRubble4>()
-            .ActivateOnEnter<Winds>();
+            .ActivateOnEnter<Winds>()
+            // Victory leaves Shantotto alive at 1 HP while canceling pending mechanics.
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed
+                || Module.PrimaryActor.HPMP.CurHP == 0
+                || Module.PrimaryActor.HPMP.CurHP == 1 && !Module.PrimaryActor.IsTargetable;
     }
 
     void P1(uint id)
@@ -307,7 +314,7 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
 
     void FlarePlay(uint id, float delay)
     {
-        Cast(id, AID.FlarePlay, delay, 5, "Raidwide")
+        Cast(id, AID.FlarePlay, delay, 5, "全屏伤害")
             .ActivateOnEnter<FlarePlay>()
             .DeactivateOnExit<FlarePlay>();
     }
@@ -316,7 +323,7 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
     {
         Cast(id, AID.VidohunirCast, delay, 5)
             .ActivateOnEnter<Vidohunir>();
-        ComponentCondition<Vidohunir>(id + 2, 1, v => v.NumCasts > 0, "Shared tankbuster")
+        ComponentCondition<Vidohunir>(id + 2, 1, v => v.NumCasts > 0, "分摊死刑")
             .DeactivateOnExit<Vidohunir>();
     }
 
@@ -330,7 +337,7 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
 
     void SuperiorStone1(uint id, float delay)
     {
-        Cast(id, AID.SuperiorStoneIIRaidwide, delay, 4, "Raidwide")
+        Cast(id, AID.SuperiorStoneIIRaidwide, delay, 4, "全屏伤害")
             .ActivateOnEnter<SuperiorStoneIIRaidwide>()
             .ActivateOnEnter<SuperiorStoneIIRect>()
             .DeactivateOnExit<SuperiorStoneIIRaidwide>();
@@ -346,7 +353,7 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
 
     void SuperiorStone2(uint id, float delay)
     {
-        Cast(id, AID.SuperiorStoneIIRaidwide, delay, 4, "Raidwide")
+        Cast(id, AID.SuperiorStoneIIRaidwide, delay, 4, "全屏伤害")
             .ActivateOnEnter<SuperiorStoneIIRaidwide>()
             .ActivateOnEnter<SuperiorStoneIIRect>()
             .DeactivateOnExit<SuperiorStoneIIRaidwide>();
@@ -356,7 +363,7 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
 
         Cast(id + 0x100, AID.AeroDynamicsCast, 1.3f, 3);
 
-        ComponentCondition<Winds>(id + 0x200, 11, w => w.NumCasts > 0, "Knockback")
+        ComponentCondition<Winds>(id + 0x200, 11, w => w.NumCasts > 0, "击退")
             .ActivateOnEnter<GroundbreakingQuake>();
 
         Cast(id + 0x300, AID.GroundbreakingQuakeCast, 0.3f, 8);
@@ -373,12 +380,12 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
         ComponentCondition<DiagrammaticDoorway>(id + 0x20, 3.2f * (count - 1), d => d.NumCasts >= count, $"Donut {count}")
             .DeactivateOnExit<DiagrammaticDoorway>();
 
-        Cast(id + 0x100, AID.LocalizedBlizzard, 1.1f, 2.2f, "Out")
+        Cast(id + 0x100, AID.LocalizedBlizzard, 1.1f, 2.2f, "远离")
             .ActivateOnEnter<LocalizedBlizzard>()
             .ActivateOnEnter<ThunderAndError>()
             .DeactivateOnExit<LocalizedBlizzard>();
 
-        ComponentCondition<ThunderAndError>(id + 0x110, 4.3f, t => t.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<ThunderAndError>(id + 0x110, 4.3f, t => t.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<ThunderAndError>();
     }
 
@@ -387,9 +394,9 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
         Cast(id, AID.MeteoricRhyme, delay, 3)
             .ActivateOnEnter<StardustSpecimen>();
 
-        ComponentCondition<SmallSpecimen>(id + 0x10, 7.1f, s => s.NumCasts > 0, "Puddles start");
+        ComponentCondition<SmallSpecimen>(id + 0x10, 7.1f, s => s.NumCasts > 0, "水圈开始");
 
-        ComponentCondition<StardustSpecimen>(id + 0x20, 21.7f, s => s.NumFinishedStacks > 0, "Stack")
+        ComponentCondition<StardustSpecimen>(id + 0x20, 21.7f, s => s.NumFinishedStacks > 0, "分摊")
             .DeactivateOnExit<StardustSpecimen>();
     }
 
@@ -398,10 +405,10 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
         // cast by helper
         ComponentCondition<Shockwave>(id, delay, s => s.Active)
             .ActivateOnEnter<Shockwave>();
-        Targetable(id + 1, false, 1.7f, "Boss disappears");
-        ComponentCondition<Shockwave>(id + 0x10, 8.7f, s => s.NumCasts > 0, "Raidwide")
+        Targetable(id + 1, false, 1.7f, "首领消失");
+        ComponentCondition<Shockwave>(id + 0x10, 8.7f, s => s.NumCasts > 0, "全屏伤害")
             .DeactivateOnExit<Shockwave>();
-        Targetable(id + 0x20, true, 2.4f, "Boss reappears");
+        Targetable(id + 0x20, true, 2.4f, "首领重新出现");
     }
 
     void FinalExam(uint id, float delay)

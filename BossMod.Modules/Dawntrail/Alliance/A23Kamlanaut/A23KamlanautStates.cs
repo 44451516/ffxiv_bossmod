@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Alliance.A23Kamlanaut;
+namespace BossMod.Dawntrail.Alliance.A23Kamlanaut;
 
 class EnspiritedSwordplay(BossModule module) : Components.RaidwideCast(module, AID.EnspiritedSwordplay);
 class ElementalBladeSmall(BossModule module) : Components.GroupedAOEs(module, [AID.FireBladeSmall, AID.EarthBladeSmall, AID.WaterBladeSmall, AID.IceBladeSmall, AID.LightningBladeSmall, AID.WindBladeSmall], new AOEShapeRect(80, 2.5f));
@@ -60,7 +60,7 @@ class ShieldBash(BossModule module) : Components.KnockbackFromCastTarget(module,
 {
     private static readonly float PlatformSafeRad = MathF.Atan2(5, 40);
 
-    public static Func<WPos, float> SafetyShape => ShapeDistance.Intersection([
+    public static DistFn SafetyShape => ShapeDistance.Intersection([
         ShapeDistance.InvertedCone(new WPos(-200, 150), 10, 180.Degrees(), PlatformSafeRad.Radians()),
         ShapeDistance.InvertedCone(new WPos(-200, 150), 10, 60.Degrees(), PlatformSafeRad.Radians()),
         ShapeDistance.InvertedCone(new WPos(-200, 150), 10, -60.Degrees(), PlatformSafeRad.Radians()),
@@ -87,7 +87,7 @@ class A23KamlanautStates : StateMachineBuilder
 
     private void SinglePhase(uint id)
     {
-        Cast(id, AID.EnspiritedSwordplay, 6.2f, 5, "Raidwide");
+        Cast(id, AID.EnspiritedSwordplay, 6.2f, 5, "全屏伤害");
         Cast(id + 0x100, AID.ProvingGround, 5.6f, 3, "Puddle appear")
             .ActivateOnEnter<ProvingGround>();
 
@@ -107,7 +107,7 @@ class A23KamlanautStates : StateMachineBuilder
             .DeactivateOnExit<GreatWheelCleave>()
             .DeactivateOnExit<ProvingGround>();
 
-        Cast(id + 0x30200, AID.EnspiritedSwordplay, 2.3f, 5, "Raidwide");
+        Cast(id + 0x30200, AID.EnspiritedSwordplay, 2.3f, 5, "全屏伤害");
         Cast(id + 0x30300, AID.EsotericScrivening, 14.5f, 6)
             .ActivateOnEnter<Fetters>();
 
@@ -117,14 +117,14 @@ class A23KamlanautStates : StateMachineBuilder
         ComponentCondition<Fetters>(id + 0x30500, 10, f => f.Finished, "Stun end")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
 
-        ComponentCondition<Shockwave>(id + 0x30600, 7.4f, s => s.NumCasts > 0, "Raidwide")
+        ComponentCondition<Shockwave>(id + 0x30600, 7.4f, s => s.NumCasts > 0, "全屏伤害")
             .ActivateOnEnter<Shockwave>()
             .DeactivateOnExit<Shockwave>();
 
-        Cast(id + 0x40000, AID.TranscendentUnionCast, 3.7f, 5, "Raidwides start")
+        Cast(id + 0x40000, AID.TranscendentUnionCast, 3.7f, 5, "连续全屏伤害开始")
             .ActivateOnEnter<TranscendentUnion>();
 
-        ComponentCondition<TranscendentUnion>(id + 0x40010, 6.6f, t => t.NumCasts > 0, "Raidwides end")
+        ComponentCondition<TranscendentUnion>(id + 0x40010, 6.6f, t => t.NumCasts > 0, "连续全屏伤害结束")
             .DeactivateOnExit<TranscendentUnion>();
 
         Cast(id + 0x40100, AID.EsotericPalisade, 13, 3)
@@ -132,19 +132,19 @@ class A23KamlanautStates : StateMachineBuilder
 
         ElementalResonance(id + 0x40200, 3.1f);
 
-        ComponentCondition<EmpyrealBanishIII>(id + 0x40300, 0.3f, b => b.NumFinishedSpreads > 0, "Spreads")
+        ComponentCondition<EmpyrealBanishIII>(id + 0x40300, 0.3f, b => b.NumFinishedSpreads > 0, "分散")
             .DeactivateOnExit<EmpyrealBanishIII>();
 
         ComponentCondition<IllumedEstoc>(id + 0x40400, 10.9f, i => i.NumCasts > 0, "Clones")
             .ActivateOnEnter<IllumedEstoc>()
             .ActivateOnEnter<ShieldBash>();
 
-        Cast(id + 0x40500, AID.ShieldBash, 10, 7, "Knockback")
+        Cast(id + 0x40500, AID.ShieldBash, 10, 7, "击退")
             .DeactivateOnExit<ShieldBash>();
 
         Cast(id + 0x40600, AID.EmpyrealBanishIVCast, 5.2f, 5)
             .ActivateOnEnter<EmpyrealBanishIV>();
-        ComponentCondition<EmpyrealBanishIV>(id + 0x40610, 1, b => b.NumFinishedStacks > 0, "Stack")
+        ComponentCondition<EmpyrealBanishIV>(id + 0x40610, 1, b => b.NumFinishedStacks > 0, "分摊")
             .DeactivateOnExit<EmpyrealBanishIV>();
 
         PrincelyBlow(id + 0x50000, 2.2f, true);
@@ -165,7 +165,7 @@ class A23KamlanautStates : StateMachineBuilder
             .ActivateOnEnter<GreatWheel>()
             .ActivateOnEnter<GreatWheelCleave>();
 
-        Cast(id + 0x52300, AID.EnspiritedSwordplay, 8.2f, 5, "Raidwide");
+        Cast(id + 0x52300, AID.EnspiritedSwordplay, 8.2f, 5, "全屏伤害");
 
         Timeout(id + 0xFF0000, 10000, "Repeat mechanics until death")
             .ActivateOnEnter<ElementalResonance>()
@@ -236,7 +236,7 @@ class A23KamlanautStates : StateMachineBuilder
             .ExecOnEnter<PrincelyBlow>(b => b.BridgePhase = bridgePhase)
             .ExecOnEnter<PrincelyBlowKnockback>(k => k.StopAtWall = !bridgePhase);
 
-        ComponentCondition<PrincelyBlow>(id + 0x10, 8.2f, p => p.NumCasts > 0, "Tankbusters")
+        ComponentCondition<PrincelyBlow>(id + 0x10, 8.2f, p => p.NumCasts > 0, "坦克死刑")
             .DeactivateOnExit<PrincelyBlow>()
             .DeactivateOnExit<PrincelyBlowKnockback>();
     }

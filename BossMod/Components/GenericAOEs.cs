@@ -1,20 +1,17 @@
-﻿namespace BossMod.Components;
+namespace BossMod.Components;
 
 // generic component that shows arbitrary shapes representing avoidable aoes
-public abstract class GenericAOEs(BossModule module, Enum? aid = default, string warningText = "GTFO from aoe!", string invertedText = "Go to safe zone!") : CastCounter(module, aid)
+public abstract class GenericAOEs(BossModule module, Enum? aid = default, string warningText = "远离范围攻击！", string invertedText = "前往安全区！") : CastCounter(module, aid)
 {
     public record struct AOEInstance(AOEShape Shape, WPos Origin, Angle Rotation = default, DateTime Activation = default, uint Color = 0, bool Risky = true, bool Inverted = false)
     {
-        public readonly bool Check(WPos pos)
-        {
-            var res = Shape.Check(pos, Origin, Rotation);
-            return Inverted ? !res : res;
-        }
-        public readonly float Distance(WPos pos)
-        {
-            var res = Shape.GetSdf(Origin, Rotation).Distance(pos);
-            return Inverted ? -res : res;
-        }
+        public readonly VFloat Distance(WVec pos) => Shape.Distance(Origin, Rotation).Inverted(Inverted)(pos);
+
+        // type constrained alias so we don't need to explicitly cast when calling AddForbiddenZone
+        public readonly DistFn DistV => Distance;
+
+        public readonly bool Check(WPos p) => Distance(p) < 0;
+        public readonly float Distance(WPos p) => Distance(new WVec(p))[0];
     }
 
     public string WarningText = warningText;
@@ -34,7 +31,7 @@ public abstract class GenericAOEs(BossModule module, Enum? aid = default, string
     {
         foreach (var c in ActiveAOEs(slot, actor))
             if (c.Risky)
-                hints.AddForbiddenZone(c.Distance, c.Activation);
+                hints.AddForbiddenZone(c.DistV, c.Activation);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
@@ -51,7 +48,7 @@ public abstract class GenericAOEs(BossModule module, Enum? aid = default, string
 }
 
 // standard AOE, targeted at some location (usually caster), resolves on cast event
-public class StandardAOEs(BossModule module, Enum aid, AOEShape shape, int maxCasts = int.MaxValue, string warningText = "GTFO from aoe!", bool highlightImminent = false) : GenericAOEs(module, aid, warningText)
+public class StandardAOEs(BossModule module, Enum aid, AOEShape shape, int maxCasts = int.MaxValue, string warningText = "远离范围攻击！", bool highlightImminent = false) : GenericAOEs(module, aid, warningText)
 {
     public AOEShape Shape { get; init; } = shape;
     public int MaxCasts = maxCasts; // used for staggered aoes, when showing all active would be pointless
@@ -60,7 +57,7 @@ public class StandardAOEs(BossModule module, Enum aid, AOEShape shape, int maxCa
     public bool Risky = true; // can be customized if needed
     public readonly List<Actor> Casters = [];
 
-    public StandardAOEs(BossModule module, Enum aid, float radius, int maxCasts = int.MaxValue, string warningText = "GTFO from aoe!", bool highlightImminent = false) : this(module, aid, new AOEShapeCircle(radius), maxCasts, warningText, highlightImminent) { }
+    public StandardAOEs(BossModule module, Enum aid, float radius, int maxCasts = int.MaxValue, string warningText = "远离范围攻击！", bool highlightImminent = false) : this(module, aid, new AOEShapeCircle(radius), maxCasts, warningText, highlightImminent) { }
 
     public IEnumerable<Actor> ActiveCasters => Casters.Take(MaxCasts);
 

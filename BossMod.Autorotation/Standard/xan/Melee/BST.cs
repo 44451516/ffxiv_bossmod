@@ -41,7 +41,7 @@ public sealed class BST(RotationModuleManager manager, Actor player) : Attackxan
     {
         [Option("召唤第一个可用宠物")]
         Enabled,
-        [Option("什么都不做")]
+        [Option("不执行操作")]
         Disabled,
         [Option("如已召唤宠物则解散")]
         Dismiss
@@ -247,7 +247,7 @@ public sealed class BST(RotationModuleManager manager, Actor player) : Attackxan
         ManagePet(strategy);
         Prep(strategy, gauge);
 
-        GoalZoneCombined(strategy, 3, _ => 0, AID.None, 50, gauge.KinshipClassification == 5 ? 30 : null);
+        GoalZoneCombined(strategy, 3, _ => VFloat.Zero, AID.None, 50, gauge.KinshipClassification == 5 ? 30 : null);
     }
 
     void ManagePet(in Strategy strategy)
